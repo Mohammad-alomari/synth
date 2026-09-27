@@ -54,21 +54,20 @@ Then open http://localhost:8765/index.html in Chrome or Edge. Web MIDI works in 
 
 ## Tests
 
-Needs Node 18 or later (and ffmpeg for the PCM tests, which decode `samples/`).
+`sh test/run_all.sh` runs every check in about a minute and exits non-zero if anything fails. GitHub Actions runs it on every push and pull request (`.github/workflows/test.yml`); a red cross on the commit means a check failed or the build broke. `FULL=1 sh test/run_all.sh` renders every program and combination instead of a sample (about 10 minutes).
 
-Run all offline checks with `sh test/run_all.sh` (about 10 minutes). It also checks that `index.html` matches its sources, and exits non-zero if anything fails.
+Needs Node 18+, python3, ffmpeg (for `combis.js`) and, for the browser test, `pip install playwright` + `python3 -m playwright install chromium`.
 
-| Command | What it does |
+| Check | What it does |
 |---|---|
-| `node test/progs.js` | Renders every built-in MOSS program and reports NaN, levels and CPU. Add `VERBOSE=1` for one line per program. |
-| `node test/combis.js [filter] [max]` | Plays every combination of the built-in files: NaN, silence, levels, CPU. |
-| `node test/voicefix.js`, `node test/fxfix.js`, `node test/fuzz.js`, `node test/fxunit.js`, `node test/fxfunc.js` | Engine and effect checks. |
-| `node test/models2.js` | Organ, E.Piano and Brass model checks. |
-| `node test/fxregress.js <folder with an older copy>` | Compares every effect type against an older version. |
-| `node test/fxprof.js`, `node test/showfx.js <ids>` | Tools: effect CPU profile; print a program's decoded effects. |
-| `node test/regress.js <folder with an older copy of these files>` | Compares every MOSS program sample by sample against an older version. Env: `STEP`, `SECS`, `ONLY`, `DRY`, `SHOW`. |
+| index.html | The committed page matches a fresh build of the sources. |
+| `node test/fxunit.js`, `node test/fuzz.js`, `node test/fxfix.js` | Every effect: no NaN, bounded output with random parameters, fixed bugs stay fixed. |
+| `node test/voicefix.js` | Note handling: sustain, Hold, voice stealing, portamento, MIDI sync. |
+| `node test/progs.js` | Renders built-in MOSS programs (every 8th; `FULL=1` all): NaN, levels, CPU. |
+| `node test/combis.js` | Plays built-in combinations (every 16th; `FULL=1` all). |
+| `python3 test/browser_test.py` | The built page in Chromium: sound in both audio modes, every page, effects editing, phone width, imported-PCG storage, synth memory, error messages. |
 
-The browser tests need Python with Playwright and `http.server` running on port 8765: `test/browser.py` (effects pages), `test/browser3.py` (Organ/E.Piano/Brass pages), `test/browser4.py` (MOSS), `test/browser5.py` (PCM programs), `test/browser6.py` (drum kits), `test/browser7.py` (combinations). Screenshots go to the system temp folder (set `SHOT=folder` for browser.py/browser3.py, or pass it as the argument for browser5-7).
+Tools (no pass/fail, run by hand) are in `test/tools/`: `regress.js` / `fxregress.js <folder with an older copy>` compare every MOSS program / effect sample by sample, `fxfunc.js` and `models2.js` measure effects and models, `fxprof.js` profiles effect CPU, `showfx.js <ids>` prints a program's decoded effects. `node test/mkpcg.js <built-in name> <out.pcg> [pcm,combi,kit,moss]` writes a PCG file for import tests.
 
 ## Licences and data
 

@@ -63,8 +63,10 @@ Conventions / gotchas
 - Messages to the engine: patch, set (path,v), on, off, cc, bend, at, tune, panic, pcmMap, pcmPack (zones,
   transferable buffer), pcmKits. Worklet posts {t:'st', v: voiceStates, need:[pack names]}.
 - Program ids in the UI: st:N starter, us:N user, pm:N MOSS bank, pc:N PCM (bank*128+i), cb:N combination.
-- Stored in browser localStorage: moss-user-programs, moss-current, moss-pcg (imported MOSS banks),
-  moss-tri (whole imported Trinity PCGs, base64). Max 8 imported files.
+- Stored in browser localStorage: moss-user-programs, moss-current, moss-page. Imported PCGs live in IndexedDB
+  'trinity-web-synth', store 'files': {id, kind 'moss'|'tri', name, scale, fmt, rs, bytes} (raw bytes; restored
+  asynchronously after start-up by restoreImported(); old localStorage keys moss-pcg / moss-tri are migrated).
+  Max 8 imported files.
 
 ==============================================================================
 3. KORG DATA FORMATS (short; full tables in docs/research/)
@@ -117,9 +119,7 @@ Checks passed: all 2,560 PCM programs render (no NaN); 1,408 combinations render
 MOSS sound identical to Version 11 (regress.js); browser tests in AudioWorklet and ScriptProcessor modes; phone width.
 
 Open / ideas (not built):
-1. Synth-memory model: layer imported files like the Trinity's memory (factory preload first, user PCG on
-   top); combinations and drum programs resolve programs/kits from that memory. Today they only look inside
-   their own file, and a PCG with only combinations is rejected ("nothing this synth can play").
+1. (DONE) Synth-memory model - see "Synth memory" below.
 2. Real Trinity allows only ONE MOSS program per combination at a time (Sound On Sound) - not enforced.
 3. Combination: timbre Delay start, per-timbre MIDI filters, per-timbre (program) scale not modelled.
 4. Bank S (Solo-TRI board) not modelled; timbres pointing to S are silent.
@@ -130,6 +130,12 @@ Open / ideas (not built):
 8. Some user kits in files other than TRINI-1-KJ contain odd values (RAM refs / garbage) -> conga fallback.
 9. User's TRINI-1-KJ drum programs point to other kits than their names (e.g. "Standard Kit" -> kit 9
    Orchestra&Ethnic): that is the file's data, not a bug.
+Synth memory (app.js memoryFor): an IMPORTED file uses its own PCM banks / kits / Bank M first; what it lacks
+comes from earlier imports (newest first), then the built-in files in list order (Hadi2024 first). Built-in files
+only use their own data (unchanged behaviour). A file with a Bank S (imports: from the PCG; built-ins: "s":1 in
+tridata.js, TRINI-1-KJ) never takes a Bank M: bank 4 = Solo-TRI there (silent). Timbres record t.from (source file
+name, shown in the Timbres table); drum programs record korgInfo.kitFrom. Combination-only and Bank-M-only
+Trinity files are accepted (every Trinity import makes a tri set, so it has a place in the memory order).
 Important fact: a PCG holds parameters only, never audio. Korg's ROM samples are on chips in the synth and
 are not downloadable; the factory preload would also play stand-ins.
 
@@ -139,18 +145,16 @@ are not downloadable; the factory preload would also play stand-ins.
 Build:   python3 build.py index.html
 Run:     python3 -m http.server 8765   then open http://localhost:8765/index.html (Chrome/Edge; needs http for audio,
          MIDI and samples). Web MIDI: Chrome, Edge, Firefox (not Safari).
-Tests (Node 18+, ffmpeg for PCM tests):
-  sh test/run_all.sh            all offline checks + index.html freshness; exit code 0 = pass (~10 min)
-  node test/progs.js            all MOSS programs: NaN, levels, CPU
-  node test/combis.js [filter] [max]   all combinations
-  node test/voicefix.js | fxfix.js | fuzz.js | fxunit.js | fxfunc.js | models2.js
-  node test/regress.js <older copy folder> (fxregress.js: same for effects)   MOSS sample-by-sample regression (env STEP, SECS, ONLY)
-     note: its "cpu ... speedup x0.78" is an ordering artefact (same code vs itself shows the same)
-  test/harness.js loads sources in a vm (slow with tridata.js; big renders use module._compile instead)
-  test/pcmpacks.js decodes samples/ with ffmpeg for Node tests (feed/preload helpers)
-Browser tests (Python + Playwright, server on 8765): test/browser4.py (MOSS), browser5.py (PCM),
-  browser6.py (drum kits), browser7.py (combinations). window.__moss exposes loadProgram(bank, idx),
-  getPatch, noteOn/noteOff, selectPage, engine() (script mode), importPcgFile.
+Tests: sh test/run_all.sh (~1 min, exit 0 = pass; FULL=1 for every program/combination, ~10 min).
+  CI: .github/workflows/test.yml runs build.py + run_all.sh on every push / PR.
+  Checks: fxunit, fuzz, fxfix (effects), voicefix (notes), progs (MOSS programs, every 8th), combis (every 16th,
+  needs ffmpeg), browser_test.py (Playwright; starts its own server; sound in both audio modes, all pages, fx edit,
+  phone width, IndexedDB storage, synth memory, error messages).
+  test/harness.js loads sources in a vm; test/pcmpacks.js decodes samples/ with ffmpeg; test/mkpcg.js writes a PCG
+  from built-in data. window.__moss exposes loadProgram(bank, idx), getPatch, noteOn/noteOff, selectPage, engine()
+  (script mode), importPcgFile.
+  test/tools/ (by hand, no pass/fail): regress.js / fxregress.js <older copy folder> (sample-by-sample regression;
+  env STEP, SECS, ONLY), fxfunc.js, models2.js, fxprof.js, showfx.js.
 
 ==============================================================================
 7. SOURCES AND LINKS

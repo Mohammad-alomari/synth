@@ -1,5 +1,5 @@
 // Offline checks for the Organ, E.Piano and Brass models: pitch, level, spectrum, stability
-const H = require('./harness.js'); const X = H.load(H.ORDER);
+const H = require('../harness.js'); const X = H.load(H.ORDER);
 const sr = 48000, N = 128;
 function patchFor(type, p, extra) {
   const P = X.mossDefaultPatch(); P.osc[0].type = type; Object.assign(P.osc[0].p, p || {});
