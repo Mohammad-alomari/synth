@@ -1,0 +1,25 @@
+# Runs on every push and pull request: all checks in test/run_all.sh. That script also builds the page from the
+# sources and fails if the build breaks or the committed index.html is out of date.
+name: Tests
+on:
+  push:
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install ffmpeg and Playwright (Chromium)
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q ffmpeg
+          pip install playwright
+          python -m playwright install --with-deps chromium
+      - name: Tests
+        run: sh test/run_all.sh

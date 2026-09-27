@@ -1,4 +1,4 @@
-const H = require('./harness.js'); const X = H.load(H.ORDER);
+const H = require('../harness.js'); const X = H.load(H.ORDER);
 const want = process.argv.slice(2);
 X.MOSS_PCG_BUILTIN.forEach(bk => { const rs = bk.rs || 521, by = Uint8Array.from(Buffer.from(bk.m, 'base64')), n = by.length / rs;
   for (let i = 0; i < n; i++) { const id = (bk.fmt === 'triton' ? 'F' : bk.name.slice(0, 4)) + i; if (!want.includes(id)) continue;

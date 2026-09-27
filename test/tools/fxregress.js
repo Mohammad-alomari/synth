@@ -1,7 +1,7 @@
 // Every effect type, alone, rendered by the reference tree and the current one; reports any difference
 const fs = require('fs'), path = require('path');
-const REF = process.argv[2], CUR = path.join(__dirname, '..');
-if (!REF) { console.error('usage: node test/fxregress.js <refdir>  (refdir = folder with an older copy of the sources)'); process.exit(2); }
+const REF = process.argv[2], CUR = path.join(__dirname, '..', '..');
+if (!REF) { console.error('usage: node test/tools/fxregress.js <refdir>  (refdir = folder with an older copy of the sources)'); process.exit(2); }
 function load(dir) {
   const src = ['fxcat.js', 'patches.js', 'engine.js', 'fxdsp.js'].map(f => fs.readFileSync(path.join(dir, f), 'utf8').replace(/if \(typeof module !== 'undefined'\)[^\n]*\n/g, '')).join('\n;\n') + '\nmodule.exports={MossEngine,mossPreset,TFX};';
   const m = new module.constructor(); m._compile(src, path.join(dir, 'b' + Math.random() + '.js')); return m.exports;

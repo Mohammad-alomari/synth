@@ -5991,7 +5991,7 @@ function renderMemory(host) {
   if (ts && !ts.builtin) b('Remove these PCM banks and combinations', () => { removeTriSet(ts); forget(ts); loadProgram('st', 0); toast('Removed ' + ts.name); });
   b('Revert', () => loadProgram(prog.bank, prog.idx));
   host.appendChild(row);
-  host.appendChild(el('p', 'help', 'User programs and imported banks live in this browser only. Use Export to keep a copy elsewhere. Importing reads a Trinity PCG file\u2019s Bank M (MOSS) programs, its PCM programs (banks A\u2013D) with their drum kits, its combinations, and its user scale. Korg\u2019s free Trinity preload data can be imported the same way.'));
+  host.appendChild(el('p', 'help', 'User programs and imported banks live in this browser only. Use Export to keep a copy elsewhere. Importing reads a Trinity PCG file\u2019s Bank M (MOSS) programs, its PCM programs (banks A\u2013D) with their drum kits, its combinations, and its user scale. Korg\u2019s free Trinity preload data can be imported the same way. Like the real synth\u2019s memory, an imported file that lacks some banks or drum kits uses the ones loaded before it (earlier imports first, then the built-in files); the Timbres table shows where each program comes from.'));
 }
 function renderImportInfo(host) {
   if (patch.kind === 'combi') {

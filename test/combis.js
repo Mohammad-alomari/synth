@@ -1,12 +1,14 @@
-// Every combination of the built-in PCG files: resolve its timbres' programs, play a chord, check for NaN, runaway
+// Combinations of the built-in PCG files: resolve their timbres' programs, play a chord, check for NaN, runaway
 // levels and CPU. Usage: node test/combis.js [name filter] [max count]
+// Quick by default (every 16th combination); FULL=1 plays all of them. Env: STEP.
 const fs = require('fs'), path = require('path'), dir = path.join(__dirname, '..');
 const src = ['fxcat.js', 'patches.js', 'engine.js', 'pcm.js', 'combi.js', 'fxdsp.js', 'pcmmap.js', 'korg.js', 'pcgdata.js', 'tridata.js']
   .map(f => fs.readFileSync(path.join(dir, f), 'utf8').replace(/if \(typeof module !== 'undefined'\)[^\n]*\n/g, '')).join('\n;\n') +
   '\nmodule.exports={MossEngine,korgDecodePcm,korgDecodeKit,korgDecodeCombi,korgDecodeMoss,TRI_BUILTIN,MOSS_PCG_BUILTIN,PCM_STANDIN};';
 const m = new module.constructor(); m._compile(src, path.join(dir, 'bundle_combis.js')); const X = m.exports;
 const PK = require('./pcmpacks.js');
-const sr = 48000, N = 128, only = process.argv[2] || '', max = +(process.argv[3] || 1e9);
+const sr = 48000, N = 128, only = process.argv[2] || '', max = +(process.argv[3] || 1e9), step = +(process.env.STEP || (process.env.FULL || only ? 1 : 16));
+let seen = 0;
 // a combination as the page builds it: each timbre gets its program (PCM A-D from the same file, bank 4 = its MOSS bank M)
 function build(T, r) {
   const C = X.korgDecodeCombi(r, T.scale);
@@ -29,6 +31,7 @@ for (const T of X.TRI_BUILTIN) for (const b of T.combis) {
     const r = raw.subarray(i * 388, (i + 1) * 388), C = build(T, r);
     if (only && !(C.name.includes(only) || T.name.includes(only))) continue;
     if (!C.timbres.some(t => t.p && (t.status === 'int') && (t.ch === 16 || t.ch === 0))) continue;
+    if (seen++ % step) continue;
     tot++;
     const e = new X.MossEngine(sr); e.handle({ t: 'pcmMap', map: X.PCM_STANDIN }); e._mapSent = true;
     e.handle({ t: 'patch', p: JSON.parse(JSON.stringify(C)) });

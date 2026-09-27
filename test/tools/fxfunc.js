@@ -1,5 +1,5 @@
 // Functional checks: pitch, delay time, reverb decay, EQ gain, talking-modulator formants
-global.TFX = require('../fxcat.js').TFX; Object.assign(global, require('../fxdsp.js'));
+global.TFX = require('../../fxcat.js').TFX; Object.assign(global, require('../../fxdsp.js'));
 const sr = 48000, N = 128;
 function run(id, p, gen, secs, x) {
   const e = TFX.byId(id), u = FxRack.make(sr, e), P = Object.assign(TFX.defaults(id), p);

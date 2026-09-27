@@ -145,19 +145,16 @@ are not downloadable; the factory preload would also play stand-ins.
 Build:   python3 build.py index.html
 Run:     python3 -m http.server 8765   then open http://localhost:8765/index.html (Chrome/Edge; needs http for audio,
          MIDI and samples). Web MIDI: Chrome, Edge, Firefox (not Safari).
-Tests (Node 18+, ffmpeg for PCM tests):
-  sh test/run_all.sh            all offline checks + index.html freshness; exit code 0 = pass (~10 min)
-  node test/progs.js            all MOSS programs: NaN, levels, CPU
-  node test/combis.js [filter] [max]   all combinations
-  node test/voicefix.js | fxfix.js | fuzz.js | fxunit.js | fxfunc.js | models2.js
-  node test/regress.js <older copy folder> (fxregress.js: same for effects)   MOSS sample-by-sample regression (env STEP, SECS, ONLY)
-     note: its "cpu ... speedup x0.78" is an ordering artefact (same code vs itself shows the same)
-  test/harness.js loads sources in a vm (slow with tridata.js; big renders use module._compile instead)
-  test/pcmpacks.js decodes samples/ with ffmpeg for Node tests (feed/preload helpers)
-Browser tests (Python + Playwright, server on 8765): test/browser4.py (MOSS), browser5.py (PCM),
-  browser6.py (drum kits), browser7.py (combinations), browser8.py (imported-PCG storage), browser9.py (synth memory).
-  test/mkpcg.js <built-in name> <out.pcg> [pcm,combi,kit,moss] writes a PCG from built-in data for import tests. window.__moss exposes loadProgram(bank, idx),
-  getPatch, noteOn/noteOff, selectPage, engine() (script mode), importPcgFile.
+Tests: sh test/run_all.sh (~1 min, exit 0 = pass; FULL=1 for every program/combination, ~10 min).
+  CI: .github/workflows/test.yml runs build.py + run_all.sh on every push / PR.
+  Checks: fxunit, fuzz, fxfix (effects), voicefix (notes), progs (MOSS programs, every 8th), combis (every 16th,
+  needs ffmpeg), browser_test.py (Playwright; starts its own server; sound in both audio modes, all pages, fx edit,
+  phone width, IndexedDB storage, synth memory, error messages).
+  test/harness.js loads sources in a vm; test/pcmpacks.js decodes samples/ with ffmpeg; test/mkpcg.js writes a PCG
+  from built-in data. window.__moss exposes loadProgram(bank, idx), getPatch, noteOn/noteOff, selectPage, engine()
+  (script mode), importPcgFile.
+  test/tools/ (by hand, no pass/fail): regress.js / fxregress.js <older copy folder> (sample-by-sample regression;
+  env STEP, SECS, ONLY), fxfunc.js, models2.js, fxprof.js, showfx.js.
 
 ==============================================================================
 7. SOURCES AND LINKS

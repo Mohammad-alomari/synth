@@ -1,8 +1,10 @@
-// Random-parameter fuzzing of every effect: no NaN/Infinity, output stays bounded
+// Random-parameter fuzzing of every effect: no NaN/Infinity, output stays bounded.
+// Quick by default (4 trials per effect: all-min, all-max, 2 random); FULL=1 runs 12.
 global.TFX = require('../fxcat.js').TFX; Object.assign(global, require('../fxdsp.js'));
 const sr = 48000, N = 128; let seed = 1; const rnd = () => (seed = (seed * 1103515245 + 12345) >>> 0) / 4294967296;
 const bad = [];
-for (const e of TFX.CAT) for (let trial = 0; trial < 12; trial++) {
+const trials = process.env.FULL ? 12 : 4;
+for (const e of TFX.CAT) for (let trial = 0; trial < trials; trial++) {
   const p = TFX.defaults(e.id);
   for (const q of e.params) { if (q[2] === 'sel') p[q[0]] = Math.floor(rnd() * q[3].length); else if (q[2] === 'src') p[q[0]] = Math.floor(rnd() * 36); else p[q[0]] = trial < 2 ? (trial ? q[3] : q[2]) : q[2] + (q[3] - q[2]) * rnd(); }
   if (trial % 3 === 0) { p.wsrc = Math.floor(rnd() * 36); p.wamt = rnd() * 200 - 100; }
