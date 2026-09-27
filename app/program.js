@@ -1,0 +1,187 @@
+// Program list and LCD, signal-flow diagram, voice LEDs and scope.
+// One of the app/ files: build.py joins them in order inside one function scope, so they share their top-level names.
+// ---------------- program select / LCD ----------------
+let progSig = '';
+// removes an imported bank's stored copy
+function forget(b) { if (b.dbId != null) idb.del(b.dbId).catch(e => { console.error('Could not delete stored bank', e); status('Could not delete ' + b.name + ' from browser storage; it may come back after a reload.'); }); }
+function removeTriSet(set) {
+  triSets.splice(triSets.indexOf(set), 1);
+  for (const L of [pcmBanks, combiBanks]) for (let i = L.length - 1; i >= 0; i--) if (L[i].set === set) L.splice(i, 1);
+}
+// every program in list order, grouped as the menu shows them: { v: 'bank:idx', b, i, t: option text, g: group }
+function progEntries() {
+  const out = [], add = (g, b, i, t) => out.push({ v: b + ':' + i, b, i, t, g });
+  MOSS_PRESETS.forEach((p, i) => add('Starter programs', 'st', i, String(i).padStart(2, '0') + ' ' + p.name));
+  const ug = userBank.length ? 'User programs' : 'User programs (none saved yet)';
+  userBank.forEach((p, i) => add(ug, 'us', i, String(i + 1).padStart(2, '0') + ' ' + (p.name || 'Untitled')));
+  pcgBanks.forEach((b, bi) => { const g = b.builtin && b.fmt === 'triton' ? b.name : 'Bank ' + bankLetter(b) + ' from ' + b.name;
+    for (let i = 0; i < b.n; i++) add(g, 'pm', bi * 128 + i, bankLetter(b) + String(i).padStart(3, '0') + ' ' + b.names[i]); });
+  pcmBanks.forEach((b, bi) => { const g = 'Bank ' + b.letter + ' (PCM) from ' + b.set.name;
+    for (let i = 0; i < 128; i++) if (!b.drum[i]) add(g, 'pc', bi * 128 + i, b.letter + String(i).padStart(3, '0') + ' ' + b.names[i]); });
+  combiBanks.forEach((b, bi) => { const g = 'Combinations ' + b.letter + ' from ' + b.set.name;
+    for (let i = 0; i < 128; i++) add(g, 'cb', bi * 128 + i, 'C' + b.letter + pad3(i) + ' ' + b.names[i]); });
+  return out;
+}
+// the search box: every word must appear in the program's name, number or group (upper/lower case alike)
+let progQuery = '';
+const progMatch = (e, words) => { const t = (e.t + ' ' + e.g).toLowerCase(); return words.every(w => t.includes(w)); };
+function progList() {
+  const all = progEntries(), words = progQuery.toLowerCase().split(/\s+/).filter(Boolean);
+  return words.length ? all.filter(e => progMatch(e, words)) : all;
+}
+function fillProgSelect() {
+  const s = $('#prog'), sig = progQuery + '|' + userBank.map(p => p.name || '').join('') + '|' + pcgBanks.map(b => b.name + ':' + b.n).join('|') + '|' + pcmBanks.map(b => b.set.name + b.letter).join('|') + '|' + combiBanks.map(b => b.set.name + b.letter).join('|');
+  const cur = prog.bank + ':' + prog.idx;
+  if (sig === progSig && s.options.length && [...s.options].some(o => o.value === cur)) { s.value = cur; return; }
+  progSig = sig; s.innerHTML = '';
+  const list = progList(), groups = new Map();
+  if (!progQuery) groups.set('Starter programs', null).set(userBank.length ? 'User programs' : 'User programs (none saved yet)', null); // shown even when empty
+  // the current program stays in the menu even when the search leaves it out
+  if (progQuery && !list.some(e => e.v === cur)) { const e = progEntries().find(x => x.v === cur); if (e) list.unshift(Object.assign({}, e, { g: 'Now playing' })); }
+  for (const e of list) { let g = groups.get(e.g); if (!g) { g = el('optgroup'); g.label = e.g; groups.set(e.g, g); } const o = el('option', null, e.t); o.value = e.v; g.appendChild(o); }
+  for (const [label, g] of groups) { if (g) s.appendChild(g); else { const x = el('optgroup'); x.label = label; s.appendChild(x); } }
+  if (!list.length) { const o = el('option', null, 'No program matches “' + progQuery + '”'); o.value = ''; o.disabled = true; s.appendChild(o); }
+  s.value = cur;
+}
+function lcd() {
+  const pb = prog.bank === 'pc' ? pcmBanks[Math.floor(prog.idx / 128)] : prog.bank === 'cb' ? combiBanks[Math.floor(prog.idx / 128)] : null;
+  $('#pnum').textContent = prog.bank === 'st' ? 'ST ' + String(prog.idx).padStart(2, '0') : prog.bank === 'pm' ? bankLetter(pcgBanks[Math.floor(prog.idx / 128)]) + String(prog.idx % 128).padStart(3, '0')
+    : pb ? (prog.bank === 'cb' ? 'C' : '') + pb.letter + String(prog.idx % 128).padStart(3, '0') : 'US ' + String(prog.idx + 1).padStart(2, '0');
+  $('#pname').textContent = (patch.name || 'Untitled') + (edited ? ' *' : '');
+  $('#pname').title = edited ? 'Edited, not saved' : '';
+  $('#pbname').textContent = $('#pnum').textContent + ' ' + $('#pname').textContent;
+  perfLcd();
+}
+function loadProgram(bank, idx) {
+  let pm = null;
+  try { pm = bank === 'pm' ? pcgPatch(idx) : bank === 'pc' ? pcmPatch(idx) : bank === 'cb' ? combiPatch(idx) : null; }
+  catch (e) { console.error('Could not decode program ' + bank + ':' + idx, e); status('That program could not be read (' + (e && e.message || e) + '); its data may be damaged. The previous program stays.'); fillProgSelect(); return; }
+  if ((bank === 'us' && !userBank[idx]) || ((bank === 'pm' || bank === 'pc' || bank === 'cb') && !pm) || !['st', 'us', 'pm', 'pc', 'cb'].includes(bank)) { bank = 'st'; idx = 0; }
+  patch = bank === 'st' ? mossPreset(idx) : bank === 'pm' || bank === 'pc' || bank === 'cb' ? pm : loadAny(userBank[idx]);
+  prog = { bank, idx }; edited = false;
+  pcmPrepare(patch);
+  send({ t: 'patch', p: clone(patch) }); sendTuning();
+  if (!PAGESET()[curPage]) curPage = Object.keys(PAGESET())[0];
+  renderAll(); saveCurrent();
+  if (patch.kind === 'combi') status(combiStatus());
+  else if (patch.kind === 'pcm') status('Trinity PCM program: Korg\u2019s samples are not available, so stand-in recordings play (see the Program page).');
+  else if (patch.korgInfo) { const pl = korgPlayability(patch); status(pl.full ? '' : 'Not built yet: ' + pl.missing.join(', ') + '. That part is silent.'); } else status('');
+}
+// previous / next program; with a search, only through its results
+function stepProgram(dir) {
+  let list = progList(); if (!list.length) list = progEntries();
+  let k = list.findIndex(x => x.b === prog.bank && x.i === prog.idx);
+  k = k < 0 ? (dir > 0 ? 0 : list.length - 1) : (k + dir + list.length) % list.length;
+  loadProgram(list[k].b, list[k].i);
+}
+let progQT = 0;
+$('#progq').addEventListener('input', e => { clearTimeout(progQT); progQT = setTimeout(() => { progQuery = e.target.value.trim(); fillProgSelect(); const n = progList().length; status(progQuery ? n + ' program' + (n === 1 ? '' : 's') + ' match “' + progQuery + '”' : ''); }, 150); });
+$('#prog').addEventListener('change', e => { const [b, i] = e.target.value.split(':'); loadProgram(b, Number(i)); });
+$('#prev').addEventListener('click', () => stepProgram(-1));
+$('#next').addEventListener('click', () => stepProgram(1));
+function renderAll() { fillProgSelect(); lcd(); renderTabs(); renderPage(); renderFlow(); }
+
+// ---------------- signal flow (TouchView-style block diagram) ----------------
+function renderFlow() {
+  const svg = $('#flow'); svg.innerHTML = '';
+  if (patch.kind === 'combi') return renderFlowCombi(svg);
+  if (patch.kind === 'pcm') return renderFlowPcm(svg);
+  const P = patch, R = P.filt.routing, dbl = DOUBLE.includes(P.osc[0].type);
+  const add = (tag, attrs, parent) => { const e = document.createElementNS(SVGNS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); (parent || svg).appendChild(e); return e; };
+  const wires = add('g', {});
+  const B = {
+    osc0: { x: 2, y: 4, w: 88, h: 30, t: 'OSC 1', s: TYPE_SHORT[P.osc[0].type], page: 'osc0' },
+    osc1: { x: 2, y: 40, w: 88, h: 30, t: 'OSC 2', s: dbl ? 'UNUSED' : TYPE_SHORT[P.osc[1].type], page: 'osc1', dim: dbl },
+    sub: { x: 2, y: 76, w: 88, h: 30, t: 'SUB', s: P.sub.wave.toUpperCase(), page: 'subnoise' },
+    noise: { x: 2, y: 112, w: 88, h: 30, t: 'NOISE', s: P.noise.ftype.toUpperCase(), page: 'subnoise' },
+    mix0: { x: 124, y: 18, w: 48, h: 40, t: 'MIX 1', page: 'mixer' },
+    mix1: { x: 124, y: 92, w: 48, h: 40, t: 'MIX 2', page: 'mixer', dim: R === 'serial2' },
+    f0: { x: 204, y: 18, w: 58, h: 40, t: 'FILT 1', s: P.f[0].type.toUpperCase(), page: 'filter' },
+    f1: { x: 204, y: 92, w: 58, h: 40, t: 'FILT 2', s: (P.filt.link ? P.f[0] : P.f[1]).type.toUpperCase(), page: 'filter' },
+    a0: { x: 290, y: 18, w: 44, h: 40, t: 'AMP 1', page: 'amp' },
+    a1: { x: 290, y: 92, w: 44, h: 40, t: 'AMP 2', page: 'amp' },
+    fx: { x: 356, y: 55, w: 42, h: 40, t: 'FX', page: 'fx' }
+  };
+  const cy = b => b.y + b.h / 2;
+  const wire = (x1, y1, x2, y2, off) => { const mx = (x1 + x2) / 2; add('path', { d: `M${x1} ${y1} C${mx} ${y1} ${mx} ${y2} ${x2} ${y2}`, class: 'wire' + (off ? ' off' : '') }, wires); };
+  const srcKeys = [['osc0', 'osc1'], ['osc1', 'osc2'], ['sub', 'sub'], ['noise', 'noise']];
+  srcKeys.forEach(([bk, mk], si) => { [0, 1].forEach(m => { const lv = P.mix[m][mk]; const s = B[bk], d = B['mix' + m]; wire(s.x + s.w, cy(s) + (m ? 4 : -4), d.x, cy(d) + (si - 1.5) * 6, !lv || s.dim || d.dim); }); });
+  const r = (a, b, off) => wire(B[a].x + B[a].w, cy(B[a]), B[b].x, cy(B[b]), off);
+  if (R === 'parallel') { r('mix0', 'f0'); r('f0', 'a0'); r('mix1', 'f1'); r('f1', 'a1'); }
+  else if (R === 'serial1') {
+    r('mix0', 'f0'); add('path', { d: `M233 58 L233 92`, class: 'wire' }, wires); wire(262, 112, 290, 38);
+    add('path', { d: `M172 112 C182 112 182 145 200 145 L276 145 C286 145 282 116 290 116`, class: 'wire' }, wires);
+  } else { r('mix0', 'f0'); r('f0', 'a0'); add('path', { d: `M233 58 L233 92`, class: 'wire' }, wires); r('f1', 'a1'); }
+  r('a0', 'fx'); r('a1', 'fx');
+  for (const b of Object.values(B)) {
+    const g = add('g', { class: 'blk' + (b.page === curPage ? ' sel' : '') + (b.dim ? ' dim' : ''), tabindex: 0, role: 'button', 'aria-label': 'Edit ' + b.t.toLowerCase() });
+    add('rect', { x: b.x, y: b.y, width: b.w, height: b.h, rx: 2 }, g);
+    add('text', { x: b.x + 5, y: b.y + (b.s ? 13 : b.h / 2 + 5), class: 't' }, g).textContent = b.t;
+    if (b.s) add('text', { x: b.x + 5, y: b.y + 26 }, g).textContent = b.s;
+    const go = () => selectPage(b.page);
+    g.addEventListener('click', go);
+    g.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+  }
+}
+
+function renderFlowPcm(svg) {
+  const P = patch, dbl = P.mode === 'double';
+  const add = (tag, attrs, parent) => { const e = document.createElementNS(SVGNS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); (parent || svg).appendChild(e); return e; };
+  const wires = add('g', {}), short = (n, k) => (n || '').toUpperCase().slice(0, k);
+  const msn = O => short(PCM_MS_NAMES[O.msHi < 375 ? O.msHi : 0], 13);
+  const B = {
+    o0: { x: 2, y: 18, w: 112, h: 40, t: 'OSC 1', s: msn(P.o[0]), page: 'osc0' }, o1: { x: 2, y: 92, w: 112, h: 40, t: 'OSC 2', s: dbl ? msn(P.o[1]) : 'UNUSED', page: 'osc1', dim: !dbl },
+    f0: { x: 150, y: 18, w: 84, h: 40, t: 'FILTER 1', s: P.o[0].route === 'thru' ? 'THRU' : P.o[0].route.toUpperCase(), page: 'filter0' }, f1: { x: 150, y: 92, w: 84, h: 40, t: 'FILTER 2', s: P.o[1].route === 'thru' ? 'THRU' : P.o[1].route.toUpperCase(), page: 'filter1', dim: !dbl },
+    a0: { x: 270, y: 18, w: 60, h: 40, t: 'AMP 1', page: 'amp0' }, a1: { x: 270, y: 92, w: 60, h: 40, t: 'AMP 2', page: 'amp1', dim: !dbl },
+    fx: { x: 356, y: 55, w: 42, h: 40, t: 'FX', page: 'fx' } };
+  const cy = b => b.y + b.h / 2, wire = (a, b, off) => { const A = B[a], C = B[b], x1 = A.x + A.w, y1 = cy(A), x2 = C.x, y2 = cy(C), mx = (x1 + x2) / 2; add('path', { d: `M${x1} ${y1} C${mx} ${y1} ${mx} ${y2} ${x2} ${y2}`, class: 'wire' + (off ? ' off' : '') }, wires); };
+  wire('o0', 'f0'); wire('f0', 'a0'); wire('a0', 'fx'); wire('o1', 'f1', !dbl); wire('f1', 'a1', !dbl); wire('a1', 'fx', !dbl);
+  for (const b of Object.values(B)) {
+    const g = add('g', { class: 'blk' + (b.page === curPage ? ' sel' : '') + (b.dim ? ' dim' : ''), tabindex: 0, role: 'button', 'aria-label': 'Edit ' + b.t.toLowerCase() });
+    add('rect', { x: b.x, y: b.y, width: b.w, height: b.h, rx: 2 }, g);
+    add('text', { x: b.x + 5, y: b.y + (b.s ? 15 : b.h / 2 + 5), class: 't' }, g).textContent = b.t;
+    if (b.s) add('text', { x: b.x + 5, y: b.y + 31 }, g).textContent = b.s;
+    const go = () => selectPage(b.page); g.addEventListener('click', go); g.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+  }
+}
+
+// ---------------- voice LEDs & scope ----------------
+function showVoices(v) {
+  const h = $('#vleds'); if (h.children.length !== v.length) { h.innerHTML = ''; v.forEach(() => h.appendChild(el('i'))); h.classList.toggle('many', v.length > 16); }
+  v.forEach((s, i) => { h.children[i].className = s === 2 ? 'g' : s === 1 ? 'r' : ''; });
+}
+const scopeBuf = new Float32Array(2048);
+let scopeInk = '', scopeGain = 1;
+const readInk = () => { scopeInk = getComputedStyle(document.documentElement).getPropertyValue('--lcd-ink').trim() || '#1a2e28'; };
+readInk();
+try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readInk); } catch (e) { console.debug('no colour-scheme change events', e); }
+let scopeC = null, scopeG = null, scopeIdle = 0;
+function drawScope() {
+  requestAnimationFrame(drawScope);
+  if (document.hidden || !analyser || !ctx || ctx.state !== 'running') return;
+  const c = scopeC || (scopeC = $('#scope')), g = scopeG || (scopeG = c.getContext('2d'));
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const w = Math.max(1, Math.round(c.clientWidth * dpr)), h = Math.max(1, Math.round(c.clientHeight * dpr));
+  if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+  {
+    analyser.getFloatTimeDomainData(scopeBuf);
+    // trigger on a rising zero crossing so periodic waves stand still
+    let st = 0; for (let i = 1; i < 1024; i++) if (scopeBuf[i - 1] < 0 && scopeBuf[i] >= 0) { st = i; break; }
+    const span = 600;
+    let pk = 0; for (let i = 0; i < span; i++) { const a = Math.abs(scopeBuf[st + i]); if (a > pk) pk = a; }
+    // silence: draw the flat line once, then stop repainting until sound comes back
+    if (pk < 1e-5) { if (scopeIdle++ > 2) return; } else scopeIdle = 0;
+    // slow auto-gain: quiet sounds still fill the display, loud ones never clip it
+    const target = pk > 0.002 ? Math.min(12, 0.9 / pk) : scopeGain;
+    scopeGain += (target - scopeGain) * (target < scopeGain ? 0.5 : 0.08);
+    g.clearRect(0, 0, w, h);
+    g.strokeStyle = scopeInk; g.globalAlpha = 0.25; g.lineWidth = 1;
+    g.beginPath(); g.moveTo(0, h / 2); g.lineTo(w, h / 2); g.stroke();
+    g.globalAlpha = 1; g.lineWidth = 1.6 * dpr; g.lineJoin = 'round'; g.beginPath();
+    for (let i = 0; i < span; i++) {
+      const x = i / (span - 1) * w, y = h / 2 - Math.max(-1, Math.min(1, scopeBuf[st + i] * scopeGain)) * (h / 2 - 3 * dpr);
+      i ? g.lineTo(x, y) : g.moveTo(x, y);
+    }
+    g.stroke();
+  }
+}

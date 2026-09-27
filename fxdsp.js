@@ -863,7 +863,7 @@ class FxEQ extends FxBase {
     return [set(0, 3), set(1, 3), set(2, 3), set(0, 2), set(4, 2), set(8, 2), set(0, 1), set(0, 1.5), set(7, 1), set(5.5, 1.5), set(14, 1), set(11, 1.5)][type] || set(0, 3);
   }
   setup(p) {
-    const v = this.v, sr = this.sr, b = this.b, st = !this.mono;
+    const v = this.v, sr = this.sr, b = this.b;
     const put = (i, t, f, q, g) => { b[i].set(t, f, q, g, sr); b[i + 13].set(t, f, q, g, sr); };
     if (v === 'peq') {
       put(0, p.t1 === 1 ? 'ls' : 'peak', p.f1, p.q1, p.g1); put(1, 'peak', p.f2, p.q2, p.g2); put(2, 'peak', p.f3, p.q3, p.g3); put(3, p.t4 === 1 ? 'hs' : 'peak', p.f4, p.q4, p.g4); this.nb = 4;

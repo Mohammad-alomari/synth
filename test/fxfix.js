@@ -1,7 +1,6 @@
 // Checks for effect fixes: missing parameters, re-enabling an effect, Dual Delay wet with a mod source, master negative output
 const H = require('./harness.js'); const X = H.load(H.ORDER); const sr = 48000;
 const ok = (name, cond, extra) => { if (!cond) process.exitCode = 1; console.log((cond ? 'PASS ' : 'FAIL ') + name + (extra ? '  ' + extra : '')); };
-const blk = (r, L, R, n) => { r.process(L, R, n || 128, r._fx); };
 { // missing parameters: every effect type with an almost empty parameter set
   let bad = [];
   for (const e of X.TFX.CAT) {
@@ -28,7 +27,7 @@ const blk = (r, L, R, n) => { r.process(L, R, n || 128, r._fx); };
   ok('re-enabled master reverb starts clean', pk2 < 1e-6, 'peak ' + pk2.toExponential(2));
 }
 { // Dual Delay: wetL/wetR honoured when a modulation source is set
-  const r = new X.FxRack(sr), fx = X.TFX.rack(); fx.m1.on = 0; fx.m2.on = 0;
+  const fx = X.TFX.rack(); fx.m1.on = 0; fx.m2.on = 0;
   const p = X.TFX.defaults('S2:37'); p.wetL = 10; p.wetR = 10; p.wsrc = 8; p.wamt = 0; p.timeL = 100; p.timeR = 100; p.fbL = 0; p.fbR = 0;
   fx.ins = [{ on: 1, type: 'S2:37', p }];
   const L = new Float32Array(128), R = new Float32Array(128);

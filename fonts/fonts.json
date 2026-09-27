@@ -1,0 +1,44 @@
+[
+ {
+  "family": "Barlow",
+  "weight": "400",
+  "file": "barlow-400.woff2",
+  "range": "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD"
+ },
+ {
+  "family": "Barlow",
+  "weight": "500",
+  "file": "barlow-500.woff2",
+  "range": "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD"
+ },
+ {
+  "family": "Barlow",
+  "weight": "600",
+  "file": "barlow-600.woff2",
+  "range": "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD"
+ },
+ {
+  "family": "Barlow Condensed",
+  "weight": "500",
+  "file": "barlow-condensed-500.woff2",
+  "range": "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD"
+ },
+ {
+  "family": "Barlow Condensed",
+  "weight": "600",
+  "file": "barlow-condensed-600.woff2",
+  "range": "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD"
+ },
+ {
+  "family": "Barlow Condensed",
+  "weight": "700",
+  "file": "barlow-condensed-700.woff2",
+  "range": "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD"
+ },
+ {
+  "family": "VT323",
+  "weight": "400",
+  "file": "vt323-400.woff2",
+  "range": "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD"
+ }
+]

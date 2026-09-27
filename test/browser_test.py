@@ -1,7 +1,7 @@
 # Browser test of the built page (Chromium via Playwright). Starts its own http server; exit code 0 = all passed.
 # Usage: python3 test/browser_test.py            (run python3 build.py first; needs node for test/mkpcg.js)
 # Covers: sound of MOSS / PCM / combination programs in both audio modes, drum programs left out, every page renders, effects editing,
-# phone width, recording, imported-PCG storage (IndexedDB, reload, migration, removal), synth memory, error messages,
+# phone width, keyboard settings, play mode, MIDI program buttons and SW1/SW2, recording, imported-PCG storage (IndexedDB, reload, migration, removal), synth memory, error messages,
 # and the public (Netlify) build.
 import asyncio, base64, functools, http.server, os, struct, subprocess, sys, tempfile, threading
 from playwright.async_api import async_playwright
@@ -56,6 +56,82 @@ async def open_page(b, url, script_mode=False):
     await pg.click('#power'); await pg.wait_for_timeout(1000)
     return pg
 
+async def record_wav(pg, mode):
+    # record to WAV: a note played while recording ends up in the downloaded file
+    await pg.set_viewport_size({'width': 1200, 'height': 900})
+    await pg.evaluate("window.__moss.loadProgram('st', 0)")
+    await pg.click('#recbtn'); await pg.wait_for_timeout(300)
+    await pg.evaluate("async () => { window.__moss.noteOn(60, 110); await __t.sleep(700); window.__moss.noteOff(60); await __t.sleep(200); }")
+    async with pg.expect_download() as dl:
+        await pg.click('#recbtn')
+    path = await (await dl.value).path(); data = open(path, 'rb').read()
+    sr, n = struct.unpack('<I', data[24:28])[0], (len(data) - 44) // 4
+    pk = max(abs(x) for x in struct.unpack('<%dh' % (n * 2), data[44:44 + n * 4])) / 32768 if n else 0
+    ok('record (%s recorder): a stereo 16-bit WAV of about a second with the note in it' % mode, data[:4] == b'RIFF' and data[8:12] == b'WAVE' and 0.5 < n / sr < 3 and pk > 0.005, [n / sr if n else 0, round(pk, 3)])
+    ok('record: the %s recorder was used' % mode, await pg.evaluate('window.__mossRecMode') == mode, await pg.evaluate('window.__mossRecMode'))
+
+async def keyboard_and_midi(pg):
+    # SW1/SW2 are visible at every width and follow CC80/81 from MIDI
+    ok('SW1 and SW2 are visible (desktop)', await pg.is_visible('#sw1') and await pg.is_visible('#sw2'))
+    await pg.evaluate("window.__moss.onMidi({data: [0xB0, 81, 127]})")
+    ok('MIDI CC81 lights SW2', await pg.get_attribute('#sw2', 'aria-pressed') == 'true')
+    await pg.evaluate("window.__moss.onMidi({data: [0xB0, 81, 0]})")
+    # keyboard settings: octaves, lowest key, black keys small or hidden
+    keys = "[document.querySelectorAll('#kb .wk').length, document.querySelectorAll('#kb .bk').length, +document.querySelector('#kb .wk').dataset.n]"
+    await pg.evaluate("Object.assign(window.__moss.kbs, {oct: 2, start: 50, bl: 28}); window.__moss.kbApply()")
+    ok('keyboard: 2 octaves from D3', await pg.evaluate(keys) == [15, 10, 50], await pg.evaluate(keys))
+    ok('keyboard: very short black keys', await pg.evaluate("document.querySelector('#kb .bk').style.height") == '28%')
+    await pg.evaluate("window.__moss.kbs.hideBlack = true; window.__moss.kbApply()")
+    ok('keyboard: black keys hidden', await pg.evaluate(keys) == [15, 0, 50], await pg.evaluate(keys))
+    # program change steps through the list; a learned controller is a Next button (press only, not release)
+    await pg.evaluate("window.__moss.loadProgram('st', 0); window.__moss.onMidi({data: [0xC0, 9]}); window.__moss.onMidi({data: [0xC0, 10]})")
+    ok('MIDI program change steps forward', await pg.evaluate("document.querySelector('#pnum').textContent") == 'ST 02')
+    await pg.evaluate("window.__moss.onMidi({data: [0xC0, 9]})")
+    ok('MIDI program change steps back', await pg.evaluate("document.querySelector('#pnum').textContent") == 'ST 01')
+    await pg.evaluate("async () => { const M = window.__moss; M.kbs.midiNext = {t: 'cc', ch: 0, n: 22}; M.onMidi({data: [0xB0, 22, 127]}); await __t.sleep(120); M.onMidi({data: [0xB0, 22, 0]}); }")
+    ok('learned MIDI button: next program', await pg.evaluate("document.querySelector('#pnum').textContent") == 'ST 02')
+    # two rows: the upper row goes on from the lower row's top key
+    await pg.evaluate("Object.assign(window.__moss.kbs, {oct: 2, start: 48, rows: 2, hideBlack: false}); window.__moss.kbApply()")
+    rows = await pg.evaluate("[...document.querySelectorAll('#kb .kbrow')].map(r => [+r.querySelector('.wk').dataset.n, +[...r.querySelectorAll('.wk')].pop().dataset.n])")
+    ok('keyboard: two rows, C3-C5 and C5-C7', rows == [[48, 72], [72, 96]], rows)
+    # the computer keys start at the lowest C on the screen
+    await pg.evaluate("window.__moss.kbs.rows = 1; window.__moss.kbApply()")
+    await pg.keyboard.down('a'); held = await pg.evaluate("[...document.querySelectorAll('#kb .wk.on')].map(k => +k.dataset.n)"); await pg.keyboard.up('a')
+    ok('computer key A plays the lowest C on the screen (C3)', held == [48], held)
+    # program search: the menu and the ‹ › buttons keep to the results
+    await pg.fill('#progq', 'organ'); await pg.wait_for_timeout(300)
+    found = await pg.evaluate("[...document.querySelectorAll('#prog option')].filter(o => o.parentNode.label !== 'Now playing').map(o => [o.textContent, o.parentNode.label])")
+    names = [t for t, g in found]
+    ok('program search: only matching programs are listed', 0 < len(found) < 200 and all('organ' in (t + ' ' + g).lower() for t, g in found), len(found))
+    await pg.click('#next'); await pg.wait_for_timeout(100)
+    cur = await pg.evaluate("document.querySelector('#prog').selectedOptions[0].textContent")
+    ok('program search: next steps within the results', cur in names, cur)
+    await pg.fill('#progq', ''); await pg.wait_for_timeout(300)
+    ok('program search cleared: every program is listed again', await pg.evaluate("document.querySelectorAll('#prog option').length") > 1000)
+    # play bar: scale switch loads a maqam on its key; Sustain sends the pedal and shows a MIDI pedal
+    await pg.evaluate("window.__moss.setPlayMode(true)")
+    await pg.select_option('#pbscale', 'mq:bayati')
+    t = await pg.evaluate("window.__moss.tuningTable().slice(60, 72)")
+    ok('play bar: Bayati on D (E a quarter tone flat)', t[4] == -50 and sum(1 for c in t if c) == 1, t)
+    await pg.select_option('#pbkey', '7')
+    t = await pg.evaluate("window.__moss.tuningTable().slice(60, 72)")
+    ok('play bar: Bayati moved to G (A a quarter tone flat)', t[9] == -50 and sum(1 for c in t if c) == 1, t)
+    await pg.select_option('#pbscale', 'equal')
+    await pg.click('#pbsus')
+    ok('play bar: Sustain on', await pg.get_attribute('#pbsus', 'aria-pressed') == 'true')
+    await pg.evaluate("window.__moss.onMidi({data: [0xB0, 64, 0]})")
+    ok('a MIDI pedal release shows on the Sustain button', await pg.get_attribute('#pbsus', 'aria-pressed') == 'false')
+    await pg.evaluate("window.__moss.setPlayMode(false)")
+    # play mode on a phone held sideways: the keyboard fills the screen, the page does not scroll sideways
+    await pg.evaluate("const k = window.__moss.kbs; Object.assign(k, {oct: 0, start: -1, bl: 60, hideBlack: false, fullscreen: false, midiNext: null}); window.__moss.kbApply()")
+    await pg.set_viewport_size({'width': 844, 'height': 390})
+    await pg.evaluate("window.__moss.setPlayMode(true)"); await pg.wait_for_timeout(200)
+    w, h = await pg.evaluate("(r => [r.width, r.height])(document.querySelector('#kb').getBoundingClientRect())")
+    ok('play mode (landscape phone): keyboard fills the screen', w > 600 and h > 280, [w, h])
+    ok('play mode: no sideways scrolling', await pg.evaluate('document.documentElement.scrollWidth - document.documentElement.clientWidth') <= 0)
+    await pg.evaluate("window.__moss.setPlayMode(false)")
+    await pg.set_viewport_size({'width': 1200, 'height': 900})
+
 async def sound_and_pages(b, url):
     pg = await open_page(b, url)
     ok('audio starts (AudioWorklet)', await pg.evaluate('window.__mossMode') == 'worklet')
@@ -84,23 +160,15 @@ async def sound_and_pages(b, url):
         await pg.evaluate("([v, p]) => { __t.load(v); window.__moss.selectPage(p); }", [v, page]); await pg.wait_for_timeout(150)
         ov = await pg.evaluate('document.documentElement.scrollWidth - document.documentElement.clientWidth')
         ok('phone width, %s %s page: no sideways scrolling' % (v, page), ov <= 0, ov)
-    # record to WAV: a note played while recording ends up in the downloaded file
-    await pg.set_viewport_size({'width': 1200, 'height': 900})
-    await pg.evaluate("window.__moss.loadProgram('st', 0)")
-    await pg.click('#recbtn')
-    await pg.evaluate("async () => { window.__moss.noteOn(60, 110); await __t.sleep(700); window.__moss.noteOff(60); await __t.sleep(200); }")
-    async with pg.expect_download() as dl:
-        await pg.click('#recbtn')
-    path = await (await dl.value).path(); data = open(path, 'rb').read()
-    sr, n = struct.unpack('<I', data[24:28])[0], (len(data) - 44) // 4
-    pk = max(abs(x) for x in struct.unpack('<%dh' % (n * 2), data[44:44 + n * 4])) / 32768 if n else 0
-    ok('record: a stereo 16-bit WAV of about a second with the note in it', data[:4] == b'RIFF' and data[8:12] == b'WAVE' and 0.5 < n / sr < 3 and pk > 0.005, [n / sr if n else 0, round(pk, 3)])
+    await record_wav(pg, 'worklet')
+    await keyboard_and_midi(pg)
     ok('no errors (AudioWorklet mode)', not pg.errs, pg.errs[:5])
     await pg.close()
     pg = await open_page(b, url, script_mode=True)
     ok('compatibility audio mode starts', await pg.evaluate('window.__mossMode') == 'script')
     ok('compatibility mode: MOSS plays', await pg.evaluate("__t.play('st', 0, [60])") > 0.005)
     ok('compatibility mode: PCM plays', await pg.evaluate("(v) => __t.play('pc', +v.split(':')[1], [60], 1500)", pc) > 0.005)
+    await record_wav(pg, 'script')
     ok('no errors (compatibility mode)', not pg.errs, pg.errs[:5])
     await pg.close()
 
@@ -154,7 +222,9 @@ async def storage_and_memory(b, url):
 
 async def public_page(b):
     # the Netlify page: built with --public (no owner files); importing a PCG still works
-    d = tempfile.mkdtemp(); os.symlink(os.path.join(ROOT, 'samples'), os.path.join(d, 'samples'))
+    # laid out as netlify.toml publishes it: the page, the samples and the app files (manifest, service worker, icons)
+    d = tempfile.mkdtemp()
+    for f in ['samples', 'icons', 'manifest.webmanifest', 'sw.js']: os.symlink(os.path.join(ROOT, f), os.path.join(d, f))
     subprocess.run([sys.executable, os.path.join(ROOT, 'build.py'), os.path.join(d, 'index.html'), '--public'], cwd=ROOT, check=True, capture_output=True)
     url = serve(d)
     ctx = await b.new_context(); pg = await ctx.new_page(); pg.errs = []
@@ -172,6 +242,16 @@ async def public_page(b):
     v = await pg.evaluate("__t.firstIn('Combinations A from Mine')")
     pk = await pg.evaluate("(v) => __t.play('cb', +v.split(':')[1], [48, 60, 64], 1500)", v) if v else 0
     ok('public page: an imported combination plays', pk > 0.005, round(pk, 3))
+    # installable app: the manifest loads and the service worker takes over (so the page opens offline)
+    man = await pg.evaluate("fetch(document.querySelector('link[rel=manifest]').href).then(r => r.json())")
+    ok('public page: app manifest with icons', man.get('name') == 'Trinity Web Synth' and len(man.get('icons', [])) >= 2, man.get('name'))
+    sw = await pg.evaluate("navigator.serviceWorker.ready.then(r => !!r.active)")
+    ok('public page: service worker active', sw)
+    await pg.reload(); await pg.wait_for_timeout(500)
+    await ctx.set_offline(True)
+    await pg.reload(); await pg.wait_for_timeout(500)
+    ok('public page opens offline (from the service worker)', await pg.evaluate("!!document.querySelector('#kb .wk')"))
+    await ctx.set_offline(False)
     ok('no page errors (public page)', not pg.errs, pg.errs[:5])
     await ctx.close()
 

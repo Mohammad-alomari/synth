@@ -1,0 +1,16 @@
+{
+  "name": "Trinity Web Synth",
+  "short_name": "Trinity",
+  "description": "A playable model of the Korg Trinity V3: MOSS and PCM programs, combinations and effects.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#2a2e32",
+  "theme_color": "#2a2e32",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

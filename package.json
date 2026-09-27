@@ -1,0 +1,16 @@
+{
+  "name": "trinity-web-synth",
+  "private": true,
+  "description": "A playable model of the Korg Trinity V3 in the browser",
+  "scripts": {
+    "build": "python3 build.py",
+    "lint": "eslint .",
+    "test": "sh test/run_all.sh",
+    "dev": "python3 build.py && python3 -m http.server 8765"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.0",
+    "eslint": "^10.11.0",
+    "globals": "^17.12.0"
+  }
+}

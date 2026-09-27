@@ -43,7 +43,7 @@ const ok = (name, cond, extra) => { if (!cond) process.exitCode = 1; console.log
 }
 { // 7 shared LFO follows MIDI sync
   const e = mk(P => { Object.assign(P.lfo[1], { sync: 'off', msync: 1, mbase: 4, mtimes: 0, freq: 0 }); P.voice.tempo = 120; });
-  run(e, 0.3); e.handle({ t: 'on', n: 60, v: 100 }); const v = e.voices.find(v => v.active); run(e, 0.0);
+  run(e, 0.3); e.handle({ t: 'on', n: 60, v: 100 }); run(e, 0.0);
   ok('shared LFO runs at the MIDI-sync rate', Math.abs(e.lfoRate[1] - 2) < 1e-9, 'rate ' + e.lfoRate[1]);
 }
 { // 8 CC120 cuts, CC123 releases

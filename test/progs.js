@@ -22,7 +22,7 @@ X.MOSS_PRESETS.forEach((_, i) => list.push(['ST' + i, X.mossPreset(i)]));
 X.MOSS_PCG_BUILTIN.forEach(bk => { const rs = bk.rs || 521, by = b64(bk.m), n = by.length / rs; for (let i = 0; i < n; i++) { const P = X.korgDecodeMoss(by.subarray(i * rs, (i + 1) * rs), bk.scale, bk.fmt); list.push([(bk.fmt === 'triton' ? 'F' : bk.name.slice(0, 4)) + i, P]); } });
 const only = process.env.ONLY ? new RegExp(process.env.ONLY) : null, FULL = !!process.env.FULL;
 const step = +(process.env.STEP || (FULL || only ? 1 : 8)), secs = +(process.env.SECS || (FULL ? 2.5 : 1));
-let worst = 0, cpuMax = 0, nBad = 0; const lv = [], rows = [];
+let cpuMax = 0, nBad = 0; const lv = [], rows = [];
 for (const [k, [id, P]] of list.entries()) {
   if (only ? !only.test(id) : k % step) continue;
   if (process.env.DRY) { P.fx.ins = []; P.fx.m1.on = 0; P.fx.m2.on = 0; P.fx.eqLo = P.fx.eqHi = 0; P.fx.ifxRoute = 0; }

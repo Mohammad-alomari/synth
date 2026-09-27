@@ -3,7 +3,7 @@ const fs = require('fs'), path = require('path'), { execFileSync } = require('ch
 const dir = path.join(__dirname, '..', 'samples');
 let INDEX = null; const cache = {};
 function index() { return INDEX || (INDEX = JSON.parse(fs.readFileSync(path.join(dir, 'packs.json'), 'utf8'))); }
-// the same conversion as the page's loader (app.js pcmZones): sync-click alignment, loop-seam heal, zone list
+// the same conversion as the page's loader (app/core.js pcmZones): sync-click alignment, loop-seam heal, zone list
 function zonesFrom(meta, x) {
   let k = 0, m = 0; for (let i = 0; i < Math.min(x.length, meta.sync + meta.search); i++) { const a = Math.abs(x[i]); if (a > m) { m = a; k = i; } }
   const off = k - meta.sync, zones = [];
