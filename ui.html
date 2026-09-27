@@ -49,7 +49,7 @@ button, select, input, textarea { font: inherit; color: inherit; }
 
 /* header strip */
 .top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
-.brand { font-family: var(--f-ui); font-weight: 700; font-size: 26px; letter-spacing: 0.02em; line-height: 1; margin: 0; }
+.brand { flex: 1 1 300px; min-width: 0; font-family: var(--f-ui); font-weight: 700; font-size: 26px; letter-spacing: 0.02em; line-height: 1; margin: 0; }
 .brand small { display: block; font-weight: 500; font-size: 13px; color: var(--muted); letter-spacing: 0; margin-top: 3px; }
 .top .sp { flex: 1; }
 .hw {
@@ -60,6 +60,7 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .hw:active { transform: translateY(1px); box-shadow: none; }
 .led { width: 9px; height: 9px; border-radius: 50%; background: var(--led-off); flex: none; }
 .led.on { background: var(--led); box-shadow: 0 0 6px var(--led); }
+.led.rec.on { background: #e5484d; box-shadow: 0 0 6px #e5484d; }
 .status { font-size: 13px; color: var(--muted); }
 
 /* the TouchView-style LCD */
@@ -252,6 +253,7 @@ dialog textarea { width: 100%; min-height: 220px; background: var(--panel); bord
     <span class="sp"></span>
     <button class="hw" id="power" type="button"><span class="led" id="pled"></span><span id="ptxt">Start audio</span></button>
     <button class="hw" id="midibtn" type="button"><span class="led" id="mled"></span>MIDI</button>
+    <button class="hw" id="recbtn" type="button" aria-pressed="false" title="Record what you play to a WAV file"><span class="led rec" id="rled"></span><span id="rtxt">Record</span></button>
     <span class="status" id="status" aria-live="polite"></span>
   </header>
 

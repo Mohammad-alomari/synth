@@ -109,7 +109,7 @@ UI: MOSS pages show "Trinity number · model estimate" (e.g. "40 · 250 ms"); pa
 5. CURRENT STATE AND OPEN ITEMS
 ==============================================================================
 Done: MOSS models + effects; PCM engine; 111 stand-in packs; combinations; PCG import of
-Bank M + PCM banks + combinations; Korg-number display; tests; IndexedDB storage; synth memory.
+Bank M + PCM banks + combinations; Korg-number display; tests; IndexedDB storage; synth memory; Record button (WAV).
 Checks passed: all 2,560 PCM programs render (no NaN); 1,408 combinations render (no NaN, 1 silent by data);
 MOSS sound identical to Version 11 (regress.js); browser tests in AudioWorklet and ScriptProcessor modes; phone width.
 

@@ -1691,6 +1691,53 @@ const swState = [0, 0];
 $('#ctltog').addEventListener('click', () => { const c = $('#ctrls'); const open = c.classList.toggle('collapsed') === false; $('#ctltog').setAttribute('aria-expanded', String(open)); setDockH(); });
 function setDockH() { const h = $('#dock').getBoundingClientRect().height; document.documentElement.style.setProperty('--dock-h', Math.ceil(h) + 'px'); }
 
+// ---------------- record to WAV ----------------
+// Taps the final output (after the effects and the limiter) and saves a 16-bit stereo WAV when stopped.
+const REC_MAX_S = 600; // 10 minutes (about 115 MB while recording)
+let rec = null; // { tap, sink, L: Int16Array[], R: Int16Array[], n, t }
+function recUI() {
+  const on = !!rec; $('#rled').classList.toggle('on', on); $('#recbtn').setAttribute('aria-pressed', String(on));
+  const s = on ? Math.floor(rec.n / ctx.sampleRate) : 0;
+  $('#rtxt').textContent = on ? 'Stop ' + Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0') : 'Record';
+}
+function recStart() {
+  const c = ensureContext(); if (!c) return;
+  startAudio();
+  const tap = c.createScriptProcessor(4096, 2, 2), sink = c.createGain(); sink.gain.value = 0;
+  const r = rec = { tap, sink, L: [], R: [], n: 0, t: 0 };
+  const i16 = a => { const o = new Int16Array(a.length); for (let i = 0; i < a.length; i++) { const v = Math.max(-1, Math.min(1, a[i])); o[i] = v < 0 ? v * 32768 : v * 32767; } return o; };
+  tap.onaudioprocess = e => {
+    if (rec !== r) return;
+    const b = e.inputBuffer, L = b.getChannelData(0), R = b.numberOfChannels > 1 ? b.getChannelData(1) : L;
+    r.L.push(i16(L)); r.R.push(i16(R)); r.n += L.length;
+    if (r.n >= REC_MAX_S * c.sampleRate) { recStop(); status('Recording stopped at the 10-minute limit and saved.'); }
+    else if (performance.now() - r.t > 250) { r.t = performance.now(); recUI(); }
+  };
+  analyser.connect(tap); tap.connect(sink); sink.connect(c.destination);
+  recUI(); status('Recording\u2026 press Stop to save a WAV file.');
+}
+function recStop() {
+  const r = rec; if (!r) return; rec = null;
+  try { analyser.disconnect(r.tap); r.tap.disconnect(); r.sink.disconnect(); } catch (e) { console.debug('recorder already disconnected', e); }
+  recUI();
+  if (!r.n) { status('Nothing was recorded.'); return; }
+  const blob = wavBlob(r.L, r.R, r.n, ctx.sampleRate), d = new Date(), p2 = x => String(x).padStart(2, '0');
+  const a = el('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'trinity-' + d.getFullYear() + p2(d.getMonth() + 1) + p2(d.getDate()) + '-' + p2(d.getHours()) + p2(d.getMinutes()) + p2(d.getSeconds()) + '.wav';
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+  status('Saved ' + a.download + ' (' + (r.n / ctx.sampleRate).toFixed(1) + ' s).');
+}
+// 16-bit PCM stereo WAV from interleaving the recorded chunks
+function wavBlob(Ls, Rs, n, sr) {
+  const buf = new ArrayBuffer(44 + n * 4), v = new DataView(buf), str = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  str(0, 'RIFF'); v.setUint32(4, 36 + n * 4, true); str(8, 'WAVE'); str(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 2, true);
+  v.setUint32(24, sr, true); v.setUint32(28, sr * 4, true); v.setUint16(32, 4, true); v.setUint16(34, 16, true); str(36, 'data'); v.setUint32(40, n * 4, true);
+  const out = new Int16Array(buf, 44); let k = 0;
+  for (let c = 0; c < Ls.length; c++) { const L = Ls[c], R = Rs[c]; for (let i = 0; i < L.length; i++) { out[k++] = L[i]; out[k++] = R[i]; } }
+  return new Blob([buf], { type: 'audio/wav' });
+}
+$('#recbtn').addEventListener('click', () => { if (rec) recStop(); else recStart(); });
+
 // ---------------- MIDI ----------------
 function onMidi(e) {
   const d = e.data; if (!d || d.length < 1) return;

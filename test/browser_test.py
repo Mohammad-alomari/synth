@@ -2,7 +2,7 @@
 # Usage: python3 test/browser_test.py            (run python3 build.py first; needs node for test/mkpcg.js)
 # Covers: sound of MOSS / PCM / combination programs in both audio modes, drum programs left out, every page renders, effects editing,
 # phone width, imported-PCG storage (IndexedDB, reload, migration, removal), synth memory, error messages.
-import asyncio, base64, functools, http.server, os, subprocess, sys, tempfile, threading
+import asyncio, base64, functools, http.server, os, struct, subprocess, sys, tempfile, threading
 from playwright.async_api import async_playwright
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TMP = tempfile.mkdtemp()
@@ -80,6 +80,17 @@ async def sound_and_pages(b, url):
         await pg.evaluate("([v, p]) => { __t.load(v); window.__moss.selectPage(p); }", [v, page]); await pg.wait_for_timeout(150)
         ov = await pg.evaluate('document.documentElement.scrollWidth - document.documentElement.clientWidth')
         ok('phone width, %s %s page: no sideways scrolling' % (v, page), ov <= 0, ov)
+    # record to WAV: a note played while recording ends up in the downloaded file
+    await pg.set_viewport_size({'width': 1200, 'height': 900})
+    await pg.evaluate("window.__moss.loadProgram('st', 0)")
+    await pg.click('#recbtn')
+    await pg.evaluate("async () => { window.__moss.noteOn(60, 110); await __t.sleep(700); window.__moss.noteOff(60); await __t.sleep(200); }")
+    async with pg.expect_download() as dl:
+        await pg.click('#recbtn')
+    path = await (await dl.value).path(); data = open(path, 'rb').read()
+    sr, n = struct.unpack('<I', data[24:28])[0], (len(data) - 44) // 4
+    pk = max(abs(x) for x in struct.unpack('<%dh' % (n * 2), data[44:44 + n * 4])) / 32768 if n else 0
+    ok('record: a stereo 16-bit WAV of about a second with the note in it', data[:4] == b'RIFF' and data[8:12] == b'WAVE' and 0.5 < n / sr < 3 and pk > 0.005, [n / sr if n else 0, round(pk, 3)])
     ok('no errors (AudioWorklet mode)', not pg.errs, pg.errs[:5])
     await pg.close()
     pg = await open_page(b, url, script_mode=True)

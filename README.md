@@ -6,6 +6,7 @@ A playable model of the Korg Trinity V3 that reads Trinity (and Triton) PCG file
 - **PCM programs (Banks A–D)**: Single and Double mode with the program's own filters, envelopes, LFOs and effects. Korg's sample ROM is not available, so each multisample is played by an openly licensed stand-in recording (General MIDI, MIT licence) or a built-in waveform.
 - **Drum kits** are not supported: Drum-mode programs are left out, and combination timbres that use one stay silent.
 - **Combinations**: 8 timbres with key/velocity zones, transpose, detune, bend range, level, pan, sends, the combination's insert-effect chains and master effects.
+- **Record**: the Record button saves what you play (after the effects) as a stereo WAV file.
 
 ## Files
 
