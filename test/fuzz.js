@@ -6,7 +6,7 @@ for (const e of TFX.CAT) for (let trial = 0; trial < 12; trial++) {
   const p = TFX.defaults(e.id);
   for (const q of e.params) { if (q[2] === 'sel') p[q[0]] = Math.floor(rnd() * q[3].length); else if (q[2] === 'src') p[q[0]] = Math.floor(rnd() * 36); else p[q[0]] = trial < 2 ? (trial ? q[3] : q[2]) : q[2] + (q[3] - q[2]) * rnd(); }
   if (trial % 3 === 0) { p.wsrc = Math.floor(rnd() * 36); p.wamt = rnd() * 200 - 100; }
-  const u = FxRack.make(sr, e); if (trial % 4 === 1) u.master = true;
+  const u = FxRack.make(sr, e); // master mode comes from the group: insert effects never run in a master slot
   const x = { src: new Float64Array(40), note: Math.floor(rnd() * 128), trig: 0 }; u.x = x;
   const L = new Float32Array(N), R = new Float32Array(N); let pk = 0, nan = 0;
   for (let b = 0; b < 0.8 * sr / N; b++) {
