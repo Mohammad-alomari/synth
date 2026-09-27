@@ -46,6 +46,13 @@ async def main():
         ok('removed banks gone', await pg.evaluate(GROUPS, 'from Old2') == 0)
         await pg.reload(); await pg.wait_for_timeout(1200)
         ok('removed banks stay gone after reload', await pg.evaluate(GROUPS, 'from Old2') == 0 and await pg.evaluate(GROUPS, 'from Test1') == 9)
+        # errors are shown, not swallowed
+        st = await pg.evaluate(IMPORT, [base64.b64encode(base64.b64decode(full)[:5000]).decode(), 'Broken.PCG'])
+        ok('damaged file: status explains', 'damaged' in st or 'shorter' in st, st)
+        await pg.evaluate("localStorage.setItem('moss-current', JSON.stringify({ patch: { kind: 'combi', timbres: 5 }, prog: { bank: 'cb', idx: 0 }, edited: true }))")
+        await pg.reload(); await pg.wait_for_timeout(1200)
+        st = await pg.evaluate("document.querySelector('#status').textContent")
+        ok('unreadable last program: status says so', 'could not be restored' in st, st)
         ok('no page errors', not errs, errs)
         await b.close()
     sys.exit(1 if fails else 0)

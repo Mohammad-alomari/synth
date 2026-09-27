@@ -9,8 +9,8 @@ const ENGINE_CLASSES = [MD, MossEG, MossLFO, MossVoice, TFX, FXDL, FXBQ, FXL, Fx
 // ---------------- persistence ----------------
 const LS_USER = 'moss-user-programs', LS_CUR = 'moss-current';
 const store = {
-  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
-  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } }
+  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { console.warn('Could not read ' + k + ' from browser storage', e); return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { console.warn('Could not write ' + k + ' to browser storage', e); return false; } }
 };
 // Imported PCG files live in IndexedDB (raw bytes, far more room than localStorage's ~5 MB).
 // One record per imported bank: { id, kind: 'moss' | 'tri', name, scale, fmt, rs, bytes }
@@ -35,11 +35,17 @@ const idb = {
 let userBank = store.get(LS_USER, []); if (!Array.isArray(userBank)) userBank = [];
 let prog = { bank: 'st', idx: 0 }, patch = mossPreset(0), edited = false;
 const saved = store.get(LS_CUR, null);
-if (saved && saved.patch) { try { patch = loadAny(saved.patch); prog = saved.prog || prog; edited = !!saved.edited; } catch (e) { patch = mossPreset(0); } }
+let bootNote = ''; // shown in the status line once the page is up
+if (saved && saved.patch) { try { patch = loadAny(saved.patch); prog = saved.prog || prog; edited = !!saved.edited; } catch (e) { console.error('The last program could not be restored', e); patch = mossPreset(0); bootNote = 'Your last program could not be restored, so the first starter program is loaded.'; } }
 // a stored program: MOSS programs are merged onto the default patch; Trinity PCM programs are kept as they are
-function loadAny(p) { return p && (p.kind === 'pcm' || p.kind === 'combi') ? clone(p) : mossLoad(p); }
+function loadAny(p) {
+  if (p && p.kind === 'combi' && !Array.isArray(p.timbres)) throw new Error('combination without timbres');
+  if (p && p.kind === 'pcm' && !Array.isArray(p.o)) throw new Error('PCM program without oscillators');
+  return p && (p.kind === 'pcm' || p.kind === 'combi') ? clone(p) : mossLoad(p);
+}
 let saveT = 0;
-function saveCurrent() { clearTimeout(saveT); saveT = setTimeout(() => store.set(LS_CUR, { patch, prog, edited }), 300); }
+let saveWarned = false;
+function saveCurrent() { clearTimeout(saveT); saveT = setTimeout(() => { if (!store.set(LS_CUR, { patch, prog, edited }) && !saveWarned) { saveWarned = true; status('Browser storage refused to save: this program and its edits are not remembered after a reload.'); } }, 300); }
 
 // ---------------- Trinity PCG banks ----------------
 const LS_PCG = 'moss-pcg', MAX_IMPORTED = 8;
@@ -144,9 +150,14 @@ async function restoreImported() {
   if (!recs.length) return;
   if (!edited && ['pm', 'pc', 'cb'].includes(prog.bank)) loadProgram(prog.bank, prog.idx); else { fillProgSelect(); lcd(); }
 }
+// any failure while importing ends up in the status line instead of being lost in the console
 async function importPcgFile(file) {
+  try { await importPcgInner(file); }
+  catch (e) { console.error('Import failed', e); status('Could not import ' + (file && file.name || 'that file') + ': ' + (e && e.message || e) + '. The file may be damaged or from a model this synth does not read.'); toast('Import failed'); }
+}
+async function importPcgInner(file) {
   let buf;
-  try { buf = await file.arrayBuffer(); } catch (e) { toast('Could not read that file'); return; }
+  try { buf = await file.arrayBuffer(); } catch (e) { console.error('Could not read file', e); toast('Could not read that file'); status('Could not read ' + file.name + ': ' + (e && e.message || e)); return; }
   const bytes = new Uint8Array(buf), r = korgParsePCG(bytes);
   if (!r.ok) { status(r.error); toast('Not imported: ' + r.error); return; }
   const name = file.name.replace(/\.pcg$/i, '');
@@ -188,7 +199,7 @@ let micBusy = false;
 async function setMic(on) {
   if (micBusy) return !!micStream;
   if (!on || micStream) {
-    if (micSrc) { try { micSrc.disconnect(); } catch (e) {} micSrc = null; }
+    if (micSrc) { try { micSrc.disconnect(); } catch (e) { console.debug('microphone already disconnected', e); } micSrc = null; }
     if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
     if (!on) return false;
   }
@@ -216,7 +227,7 @@ class MossProc extends AudioWorkletProcessor {
     let R = o[1]; if (!R) { if (this.R.length < n) this.R = new Float32Array(n); R = this.R; } // mono output: still render
     const mi = ins && ins[0] && ins[0][0] && ins[0][0].length === n ? ins[0][0] : null;
     try { this.e.process(L, R, n, mi); }
-    catch (x) { L.fill(0); R.fill(0); if (!this.err) { this.err = 1; this.port.postMessage({ t: 'err', m: String(x && x.message || x) }); } try { this.e.handle({ t: 'panic' }); } catch (y) {} }
+    catch (x) { L.fill(0); R.fill(0); if (!this.err) { this.err = 1; this.port.postMessage({ t: 'err', m: String(x && x.message || x) }); } try { this.e.handle({ t: 'panic' }); } catch (y) { console.warn('panic after an engine error failed', y); } }
     if (!o[1]) for (let i = 0; i < n; i++) L[i] = (L[i] + R[i]) * 0.5;
     this.c += n;
     if (this.c >= 2400) { this.c = 0; const st = this.e.store, need = st && st.need.size ? [...st.need] : null; if (need) st.need.clear(); this.port.postMessage({ t: 'st', v: this.e.voiceStates(), need }); }
@@ -276,7 +287,7 @@ function pcmEngineReset() { for (const k in packState) delete packState[k]; send
 // Must run synchronously inside a user gesture (tap, click, key): WebKit only lets audio start there.
 function ensureContext() {
   // iOS 16.4+: play as media, so the Silent switch does not mute the synth
-  try { if (navigator.audioSession && navigator.audioSession.type !== 'playback') navigator.audioSession.type = 'playback'; } catch (e) {}
+  try { if (navigator.audioSession && navigator.audioSession.type !== 'playback') navigator.audioSession.type = 'playback'; } catch (e) { console.debug('audioSession not settable', e); }
   if (!ctx) {
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) { status('This browser has no Web Audio support.'); return null; }
@@ -285,29 +296,29 @@ function ensureContext() {
     ctx.onstatechange = () => powerUI();
   }
   if (ctx.state !== 'running' && !userPaused) {
-    try { const p = ctx.resume(); if (p && p.then) p.then(powerUI, () => {}); } catch (e) {}
+    try { const p = ctx.resume(); if (p && p.then) p.then(powerUI, e => console.warn('Audio could not start yet (the browser wants a click or key press)', e)); } catch (e) { console.warn('Audio resume failed', e); }
     // classic WebKit unlock: start a silent one-sample buffer inside the gesture
-    try { const b = ctx.createBuffer(1, 1, ctx.sampleRate), s = ctx.createBufferSource(); s.buffer = b; s.connect(ctx.destination); s.start(0); } catch (e) {}
+    try { const b = ctx.createBuffer(1, 1, ctx.sampleRate), s = ctx.createBufferSource(); s.buffer = b; s.connect(ctx.destination); s.start(0); } catch (e) { console.debug('silent unlock buffer failed', e); }
   }
   if (IS_IOS && !navigator.audioSession && !unlockEl) {
     // older iOS: a playing media element lifts the Silent-switch mute for Web Audio
-    try { unlockEl = document.createElement('audio'); unlockEl.setAttribute('playsinline', ''); unlockEl.loop = true; unlockEl.src = SILENT_WAV; const pr = unlockEl.play(); if (pr && pr.catch) pr.catch(() => {}); } catch (e) {}
+    try { unlockEl = document.createElement('audio'); unlockEl.setAttribute('playsinline', ''); unlockEl.loop = true; unlockEl.src = SILENT_WAV; const pr = unlockEl.play(); if (pr && pr.catch) pr.catch(e => console.debug('silent unlock element did not play', e)); } catch (e) { console.debug('silent unlock element failed', e); }
   }
   return ctx;
 }
 function engineError(m) { status('Sound engine error: ' + String(m).slice(0, 140) + '. Tell Claude this message.'); }
 function useScriptFallback(msg) {
-  if (node) { try { node.disconnect(); } catch (e) {} if (node.port) node.port.onmessage = null; }
+  if (node) { try { node.disconnect(); } catch (e) { console.debug('worklet node already disconnected', e); } if (node.port) node.port.onmessage = null; }
   audioMode = 'script';
   fallbackEng = new MossEngine(ctx.sampleRate);
   node = ctx.createScriptProcessor(1024, 1, 2);
-  if (micSrc) { try { micSrc.disconnect(); micSrc.connect(node); } catch (e) {} } // the vocoder keeps its microphone
+  if (micSrc) { try { micSrc.disconnect(); micSrc.connect(node); } catch (e) { console.warn('Could not reconnect the microphone', e); } } // the vocoder keeps its microphone
   let shown = false;
   node.onaudioprocess = e => {
     const b = e.outputBuffer, L = b.getChannelData(0), R = b.numberOfChannels > 1 ? b.getChannelData(1) : new Float32Array(b.length);
     const mi = micSrc && e.inputBuffer && e.inputBuffer.numberOfChannels ? e.inputBuffer.getChannelData(0) : null;
     try { fallbackEng.process(L, R, b.length, mi); }
-    catch (x) { L.fill(0); R.fill(0); if (!shown) { shown = true; engineError(x && x.message || x); } try { fallbackEng.handle({ t: 'panic' }); } catch (y) {} }
+    catch (x) { L.fill(0); R.fill(0); if (!shown) { shown = true; engineError(x && x.message || x); } try { fallbackEng.handle({ t: 'panic' }); } catch (y) { console.warn('panic after an engine error failed', y); } }
   };
   send = m => { try { fallbackEng.handle(m); } catch (x) { engineError(x && x.message || x); } };
   node.connect(analyser);
@@ -1229,7 +1240,9 @@ function lcd() {
   perfLcd();
 }
 function loadProgram(bank, idx) {
-  const pm = bank === 'pm' ? pcgPatch(idx) : bank === 'pc' ? pcmPatch(idx) : bank === 'cb' ? combiPatch(idx) : null;
+  let pm = null;
+  try { pm = bank === 'pm' ? pcgPatch(idx) : bank === 'pc' ? pcmPatch(idx) : bank === 'cb' ? combiPatch(idx) : null; }
+  catch (e) { console.error('Could not decode program ' + bank + ':' + idx, e); status('That program could not be read (' + (e && e.message || e) + '); its data may be damaged. The previous program stays.'); fillProgSelect(); return; }
   if ((bank === 'us' && !userBank[idx]) || ((bank === 'pm' || bank === 'pc' || bank === 'cb') && !pm) || !['st', 'us', 'pm', 'pc', 'cb'].includes(bank)) { bank = 'st'; idx = 0; }
   patch = bank === 'st' ? mossPreset(idx) : bank === 'pm' || bank === 'pc' || bank === 'cb' ? pm : loadAny(userBank[idx]);
   prog = { bank, idx }; edited = false;
@@ -1327,7 +1340,7 @@ const scopeBuf = new Float32Array(2048);
 let scopeInk = '', scopeGain = 1;
 const readInk = () => { scopeInk = getComputedStyle(document.documentElement).getPropertyValue('--lcd-ink').trim() || '#1a2e28'; };
 readInk();
-try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readInk); } catch (e) {}
+try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readInk); } catch (e) { console.debug('no colour-scheme change events', e); }
 let scopeC = null, scopeG = null, scopeIdle = 0;
 function drawScope() {
   requestAnimationFrame(drawScope);
@@ -1628,7 +1641,7 @@ function velAt(y, k) { const r = k.el.getBoundingClientRect(); return Math.round
 const kbEl = $('#kb');
 kbEl.addEventListener('pointerdown', e => {
   e.preventDefault(); const k = keyAt(e.clientX, e.clientY); if (!k) return;
-  try { kbEl.setPointerCapture(e.pointerId); } catch (x) {}
+  try { kbEl.setPointerCapture(e.pointerId); } catch (x) { console.debug('pointer capture failed', x); }
   ptr.set(e.pointerId, k.n); playOn('p' + e.pointerId, k.n, velAt(e.clientY, k));
 });
 kbEl.addEventListener('pointermove', e => {
@@ -1671,13 +1684,13 @@ function joySet(x, y) {
   if (c2 !== lastCC2) { send({ t: 'cc', c: 2, v: c2 }); lastCC2 = c2; }
 }
 function joyFromEvent(e) { const r = joy.getBoundingClientRect(); const x = Math.max(-1, Math.min(1, (e.clientX - r.left) / r.width * 2 - 1)); const y = Math.max(-1, Math.min(1, 1 - (e.clientY - r.top) / r.height * 2)); joySet(Math.abs(x) < 0.06 ? 0 : x, Math.abs(y) < 0.06 ? 0 : y); }
-joy.addEventListener('pointerdown', e => { e.preventDefault(); joyId = e.pointerId; try { joy.setPointerCapture(e.pointerId); } catch (x) {} if (!ctx) startAudio(); joyFromEvent(e); });
+joy.addEventListener('pointerdown', e => { e.preventDefault(); joyId = e.pointerId; try { joy.setPointerCapture(e.pointerId); } catch (x) { console.debug('pointer capture failed', x); } if (!ctx) startAudio(); joyFromEvent(e); });
 joy.addEventListener('pointermove', e => { if (e.pointerId === joyId) joyFromEvent(e); });
 const joyUp = e => { if (e.pointerId !== joyId) return; joyId = null; joySet(0, 0); };
 joy.addEventListener('pointerup', joyUp); joy.addEventListener('pointercancel', joyUp); joy.addEventListener('lostpointercapture', joyUp);
 const rib = $('#ribbon'), dot = rib.querySelector('.dot'); let ribId = null;
 function ribFrom(e) { const r = rib.getBoundingClientRect(); const x = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)); dot.style.left = 'calc(' + (x * 100) + '% - 9px)'; send({ t: 'cc', c: 16, v: Math.round(x * 127) }); }
-rib.addEventListener('pointerdown', e => { e.preventDefault(); send({ t: 'ribz', v: 1 }); ribId = e.pointerId; try { rib.setPointerCapture(e.pointerId); } catch (x) {} if (!ctx) startAudio(); ribFrom(e); });
+rib.addEventListener('pointerdown', e => { e.preventDefault(); send({ t: 'ribz', v: 1 }); ribId = e.pointerId; try { rib.setPointerCapture(e.pointerId); } catch (x) { console.debug('pointer capture failed', x); } if (!ctx) startAudio(); ribFrom(e); });
 rib.addEventListener('pointermove', e => { if (e.pointerId === ribId) ribFrom(e); });
 const ribUp = e => { if (e.pointerId !== ribId) return; ribId = null; send({ t: 'ribz', v: 0 }); dot.style.left = 'calc(50% - 9px)'; send({ t: 'cc', c: 16, v: 64 }); };
 rib.addEventListener('pointerup', ribUp); rib.addEventListener('pointercancel', ribUp); rib.addEventListener('lostpointercapture', ribUp);
@@ -1708,8 +1721,12 @@ $('#midibtn').addEventListener('click', async () => {
 });
 
 // ---------------- boot ----------------
-renderAll(); buildKb(); perfLcd(); showVoices(new Array((patch.voice && patch.voice.maxVoices) || 32).fill(0)); setDockH();
+try { renderAll(); } catch (e) { // a stored program the pages cannot show: start from the first starter program
+  console.error('Start-up render failed', e); patch = mossPreset(0); prog = { bank: 'st', idx: 0 }; edited = false; bootNote = 'Your last program could not be shown, so the first starter program is loaded.'; renderAll(); saveCurrent();
+}
+buildKb(); perfLcd(); showVoices(new Array((patch.voice && patch.voice.maxVoices) || 32).fill(0)); setDockH();
 window.addEventListener('resize', setDockH);
+if (bootNote) status(bootNote);
 restoreImported();
 window.__moss = { getPatch: () => patch, engine: () => fallbackEng, perf, tuningTable, playOn, playOff, pcgBanks, importPcgFile, startAudio, noteOn, noteOff, selectPage, loadProgram };
 })();
