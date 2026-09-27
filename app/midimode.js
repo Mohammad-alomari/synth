@@ -32,6 +32,7 @@ function mmLcd() {
   $('#mmname').textContent = (patch.name || 'Untitled') + (edited ? ' *' : '');
   $('#mmfrom').textContent = e ? e.g : '';
   const fb = $('#mmfav'); fb.setAttribute('aria-pressed', String(f)); fb.textContent = f ? '★' : '☆'; fb.title = f ? 'Remove from favourites' : 'Add to favourites';
+  const w = inPlace(), sp = $('#mmsaveplace'); sp.hidden = !w; if (w) sp.textContent = 'Save in place (' + w.label + ')';
   if (mmQuickFor !== patch) mmQuick();
 }
 
@@ -117,6 +118,7 @@ $('#mmtrup').addEventListener('click', () => setTrans(perf.trans + 1));
 $('#mmtrv').addEventListener('click', () => setTrans(0));
 $('#mmrevert').addEventListener('click', () => loadProgram(prog.bank, prog.idx));
 $('#mmsave').addEventListener('click', () => saveToUser());
+$('#mmsaveplace').addEventListener('click', () => saveInPlace());
 $('#mmeditor').addEventListener('click', () => { setMidiMode(false); selectPage(Object.keys(PAGESET())[0]); });
 // computer keys: left / right arrow = previous / next program, Escape leaves (not while typing in the search box)
 window.addEventListener('keydown', e => {

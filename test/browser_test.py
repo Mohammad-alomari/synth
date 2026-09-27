@@ -278,6 +278,19 @@ async def storage_and_memory(b, url):
     await pg.reload(); await pg.wait_for_timeout(1200)
     ok('imports kept after reload (IndexedDB)', await pg.evaluate("__t.group('from Full')") == 9 and await pg.evaluate("__t.group('from Combis2')") == 1)
     ok('...memory order kept', all(t[2] == 'Full' for t in await pg.evaluate("() => { __t.load(__t.firstIn('from Combis2')); return __t.timbres(); }") if t[1]))
+    # a timbre's program edited and saved in place: the combination plays the edit, also after a reload; Restore original undoes it
+    cv = await pg.evaluate("__t.firstIn('Combinations A from Hadi2024')")
+    click = "(re) => { window.__moss.selectPage('program'); const b = [...document.querySelectorAll('button')].find(b => new RegExp(re).test(b.textContent)); if (b) b.click(); return !!b; }"
+    pid = await pg.evaluate("(v) => { __t.load(v); const t = window.__moss.getPatch().timbres.find(t => t.pId); return t && t.pId; }", cv)
+    orig = await pg.evaluate("(p) => { __t.load(p); const P = window.__moss.getPatch(); const n = P.name; P.name = 'Edited In Place'; return n; }", pid)
+    saved = await pg.evaluate(click, '^Save in place')
+    names = lambda: pg.evaluate("(v) => { __t.load(v); return __t.timbres().map(t => t[1]); }", cv)
+    ok('save in place: the combination uses the edited program', saved and 'Edited In Place' in await names(), [saved, pid])
+    await pg.reload(); await pg.wait_for_timeout(1200)
+    ok('...kept after reload, and the bank list shows it', 'Edited In Place' in await names() and bool(await pg.evaluate("__t.find(/Edited In Place/)")))
+    await pg.evaluate("(p) => __t.load(p)", pid)
+    restored = await pg.evaluate(click, '^Restore original')
+    ok('...Restore original brings back the program from the file', restored and orig in await names() and 'Edited In Place' not in await names(), orig)
     # removal through the Program page button
     await pg.evaluate("__t.load(__t.firstIn('(PCM) from PcmOnly')); window.__moss.selectPage('program')")
     clicked = await pg.evaluate("() => { const b = [...document.querySelectorAll('button')].find(b => /Remove these PCM banks/.test(b.textContent)); if (b) b.click(); return !!b; }")

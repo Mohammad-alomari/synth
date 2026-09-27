@@ -3,7 +3,7 @@
 // ---------------- program select / LCD ----------------
 let progSig = '';
 // removes an imported bank's stored copy
-function forget(b) { if (b.dbId != null) idb.del(b.dbId).catch(e => { console.error('Could not delete stored bank', e); status('Could not delete ' + b.name + ' from browser storage; it may come back after a reload.'); }); }
+function forget(b) { if (!b.builtin) dropEdits(b.combis ? 'P' : 'M', b.name); if (b.dbId != null) idb.del(b.dbId).catch(e => { console.error('Could not delete stored bank', e); status('Could not delete ' + b.name + ' from browser storage; it may come back after a reload.'); }); }
 function removeTriSet(set) {
   triSets.splice(triSets.indexOf(set), 1);
   for (const L of [pcmBanks, combiBanks]) for (let i = L.length - 1; i >= 0; i--) if (L[i].set === set) L.splice(i, 1);
