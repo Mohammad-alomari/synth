@@ -1,6 +1,6 @@
 // Checks for effect fixes: missing parameters, re-enabling an effect, Dual Delay wet with a mod source, master negative output
 const H = require('./harness.js'); const X = H.load(H.ORDER); const sr = 48000;
-const ok = (name, cond, extra) => console.log((cond ? 'PASS ' : 'FAIL ') + name + (extra ? '  ' + extra : ''));
+const ok = (name, cond, extra) => { if (!cond) process.exitCode = 1; console.log((cond ? 'PASS ' : 'FAIL ') + name + (extra ? '  ' + extra : '')); };
 const blk = (r, L, R, n) => { r.process(L, R, n || 128, r._fx); };
 { // missing parameters: every effect type with an almost empty parameter set
   let bad = [];

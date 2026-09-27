@@ -1,8 +1,10 @@
 # Rebuilds the factory EXB-MOSS entry of pcgdata.js with 716-byte records (Trinity layout + Triton effect section)
-import json, base64, struct
+# Usage: python3 gen_pcgdata.py <Factory_TritonExtreme.PCG>
+import json, base64, struct, sys
+if len(sys.argv) < 2: sys.exit('usage: python3 gen_pcgdata.py <Factory_TritonExtreme.PCG>')
 src = open('pcgdata.js', encoding='utf-8').read()
 arr = json.loads(src[src.index('['):src.rindex(']') + 1])
-b = open('/home/claude/gh/triton_pcg_to_vst/Resources/Factory_TritonExtreme.PCG', 'rb').read()
+b = open(sys.argv[1], 'rb').read()
 rd = lambda o: struct.unpack('>I', b[o:o + 4])[0]
 p = b.find(b'PCG1', 4); end = min(len(b), p + 8 + rd(p + 4)); recs = []; o = p + 8
 while o + 8 <= end:

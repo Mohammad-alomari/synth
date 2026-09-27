@@ -7,7 +7,7 @@ function sig(i) { // bright saw chord + a bit of noise, with gaps so tails are e
   let s = 0; for (const f of [220, 277.2, 329.6]) s += ((t * f) % 1) * 2 - 1;
   return g * (s * 0.12 + (Math.random() * 2 - 1) * 0.03);
 }
-const rows = [];
+const rows = []; let nBad = 0;
 for (const e of TFX.CAT) {
   const u = FxRack.make(sr, e); const p = TFX.defaults(e.id);
   const L = new Float32Array(N), R = new Float32Array(N); let inE = 0, outE = 0, bad = 0, peak = 0;
@@ -19,7 +19,9 @@ for (const e of TFX.CAT) {
     u.process(L, R, N, p, x);
     for (let i = 0; i < N; i++) { const a = L[i], c = R[i]; if (!(a === a) || !(c === c) || !isFinite(a) || !isFinite(c)) bad++; outE += (a * a + c * c) / 2; peak = Math.max(peak, Math.abs(a), Math.abs(c)); }
   }
+  if (bad) nBad++;
   const us = Number(process.hrtime.bigint() - t0) / 1e3 / secs; // microseconds per second of audio
   rows.push([e.id.padEnd(6), e.name.padEnd(22), 'gain ' + (10 * Math.log10(outE / inE)).toFixed(1).padStart(6) + ' dB', 'peak ' + peak.toFixed(2).padStart(6), 'cpu ' + (us / 1e4).toFixed(2).padStart(6) + '%', bad ? 'NaN x' + bad : '']);
 }
 for (const r of rows) console.log(r.join('  '));
+if (nBad) { console.log('FAIL: NaN in', nBad, 'effect(s)'); process.exitCode = 1; }

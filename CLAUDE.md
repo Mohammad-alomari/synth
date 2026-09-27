@@ -140,10 +140,11 @@ Build:   python3 build.py index.html
 Run:     python3 -m http.server 8765   then open http://localhost:8765/index.html (Chrome/Edge; needs http for audio,
          MIDI and samples). Web MIDI: Chrome, Edge, Firefox (not Safari).
 Tests (Node 18+, ffmpeg for PCM tests):
+  sh test/run_all.sh            all offline checks + index.html freshness; exit code 0 = pass (~10 min)
   node test/progs.js            all MOSS programs: NaN, levels, CPU
   node test/combis.js [filter] [max]   all combinations
   node test/voicefix.js | fxfix.js | fuzz.js | fxunit.js | fxfunc.js | models2.js
-  node test/regress.js <older copy folder>   MOSS sample-by-sample regression (env STEP, SECS, ONLY)
+  node test/regress.js <older copy folder> (fxregress.js: same for effects)   MOSS sample-by-sample regression (env STEP, SECS, ONLY)
      note: its "cpu ... speedup x0.78" is an ordering artefact (same code vs itself shows the same)
   test/harness.js loads sources in a vm (slow with tridata.js; big renders use module._compile instead)
   test/pcmpacks.js decodes samples/ with ffmpeg for Node tests (feed/preload helpers)

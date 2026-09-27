@@ -1,7 +1,8 @@
 // Regression: renders programs with a reference source tree and the current one, compares the output sample by sample.
 // Usage: node test/regress.js [refdir] ; env STEP (program stride), SECS, ONLY (regex on id), DRY=1 (no effects)
 const fs = require('fs'), path = require('path');
-const REF = process.argv[2] || '/home/claude/moss_ref', CUR = path.join(__dirname, '..');
+const REF = process.argv[2], CUR = path.join(__dirname, '..');
+if (!REF) { console.error('usage: node test/regress.js <refdir>  (refdir = folder with an older copy of the sources)'); process.exit(2); }
 function load(dir) {
   const src = ['fxcat.js', 'patches.js', 'engine.js', 'pcm.js', 'combi.js', 'fxdsp.js', 'korg.js', 'pcgdata.js'].filter(f => fs.existsSync(path.join(dir, f))).map(f => fs.readFileSync(path.join(dir, f), 'utf8').replace(/if \(typeof module !== 'undefined'\)[^\n]*\n/g, '')).join('\n;\n') + '\nmodule.exports={MossEngine,mossDefaultPatch,mossPreset,korgDecodeMoss,MOSS_PCG_BUILTIN,MOSS_PRESETS,mossLoad};';
   const m = new module.constructor(); m._compile(src, path.join(dir, 'bundle_' + Math.random() + '.js')); return m.exports;

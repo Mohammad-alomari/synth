@@ -53,5 +53,5 @@ for (const T of X.TRI_BUILTIN) for (const b of T.combis) {
 }
 lv.sort((a, b) => a - b);
 console.log('combinations', tot, 'NaN', bad.length, 'silent', silent.length, 'rms p10/p50/p90', [0.1, 0.5, 0.9].map(q => lv[Math.floor(q * (lv.length - 1))].toFixed(1)).join(' '), 'cpu avg/max', (cpuSum / tot * 100).toFixed(0) + '% / ' + (cpuMax * 100).toFixed(0) + '%');
-if (bad.length) console.log('NaN:', bad.slice(0, 10));
+if (bad.length) { console.log('NaN:', bad.slice(0, 10)); process.exitCode = 1; }
 if (silent.length) console.log('silent:', silent.slice(0, 12).join('\n  '));
