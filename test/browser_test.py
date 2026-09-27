@@ -159,7 +159,7 @@ async def public_page(b):
     await pg.add_init_script(JS); await pg.goto(url); await pg.wait_for_timeout(500)
     await pg.click('#power'); await pg.wait_for_timeout(800)
     groups = await pg.evaluate("[...document.querySelectorAll('#prog optgroup')].map(g => g.label)")
-    ok('public page: none of the owner\'s files are listed', not any(n in ' '.join(groups) for n in ['Hadi2024', 'KJ4TRINI', 'TRIN', 'from ']), groups)
+    ok('public page: none of the owner\'s files are listed', not any(n in ' '.join(groups) for n in ['Hadi2024', 'KJ4TRINI', 'TRIN', 'from ', 'Korg factory']), groups)
     ok('public page: starter program plays', await pg.evaluate("__t.play('st', 0, [60])") > 0.005)
     st = await pg.evaluate('([b, n]) => __t.import(b, n)', [pcg('Hadi2024', 'Pub.pcg'), 'Mine.PCG'])
     ok('public page: importing a PCG works', 'Imported from Mine' in st, st)

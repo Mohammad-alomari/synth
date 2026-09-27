@@ -21,8 +21,9 @@ big new features.
 
 Live published page (claude.ai artifact, private): https://claude.ai/artifact/NfWhX8WGhgjyWaUww83WsU
 (last published: Version 15). GitHub: private repo Mohammad-alomari/synth (project files at the repo root).
-Keep the repo PRIVATE: pcgdata.js contains Korg's factory
-EXB-MOSS bank; tridata.js contains the user's own files. The public Netlify site (moss-synth) is built with
+Keep the repo PRIVATE: pcgdata.js and tridata.js contain the user's own files.
+Korg's factory EXB-MOSS bank was removed (licence); the owner imports it himself: https://www.korg.com/us/support/download/software/1/270/3183/
+("EXB-MOSS - MOSS Factory Preload Data", MOSS_EXT.PCG, Triton format -> bank F). The public Netlify site (moss-synth) is built with
 --public, without the owner's files.
 
 ==============================================================================
@@ -46,7 +47,7 @@ korg.js        PCG reader; decoders: korgDecodeMoss (521 B), korgTrinitySections
                korgDecodeCombi (388 B), korgDecodeFxBlocks, korgCombiChains.
 pcmmap.js      PCM_STANDIN.ms (multisample 0-374 -> stand-in; percussion multisamples 333-374 use the kit_* packs),
                PCM_RAMGUESS (RAM/Flash samples guessed from program name), PCM_MS_NAMES (Korg names 0-374).
-pcgdata.js     built-in MOSS banks (base64): Korg factory EXB-MOSS (Triton format) + user's 4 Bank M files.
+pcgdata.js     built-in MOSS banks (base64): the user's 4 Bank M files.
 tridata.js     built-in Trinity data (base64): user's PCM banks and combinations (TRI_BUILTIN).
 samples/       111 MP3 packs (mono 32 kHz 48 kb/s; gmNNN = GM program NNN 0-based; kit_std/elec/808/brush/orch)
                + packs.json {packs:{name:{file,rate,sync,search,heal,s:[[start,len,loopStart,loopEnd,gainDb,
@@ -138,8 +139,8 @@ are not downloadable; the factory preload would also play stand-ins.
 ==============================================================================
 6. BUILD, RUN, TEST
 ==============================================================================
-Build:   python3 build.py [out.html] [--public]   (--public: without the owner's files - tridata.js and his Bank M
-         banks; only the Korg factory bank stays. Netlify publishes the --public build; test/check_public.py checks it.)
+Build:   python3 build.py [out.html] [--public]   (--public: without the owner's files - tridata.js and pcgdata.js.
+         Netlify publishes the --public build; test/check_public.py checks it.)
 Run:     python3 -m http.server 8765   then open http://localhost:8765/index.html (Chrome/Edge; needs http for audio,
          MIDI and samples). Web MIDI: Chrome, Edge, Firefox (not Safari).
 Tests: sh test/run_all.sh (~1 min, exit 0 = pass; FULL=1 for every program/combination, ~10 min).
@@ -173,6 +174,7 @@ Korg documentation
   Windows https://www.korg.com/us/support/download/software/1/213/3296/
   Mac     https://www.korg.com/us/support/download/software/1/213/3297/
   (No V3 preload with the factory MOSS bank was found online.)
+- EXB-MOSS factory bank (Triton format, MOSS_EXT.PCG): https://www.korg.com/us/support/download/software/1/270/3183/
 Open-source references
 - PCG Tools (Michel Keijzers, C#, Trinity V2/V3 support): https://github.com/DaBlick/PCG-Tools
 - Toluene (JUCE SysEx editor for Trinity/TR-Rack, ParameterIDs.h): https://github.com/dave-billin/Toluene

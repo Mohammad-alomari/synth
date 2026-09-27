@@ -23,11 +23,10 @@ A playable model of the Korg Trinity V3 that reads Trinity (and Triton) PCG file
 | `patches.js` | The MOSS patch model, the default program and the starter programs (Mijwiz, Rababa, …). |
 | `korg.js` | Reads Korg PCG files: MOSS, PCM programs, combinations, effects, scales. |
 | `pcmmap.js` | Which stand-in plays each Trinity multisample (0–374); Korg's multisample names. |
-| `pcgdata.js` | Built-in MOSS banks as base64 (includes Korg's factory EXB-MOSS bank – keep this repository private). |
+| `pcgdata.js` | Built-in MOSS banks (Bank M) of your own files, as base64. |
 | `tridata.js` | Built-in Trinity PCG data (PCM banks, combinations) from your own files. |
 | `samples/` | The stand-in packs: one MP3 per General MIDI instrument or drum set (used by percussion multisamples), plus `packs.json` (the maps). |
 | `build.py` | Assembles `index.html` from `ui.html` and the `.js` files. |
-| `gen_pcgdata.py` | Rebuilds the factory entry of `pcgdata.js` from a Triton Extreme PCG: `python3 gen_pcgdata.py <file.PCG>`. |
 | `tools/samples/` | Rebuilds `samples/` from MuseScore's MS General SoundFont (`FluidR3Mono_GM.sf3`, MIT): `python3 tools/samples/build_packs.py` (set `SF3=` to the file). Needs ffmpeg. |
 | `docs/research/` | Notes on the Trinity's data formats: program, combination, drum kit, global, PCG file, effects, multisample list. |
 | `demos/` | Audio demos (MP3) of the Mijwiz and Rababa starter programs. |
@@ -73,5 +72,6 @@ Tools (no pass/fail, run by hand) are in `test/tools/`: `regress.js` / `fxregres
 ## Licences and data
 
 - Stand-in samples: MuseScore's MS General SoundFont (FluidR3 by Frank Wen, FluidR3Mono by Michael Cowgill, MS General by S. Christian Collins), MIT licence.
-- `pcgdata.js` contains Korg's factory EXB-MOSS bank and `tridata.js` your own Trinity files: keep the repository private.
+- `pcgdata.js` and `tridata.js` contain your own Trinity files: keep the repository private.
+- Korg's factory EXB-MOSS bank is not included. Download "EXB-MOSS – MOSS Factory Preload Data" from Korg (https://www.korg.com/us/support/download/software/1/270/3183/), unzip it and load `MOSS_EXT.PCG` with **Import Trinity PCG** (Triton-family PCG files are read too; their MOSS bank shows as bank F).
 - Korg's Trinity factory preload is not included (its licence forbids redistribution). Download it from Korg and load it with **Import Trinity PCG**.
