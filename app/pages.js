@@ -750,7 +750,10 @@ function renderMods(host) {
 function renderMemory(host) {
   const row = el('div', 'btnrow');
   const b = (label, fn) => { const x = el('button', 'hw', label); x.type = 'button'; x.addEventListener('click', fn); row.appendChild(x); return x; };
+  const w = inPlace();
+  if (w) b('Save in place (' + w.label + ')', saveInPlace);
   b(prog.bank === 'us' ? 'Save to User ' + String(prog.idx + 1).padStart(2, '0') : 'Save to User bank', saveToUser);
+  if (w && bankEdits[w.key]) b('Restore original ' + w.label, restoreOriginal);
   if (prog.bank === 'us') b('Save as new', () => { userBank.push(clone(patch)); prog = { bank: 'us', idx: userBank.length - 1 }; commitUser('Saved to User ' + String(prog.idx + 1).padStart(2, '0')); });
   if (prog.bank === 'us' && userBank[prog.idx]) b('Delete from User bank', () => { userBank.splice(prog.idx, 1); prog = { bank: 'st', idx: 0 }; commitUser('Deleted'); loadProgram('st', 0); });
   b('Export or import', () => { $('#dlgtxt').value = JSON.stringify(patch); $('#dlg').showModal(); });
@@ -766,6 +769,7 @@ function renderMemory(host) {
   if (ts && !ts.builtin) b('Remove these PCM banks and combinations', () => { removeTriSet(ts); forget(ts); loadProgram('st', 0); toast('Removed ' + ts.name); });
   b('Revert', () => loadProgram(prog.bank, prog.idx));
   host.appendChild(row);
+  if (w) host.appendChild(el('p', 'help', 'Save in place keeps your edit as ' + w.label + ' of ' + w.file + ': the bank list and every combination that uses this program play it from now on. Restore original brings back the program from the file.'));
   host.appendChild(el('p', 'help', 'User programs and imported banks live in this browser only. Use Export to keep a copy elsewhere. Importing reads a Trinity PCG file\u2019s Bank M (MOSS) programs, its PCM programs (banks A\u2013D; Drum-mode programs are not supported), its combinations, and its user scale. Korg\u2019s free Trinity preload data can be imported the same way. Like the real synth\u2019s memory, an imported file that lacks some banks uses the ones loaded before it (earlier imports first, then the built-in files); the Timbres table shows where each program comes from.'));
 }
 function renderImportInfo(host) {
@@ -794,6 +798,26 @@ function saveToUser() {
   if (prog.bank === 'us' && userBank[prog.idx]) userBank[prog.idx] = clone(patch); else { userBank.push(clone(patch)); prog = { bank: 'us', idx: userBank.length - 1 }; }
   commitUser('Saved to User ' + String(prog.idx + 1).padStart(2, '0'));
 }
+// the current program's place in a Trinity bank (Bank M or a PCM bank), or null when it has none
+function inPlace() {
+  const i = prog.idx % 128;
+  if (prog.bank === 'pm') { const b = pcgBanks[Math.floor(prog.idx / 128)]; return b && i < b.n ? { key: editKeyM(b, i), label: bankLetter(b) + pad3(i), file: b.name, rename: () => { b.names[i] = pcgName(b, i); } } : null; }
+  if (prog.bank === 'pc') { const b = pcmBanks[Math.floor(prog.idx / 128)]; return b ? { key: editKeyP(b, i), label: b.letter + pad3(i), file: b.set.name, rename: () => { b.names[i] = pcmName(b, i); } } : null; }
+  return null;
+}
+// saves over the program in its bank (kept apart from the file's bytes, see bankEdits), so combinations use the edit
+function saveInPlace() {
+  const w = inPlace(); if (!w) return;
+  if (!saveEdits(Object.assign({}, bankEdits, { [w.key]: clone(patch) }))) { toast('Could not save: browser storage is unavailable'); return; }
+  bankChanged(w); toast('Saved in place: ' + w.label);
+}
+function restoreOriginal() {
+  const w = inPlace(); if (!w) return;
+  const all = Object.assign({}, bankEdits); delete all[w.key];
+  if (!saveEdits(all)) { toast('Could not save: browser storage is unavailable'); return; }
+  bankChanged(w); toast('Restored ' + w.label + ' from ' + w.file);
+}
+function bankChanged(w) { w.rename(); progSig = ''; loadProgram(prog.bank, prog.idx); browsers.forEach(b => b.render()); }
 function commitUser(msg) {
   if (!store.set(LS_USER, userBank)) { toast('Could not save: browser storage is unavailable'); return; }
   edited = false;

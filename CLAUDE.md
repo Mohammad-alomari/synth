@@ -78,6 +78,9 @@ Conventions / gotchas
   'trinity-web-synth', store 'files': {id, kind 'moss'|'tri', name, scale, fmt, rs, bytes} (raw bytes; restored
   asynchronously after start-up by restoreImported(); old localStorage keys moss-pcg / moss-tri are migrated).
   Max 8 imported files.
+  moss-bank-edits: programs saved "in place" in a Trinity bank (Program page / MIDI mode "Save in place"): key
+  'M|builtin|M or F|file|n' or 'P|builtin|A-D|file|n' -> patch. pcgPatch/pcmPatch and the bank name lists read it before the
+  file's bytes, so combinations play the edit; "Restore original" deletes it; removing an imported file drops its edits.
 
 ==============================================================================
 3. KORG DATA FORMATS (short; full tables in docs/research/)

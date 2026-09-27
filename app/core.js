@@ -48,6 +48,17 @@ let saveT = 0;
 let saveWarned = false;
 function saveCurrent() { clearTimeout(saveT); saveT = setTimeout(() => { if (!store.set(LS_CUR, { patch, prog, edited }) && !saveWarned) { saveWarned = true; status('Browser storage refused to save: this program and its edits are not remembered after a reload.'); } }, 300); }
 
+// ---------------- programs saved in their place in a Trinity bank ----------------
+// The bank's bytes stay as imported; an edited program saved "in place" is kept here and read before the bytes, so the
+// bank list and every combination that uses the program play the edit. Keyed by file, bank and number (not list position).
+const LS_EDITS = 'moss-bank-edits';
+let bankEdits = store.get(LS_EDITS, {}); if (!bankEdits || typeof bankEdits !== 'object' || Array.isArray(bankEdits)) bankEdits = {};
+const editKeyM = (b, i) => ['M', b.builtin ? 1 : 0, b.fmt === 'triton' ? 'F' : 'M', b.name, i].join('|');
+const editKeyP = (b, i) => ['P', b.set.builtin ? 1 : 0, b.letter, b.set.name, i].join('|');
+function saveEdits(all) { if (!store.set(LS_EDITS, all)) return false; bankEdits = all; return true; }
+// an imported file that is removed takes its saved edits with it (kind 'M': its Bank M, 'P': its PCM banks)
+function dropEdits(kind, name) { const all = Object.assign({}, bankEdits), pre = kind + '|0|'; for (const k in all) if (k.startsWith(pre) && k.split('|')[3] === name) delete all[k]; saveEdits(all); }
+
 // ---------------- Trinity PCG banks ----------------
 const LS_PCG = 'moss-pcg', MAX_IMPORTED = 8;
 const b64dec = s => { const bin = atob(s); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u; };
@@ -56,17 +67,20 @@ const pcgBanks = []; // { name, scale, bytes, n, rs, builtin, names, fmt: 'trini
 function addPcgBank(name, scale, bytes, builtin, fmt, rs) {
   rs = rs || 521;
   const n = Math.floor(bytes.length / rs), names = [];
-  for (let i = 0; i < n; i++) names.push(korgName(bytes.subarray(i * rs, i * rs + 16)) || 'Untitled');
   const b = { name, scale: scale || new Array(12).fill(0), bytes, n, rs, builtin, names, fmt: fmt || 'trinity', dbId: null };
+  for (let i = 0; i < n; i++) names.push(pcgName(b, i));
   pcgBanks.push(b); return b;
 }
+function pcgName(b, i) { const e = bankEdits[editKeyM(b, i)]; return e ? e.name || 'Untitled' : korgName(b.bytes.subarray(i * b.rs, i * b.rs + 16)) || 'Untitled'; }
+function pcmName(b, i) { const e = bankEdits[editKeyP(b, i)]; return e ? e.name || 'Untitled' : korgName(b.bytes.subarray(i * 433, i * 433 + 16)) || 'Untitled'; }
 (typeof MOSS_PCG_BUILTIN !== 'undefined' ? MOSS_PCG_BUILTIN : []).forEach(b => addPcgBank(b.name, b.scale, b64dec(b.m), true, b.fmt, b.rs));
 const bankLetter = b => b && b.fmt === 'triton' ? 'F' : 'M';
 function pcgPatch(idx) {
   const b = pcgBanks[Math.floor(idx / 128)], i = idx % 128;
   if (!b || i >= b.n) return null;
-  const P = korgDecodeMoss(b.bytes.subarray(i * b.rs, (i + 1) * b.rs), b.scale, b.fmt);
-  P.korgInfo.source = b.name + ', Bank ' + bankLetter(b) + ' ' + String(i).padStart(3, '0');
+  const e = bankEdits[editKeyM(b, i)], P = e ? loadAny(e) : korgDecodeMoss(b.bytes.subarray(i * b.rs, (i + 1) * b.rs), b.scale, b.fmt);
+  P.korgInfo = P.korgInfo || { notes: [] };
+  P.korgInfo.source = b.name + ', Bank ' + bankLetter(b) + ' ' + String(i).padStart(3, '0') + (e ? ' (edited and saved in place)' : '');
   return P;
 }
 // ---------------- Trinity PCM programs and combinations (built-in files + imported PCGs) ----------------
@@ -79,8 +93,9 @@ function addTriSet(name, scale, pcm, combis, builtin, hasS) {
   const set = { name, scale: scale || new Array(12).fill(0), combis: combis || [], builtin, hasS: !!hasS, dbId: null };
   triSets.push(set);
   for (const b of pcm) {
-    const names = [], drum = []; for (let i = 0; i < 128; i++) { names.push(korgName(b.bytes.subarray(i * 433, i * 433 + 16)) || 'Untitled'); drum.push((b.bytes[i * 433 + 17] & 3) === 2); }
-    pcmBanks.push({ set, letter: b.letter, bytes: b.bytes, names, drum });
+    const pb = { set, letter: b.letter, bytes: b.bytes, names: [], drum: [] };
+    for (let i = 0; i < 128; i++) { pb.names.push(pcmName(pb, i)); pb.drum.push((b.bytes[i * 433 + 17] & 3) === 2); }
+    pcmBanks.push(pb);
   }
   for (const b of set.combis) {
     const names = []; for (let i = 0; i < 128; i++) names.push(korgName(b.bytes.subarray(i * 388, i * 388 + 16)) || 'Untitled');
@@ -111,8 +126,9 @@ function memoryFor(set, what) {
 function pcmPatch(idx) {
   const b = pcmBanks[Math.floor(idx / 128)], i = idx % 128;
   if (!b || b.drum[i]) return null; // Drum-mode programs (drum kits) are not supported
-  const P = korgDecodePcm(b.bytes.subarray(i * 433, (i + 1) * 433), b.set.scale);
-  P.korgInfo.source = b.set.name + ', Bank ' + b.letter + ' ' + String(i).padStart(3, '0');
+  const e = bankEdits[editKeyP(b, i)], P = e ? loadAny(e) : korgDecodePcm(b.bytes.subarray(i * 433, (i + 1) * 433), b.set.scale);
+  P.korgInfo = P.korgInfo || { notes: [] };
+  P.korgInfo.source = b.set.name + ', Bank ' + b.letter + ' ' + String(i).padStart(3, '0') + (e ? ' (edited and saved in place)' : '');
   return P;
 }
 // a combination with each timbre's program attached (t.p): banks A-D are the file's PCM banks, bank 4 its Bank M
