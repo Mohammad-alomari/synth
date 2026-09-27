@@ -68,7 +68,7 @@ Run all offline checks with `sh test/run_all.sh` (about 10 minutes). It also che
 | `node test/fxprof.js`, `node test/showfx.js <ids>` | Tools: effect CPU profile; print a program's decoded effects. |
 | `node test/regress.js <folder with an older copy of these files>` | Compares every MOSS program sample by sample against an older version. Env: `STEP`, `SECS`, `ONLY`, `DRY`, `SHOW`. |
 
-The browser tests need Python with Playwright and `http.server` running on port 8765: `test/browser.py` (effects pages), `test/browser3.py` (Organ/E.Piano/Brass pages), `test/browser4.py` (MOSS), `test/browser5.py` (PCM programs), `test/browser6.py` (drum kits), `test/browser7.py` (combinations). Screenshots go to the system temp folder (set `SHOT=folder` for browser.py/browser3.py, or pass it as the argument for browser5-7).
+The browser tests need Python with Playwright and `http.server` running on port 8765: `test/browser.py` (effects pages), `test/browser3.py` (Organ/E.Piano/Brass pages), `test/browser4.py` (MOSS), `test/browser5.py` (PCM programs), `test/browser6.py` (drum kits), `test/browser7.py` (combinations), `test/browser8.py` (imported-PCG storage; test files come from `node test/mkpcg.js`). Screenshots go to the system temp folder (set `SHOT=folder` for browser.py/browser3.py, or pass it as the argument for browser5-7).
 
 ## Licences and data
 

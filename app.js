@@ -12,6 +12,26 @@ const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } }
 };
+// Imported PCG files live in IndexedDB (raw bytes, far more room than localStorage's ~5 MB).
+// One record per imported bank: { id, kind: 'moss' | 'tri', name, scale, fmt, rs, bytes }
+const idb = {
+  open() {
+    return this.p || (this.p = new Promise((res, rej) => {
+      if (typeof indexedDB === 'undefined') { rej(new Error('IndexedDB is not available')); return; }
+      const r = indexedDB.open('trinity-web-synth', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('files', { keyPath: 'id', autoIncrement: true });
+      r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+    }));
+  },
+  async run(mode, fn) {
+    const d = await this.open();
+    return new Promise((res, rej) => { const t = d.transaction('files', mode), q = fn(t.objectStore('files')); t.oncomplete = () => res(q.result); t.onerror = t.onabort = () => rej(t.error || new Error('storage transaction failed')); });
+  },
+  all() { return this.run('readonly', s => s.getAll()); },
+  add(rec) { return this.run('readwrite', s => s.add(rec)); },
+  addAll(recs) { return this.run('readwrite', s => { let q = null; for (const r of recs) q = s.add(r); return q || s.count(); }); }, // one transaction: all or nothing
+  del(id) { return this.run('readwrite', s => s.delete(id)); }
+};
 let userBank = store.get(LS_USER, []); if (!Array.isArray(userBank)) userBank = [];
 let prog = { bank: 'st', idx: 0 }, patch = mossPreset(0), edited = false;
 const saved = store.get(LS_CUR, null);
@@ -24,18 +44,16 @@ function saveCurrent() { clearTimeout(saveT); saveT = setTimeout(() => store.set
 // ---------------- Trinity PCG banks ----------------
 const LS_PCG = 'moss-pcg', MAX_IMPORTED = 8;
 const b64dec = s => { const bin = atob(s); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u; };
-const b64enc = u => { let s = ''; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s); };
 const pcgBanks = []; // { name, scale, bytes, n, rs, builtin, names, fmt: 'trinity' | 'triton' }
 // rs: record size, 521 (Trinity layout) or 716 (Triton: Trinity layout + the Triton effect section)
 function addPcgBank(name, scale, bytes, builtin, fmt, rs) {
   rs = rs || 521;
   const n = Math.floor(bytes.length / rs), names = [];
   for (let i = 0; i < n; i++) names.push(korgName(bytes.subarray(i * rs, i * rs + 16)) || 'Untitled');
-  pcgBanks.push({ name, scale: scale || new Array(12).fill(0), bytes, n, rs, builtin, names, fmt: fmt || 'trinity' });
+  const b = { name, scale: scale || new Array(12).fill(0), bytes, n, rs, builtin, names, fmt: fmt || 'trinity', dbId: null };
+  pcgBanks.push(b); return b;
 }
 (typeof MOSS_PCG_BUILTIN !== 'undefined' ? MOSS_PCG_BUILTIN : []).forEach(b => addPcgBank(b.name, b.scale, b64dec(b.m), true, b.fmt, b.rs));
-(x => Array.isArray(x) ? x : [])(store.get(LS_PCG, [])).forEach(b => { try { addPcgBank(b.name, b.scale, b64dec(b.m), false, b.fmt, b.rs); } catch (e) {} });
-function savePcgBanks() { return store.set(LS_PCG, pcgBanks.filter(b => !b.builtin).map(b => ({ name: b.name, scale: b.scale, fmt: b.fmt, rs: b.rs, m: b64enc(b.bytes) }))); }
 const bankLetter = b => b && b.fmt === 'triton' ? 'F' : 'M';
 function pcgPatch(idx) {
   const b = pcgBanks[Math.floor(idx / 128)], i = idx % 128;
@@ -50,7 +68,7 @@ const LS_TRI = 'moss-tri';
 const triSets = [], pcmBanks = [], combiBanks = []; // flat lists of { set, letter, bytes, names }; ids 'pc:' / 'cb:' + (index * 128 + number)
 const pad3 = n => String(n).padStart(3, '0');
 function addTriSet(name, scale, pcm, kitBytes, combis, builtin) {
-  const set = { name, scale: scale || new Array(12).fill(0), kitBytes, kits: null, combis: combis || [], builtin };
+  const set = { name, scale: scale || new Array(12).fill(0), kitBytes, kits: null, combis: combis || [], builtin, dbId: null };
   triSets.push(set);
   for (const b of pcm) {
     const names = []; for (let i = 0; i < 128; i++) names.push(korgName(b.bytes.subarray(i * 433, i * 433 + 16)) || 'Untitled');
@@ -70,7 +88,6 @@ function triFromFile(name, bytes, builtin) { // a whole Trinity PCG -> set
   return addTriSet(name, S.userScale, S.pcm.map(b => ({ letter: b.bank, bytes: cat(b.recs) })), kitBytes, S.combis.map(b => ({ letter: b.bank, bytes: cat(b.recs) })), builtin);
 }
 (typeof TRI_BUILTIN !== 'undefined' ? TRI_BUILTIN : []).forEach(t => addTriSet(t.name, t.scale, t.pcm.map(b => ({ letter: b.bank, bytes: b64dec(b.m) })), t.kits ? b64dec(t.kits) : null, t.combis.map(b => ({ letter: b.bank, bytes: b64dec(b.m) })), true));
-(x => Array.isArray(x) ? x : [])(store.get(LS_TRI, [])).forEach(t => { try { triFromFile(t.name, b64dec(t.m), false); } catch (e) {} });
 function pcmPatch(idx) {
   const b = pcmBanks[Math.floor(idx / 128)], i = idx % 128;
   if (!b) return null;
@@ -98,7 +115,35 @@ function combiPatch(idx) {
   return C;
 }
 // an unedited program is reloaded from its source, so it picks up anything newer (such as its decoded effects)
-if (!edited) { try { const P = prog.bank === 'pm' ? pcgPatch(prog.idx) : prog.bank === 'pc' ? pcmPatch(prog.idx) : prog.bank === 'cb' ? combiPatch(prog.idx) : prog.bank === 'st' ? mossPreset(prog.idx) : null; if (P) patch = P; } catch (e) {} }
+if (!edited) { try { const P = prog.bank === 'pm' ? pcgPatch(prog.idx) : prog.bank === 'pc' ? pcmPatch(prog.idx) : prog.bank === 'cb' ? combiPatch(prog.idx) : prog.bank === 'st' ? mossPreset(prog.idx) : null; if (P) patch = P; } catch (e) { console.warn('Could not reload the current program', e); } }
+// restores a stored bank into the lists; returns false (and logs) when the record cannot be read
+function restoreRecord(r) {
+  try {
+    if (r.kind === 'moss') addPcgBank(r.name, r.scale, r.bytes, false, r.fmt, r.rs).dbId = r.id;
+    else { const set = triFromFile(r.name, r.bytes, false); if (!set) throw new Error('no PCM programs or kits found'); set.dbId = r.id; }
+    return true;
+  } catch (e) { console.error('Stored bank "' + r.name + '" could not be restored', e); return false; }
+}
+// imported banks load after start-up (IndexedDB is asynchronous); banks from older versions are moved over from localStorage
+async function restoreImported() {
+  const bad = [], old = [], dec = (o, kind) => { try { old.push({ kind, name: o.name, scale: o.scale, fmt: o.fmt, rs: o.rs, bytes: b64dec(o.m) }); } catch (e) { console.error('Stored bank could not be decoded', e); bad.push(o && o.name); } };
+  (x => Array.isArray(x) ? x : [])(store.get(LS_PCG, [])).forEach(b => dec(b, 'moss'));
+  (x => Array.isArray(x) ? x : [])(store.get(LS_TRI, [])).forEach(t => dec(t, 'tri'));
+  let recs;
+  try {
+    if (old.length) await idb.addAll(old);
+    recs = await idb.all();
+  } catch (e) {
+    console.error('Browser storage (IndexedDB) is not available', e);
+    recs = old.map(r => Object.assign({ id: null }, r)); // still play what an older version kept in localStorage
+    status('Browser storage is not available here: imported banks cannot be kept.');
+  }
+  if (old.length && recs.some(r => r.id != null)) try { localStorage.removeItem(LS_PCG); localStorage.removeItem(LS_TRI); } catch (e) { console.warn(e); }
+  for (const r of recs) if (!restoreRecord(r)) bad.push(r.name);
+  if (bad.length) status('Could not restore imported bank' + (bad.length > 1 ? 's' : '') + ': ' + bad.join(', ') + '. Import the file again.');
+  if (!recs.length) return;
+  if (!edited && ['pm', 'pc', 'cb'].includes(prog.bank)) loadProgram(prog.bank, prog.idx); else { fillProgSelect(); lcd(); }
+}
 async function importPcgFile(file) {
   let buf;
   try { buf = await file.arrayBuffer(); } catch (e) { toast('Could not read that file'); return; }
@@ -110,18 +155,19 @@ async function importPcgFile(file) {
   }
   if (pcgBanks.filter(b => !b.builtin).length + triSets.filter(t => !t.builtin).length >= MAX_IMPORTED) { toast('Remove an imported bank first (limit ' + MAX_IMPORTED + ')'); return; }
   const got = [];
-  let first = null;
+  let first = null, notKept = false;
   if (r.bankM.length) {
     const rs = r.bankM[0].length, mb = new Uint8Array(r.bankM.length * rs); r.bankM.forEach((rec, i) => mb.set(rec, i * rs));
-    addPcgBank(name, r.userScale, mb, false, r.fmt, rs);
-    if (!savePcgBanks()) { pcgBanks.pop(); toast('Browser storage is full; the bank was not kept'); return; }
+    const nb = addPcgBank(name, r.userScale, mb, false, r.fmt, rs);
+    try { nb.dbId = await idb.add({ kind: 'moss', name, scale: nb.scale, fmt: nb.fmt, rs, bytes: mb }); }
+    catch (e) { console.error('Could not store bank', e); notKept = true; }
     got.push(r.bankM.length + (r.fmt === 'triton' ? ' MOSS (bank F)' : ' Bank M') + ' programs'); first = ['pm', (pcgBanks.length - 1) * 128];
   }
   if (r.fmt !== 'triton' && (r.pcmPrograms || r.drumKits)) {
     const before = pcmBanks.length, set = triFromFile(name, bytes, false);
     if (set) {
-      const kept = store.get(LS_TRI, []); kept.push({ name, m: b64enc(bytes) });
-      if (!store.set(LS_TRI, kept)) { toast('Browser storage is full: the PCM banks play now but are not kept'); }
+      try { set.dbId = await idb.add({ kind: 'tri', name, bytes }); }
+      catch (e) { console.error('Could not store PCM banks', e); notKept = true; }
       const nb = pcmBanks.length - before;
       if (nb) { got.push(nb * 128 + ' PCM programs (banks ' + pcmBanks.slice(before).map(b => b.letter).join('') + ')'); if (!first) first = ['pc', before * 128]; }
       if (set.kitBytes) got.push(Math.floor(set.kitBytes.length / 1426) + ' drum kits');
@@ -130,8 +176,8 @@ async function importPcgFile(file) {
   }
   if (!got.length) { status(name + ': nothing this synth can play' + (r.bankS ? ' (it has a Bank S for the SOLO-TRI board, not supported yet)' : '') + '.'); toast('Nothing imported from ' + name); return; }
   fillProgSelect(); if (first) loadProgram(first[0], first[1]);
-  status('Imported from ' + name + ': ' + got.join(', ') + '.' + (r.bankS ? ' Its Bank S (SOLO-TRI) is not supported yet.' : ''));
-  toast('Imported ' + name);
+  status('Imported from ' + name + ': ' + got.join(', ') + '.' + (r.bankS ? ' Its Bank S (SOLO-TRI) is not supported yet.' : '') + (notKept ? ' Browser storage refused it: it plays now but is gone after a reload.' : ''));
+  toast(notKept ? 'Imported ' + name + ' (not kept)' : 'Imported ' + name);
 }
 
 // ---------------- audio ----------------
@@ -1093,7 +1139,9 @@ function renderMemory(host) {
   b('Export or import', () => { $('#dlgtxt').value = JSON.stringify(patch); $('#dlg').showModal(); });
   b('Import Trinity PCG', () => { const f = el('input'); f.type = 'file'; f.accept = '.pcg,.PCG'; f.addEventListener('change', () => { if (f.files && f.files[0]) importPcgFile(f.files[0]); }); f.click(); });
   const cb = prog.bank === 'pm' ? pcgBanks[Math.floor(prog.idx / 128)] : null;
-  if (cb && !cb.builtin) b('Remove this Trinity bank', () => { pcgBanks.splice(pcgBanks.indexOf(cb), 1); savePcgBanks(); fillProgSelect(); loadProgram('st', 0); toast('Removed ' + cb.name); });
+  if (cb && !cb.builtin) b('Remove this Trinity bank', () => { pcgBanks.splice(pcgBanks.indexOf(cb), 1); forget(cb); loadProgram('st', 0); toast('Removed ' + cb.name); });
+  const ts = prog.bank === 'pc' ? (pcmBanks[Math.floor(prog.idx / 128)] || {}).set : prog.bank === 'cb' ? (combiBanks[Math.floor(prog.idx / 128)] || {}).set : null;
+  if (ts && !ts.builtin) b('Remove these PCM banks and combinations', () => { removeTriSet(ts); forget(ts); loadProgram('st', 0); toast('Removed ' + ts.name); });
   b('Revert', () => loadProgram(prog.bank, prog.idx));
   host.appendChild(row);
   host.appendChild(el('p', 'help', 'User programs and imported banks live in this browser only. Use Export to keep a copy elsewhere. Importing reads a Trinity PCG file\u2019s Bank M (MOSS) programs, its PCM programs (banks A\u2013D) with their drum kits, its combinations, and its user scale. Korg\u2019s free Trinity preload data can be imported the same way.'));
@@ -1139,6 +1187,12 @@ $('#dlgload').addEventListener('click', () => {
 
 // ---------------- program select / LCD ----------------
 let progSig = '';
+// removes an imported bank's stored copy
+function forget(b) { if (b.dbId != null) idb.del(b.dbId).catch(e => { console.error('Could not delete stored bank', e); status('Could not delete ' + b.name + ' from browser storage; it may come back after a reload.'); }); }
+function removeTriSet(set) {
+  triSets.splice(triSets.indexOf(set), 1);
+  for (const L of [pcmBanks, combiBanks]) for (let i = L.length - 1; i >= 0; i--) if (L[i].set === set) L.splice(i, 1);
+}
 function fillProgSelect() {
   const s = $('#prog'), sig = userBank.map(p => p.name || '').join('\u0001') + '|' + pcgBanks.map(b => b.name + ':' + b.n).join('|') + '|' + pcmBanks.map(b => b.set.name + b.letter).join('|') + '|' + combiBanks.map(b => b.set.name + b.letter).join('|');
   if (sig === progSig && s.options.length) { s.value = prog.bank + ':' + prog.idx; return; }
@@ -1656,6 +1710,7 @@ $('#midibtn').addEventListener('click', async () => {
 // ---------------- boot ----------------
 renderAll(); buildKb(); perfLcd(); showVoices(new Array((patch.voice && patch.voice.maxVoices) || 32).fill(0)); setDockH();
 window.addEventListener('resize', setDockH);
+restoreImported();
 window.__moss = { getPatch: () => patch, engine: () => fallbackEng, perf, tuningTable, playOn, playOff, pcgBanks, importPcgFile, startAudio, noteOn, noteOff, selectPage, loadProgram };
 })();
 

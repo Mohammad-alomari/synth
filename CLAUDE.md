@@ -63,8 +63,10 @@ Conventions / gotchas
 - Messages to the engine: patch, set (path,v), on, off, cc, bend, at, tune, panic, pcmMap, pcmPack (zones,
   transferable buffer), pcmKits. Worklet posts {t:'st', v: voiceStates, need:[pack names]}.
 - Program ids in the UI: st:N starter, us:N user, pm:N MOSS bank, pc:N PCM (bank*128+i), cb:N combination.
-- Stored in browser localStorage: moss-user-programs, moss-current, moss-pcg (imported MOSS banks),
-  moss-tri (whole imported Trinity PCGs, base64). Max 8 imported files.
+- Stored in browser localStorage: moss-user-programs, moss-current, moss-page. Imported PCGs live in IndexedDB
+  'trinity-web-synth', store 'files': {id, kind 'moss'|'tri', name, scale, fmt, rs, bytes} (raw bytes; restored
+  asynchronously after start-up by restoreImported(); old localStorage keys moss-pcg / moss-tri are migrated).
+  Max 8 imported files.
 
 ==============================================================================
 3. KORG DATA FORMATS (short; full tables in docs/research/)
@@ -149,7 +151,8 @@ Tests (Node 18+, ffmpeg for PCM tests):
   test/harness.js loads sources in a vm (slow with tridata.js; big renders use module._compile instead)
   test/pcmpacks.js decodes samples/ with ffmpeg for Node tests (feed/preload helpers)
 Browser tests (Python + Playwright, server on 8765): test/browser4.py (MOSS), browser5.py (PCM),
-  browser6.py (drum kits), browser7.py (combinations). window.__moss exposes loadProgram(bank, idx),
+  browser6.py (drum kits), browser7.py (combinations), browser8.py (imported-PCG storage).
+  test/mkpcg.js <built-in name> <out.pcg> [pcm,combi,kit,moss] writes a PCG from built-in data for import tests. window.__moss exposes loadProgram(bank, idx),
   getPatch, noteOn/noteOff, selectPage, engine() (script mode), importPcgFile.
 
 ==============================================================================
