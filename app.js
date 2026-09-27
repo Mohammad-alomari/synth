@@ -458,6 +458,7 @@ function dstOpts() {
 // ---------------- control descriptors ----------------
 const S = (path, label, min, max, o) => Object.assign({ k: 's', path, label, min, max, step: 1 }, o || {});
 const SEL = (path, label, opts, o) => Object.assign({ k: 'sel', path, label, opts }, o || {});
+const BEND_STEPS = [[0, 'Continuous'], [0.125, '1/8 semitone'], [0.25, '1/4 semitone'], [0.5, '1/2 semitone']].concat([...Array(12)].map((_, i) => [i + 1, (i + 1) + ' semitone' + (i ? 's' : '')]));
 const TOG = (path, label, o) => Object.assign({ k: 'tog', path, label }, o || {});
 const ROUTING_HELP = {
   parallel: 'Mixer 1 feeds Filter 1 and Amp 1; Mixer 2 feeds Filter 2 and Amp 2.',
@@ -480,7 +481,9 @@ function pageProgram() {
       SEL('voice.unison', 'Unison', [[1, 'Off'], [2, '2 voices'], [3, '3 voices'], [6, '6 voices']], { num: true }),
       S('voice.uniDetune', 'Unison detune', 0, 99), S('voice.random', 'Random pitch', 0, 99), TOG('voice.hold', 'Hold'), S('voice.tempo', 'Tempo (LFO sync)', 40, 240, { fmt: v => v + ' bpm' })] },
     { title: 'Portamento', controls: [TOG('voice.porta', 'On'), TOG('voice.portaFingered', 'Fingered (legato only)'), S('voice.portaTime', 'Time', 0, 99)] },
-    { title: 'Joystick pitch bend', controls: [S('voice.bendUp', 'JS +X', -60, 24, { fmt: F.semis }), S('voice.bendDown', 'JS \u2212X', -60, 24, { fmt: F.semis })] },
+    { title: 'Joystick pitch bend', controls: [S('voice.bendUp', 'JS +X', -60, 24, { fmt: F.semis }), S('voice.bendDown', 'JS \u2212X', -60, 24, { fmt: F.semis }),
+      SEL('voice.bendStepUp', 'Step +X', BEND_STEPS, { num: true }), SEL('voice.bendStepDown', 'Step \u2212X', BEND_STEPS, { num: true })],
+      help: 'Step: the bend moves in steps of that size instead of gliding. Reed and Brass oscillators also have Jump bend (semitone jumps, like overblowing).' },
     { title: 'Output', controls: [S('out.level', 'Output level', 0, 127), S('out.pan', 'Pan', 0, 127, { fmt: F.pan })],
       help: 'MIDI CC 70 to 76 and 79 work as on the EXB-MOSS: sustain level, resonance, release, attack, cutoff, decay, LFO speed and filter EG intensity.' },
     { title: 'Program memory', custom: renderMemory }
@@ -536,7 +539,7 @@ function pageOsc(i) {
       S(pp + 'bwDampLo', 'Damping ramp low', -99, 99, { fmt: F.sgn }), S(pp + 'bwDampHi', 'Damping ramp high', -99, 99, { fmt: F.sgn }), S(pp + 'bwDisp', 'Dispersion', 0, 99), S(pp + 'bwRefl', 'Bridge reflection', 0, 99)] });
     secs.push({ title: 'Peaking EQ', controls: [S(pp + 'bwEqF', 'Frequency', 0, 49), S(pp + 'bwEqQ', 'Q', 0, 29), S(pp + 'bwEqG', 'Gain', -18, 18, { fmt: F.sgn })] });
   } else if (t === 'reed') {
-    secs.push({ title: 'Instrument', controls: [SEL(pp + 'rdType', 'Inst type', REED_TYPES, { num: true }), SEL(pp + 'rdPrsEg', 'Pressure EG', EG_OPTS), S(pp + 'rdPrsInt', 'EG intensity', -99, 99, { fmt: F.sgn }), S(pp + 'rdNoise', 'Breath noise', 0, 99)],
+    secs.push({ title: 'Instrument', controls: [SEL(pp + 'rdType', 'Inst type', REED_TYPES, { num: true }), SEL(pp + 'rdJump', 'Jump bend', [[0, 'Off (smooth)'], [1, 'JS +X'], [2, 'JS \u2212X'], [3, 'Both']], { num: true }), SEL(pp + 'rdPrsEg', 'Pressure EG', EG_OPTS), S(pp + 'rdPrsInt', 'EG intensity', -99, 99, { fmt: F.sgn }), S(pp + 'rdNoise', 'Breath noise', 0, 99)],
       help: 'Breath noise comes from the noise generator, so its filter shapes the breath. Pressure near zero is silent; more pressure plays louder and brighter.' });
     secs.push({ title: 'Tone', controls: [S(pp + 'rdHpf', 'High-pass', 0, 99), S(pp + 'rdHpfReso', 'High-pass resonance', 0, 99), SEL(pp + 'rdWsTable', 'Shape table', [['clip', 'Clip'], ['reso', 'Reso']]),
       S(pp + 'rdWsOff', 'Shape offset', -99, 99, { fmt: F.sgn }), S(pp + 'rdWsShape', 'Shape', 0, 99)] });
@@ -563,7 +566,7 @@ function pageOsc(i) {
     secs.push({ title: 'Pickup and EQ', controls: [S(pp + 'epPos', 'Pickup position', 0, 99), S(pp + 'epEqF', 'Low EQ frequency', 0, 49), S(pp + 'epEqG', 'Low EQ gain', -18, 18, { fmt: F.sgn })],
       help: 'Low settings centre the pickup on the tine: the 2nd partial takes over and the fundamental fades. Higher settings bring the fundamental in.' });
   } else if (t === 'brass') {
-    secs.push({ title: 'Instrument', controls: [SEL(pp + 'brType', 'Inst type', BRASS_TYPES, { num: true }), SEL(pp + 'brPrsEg', 'Pressure EG', EG_OPTS), S(pp + 'brPrsInt', 'EG intensity', -99, 99, { fmt: F.sgn }), S(pp + 'brNoise', 'Breath noise', 0, 99)],
+    secs.push({ title: 'Instrument', controls: [SEL(pp + 'brType', 'Inst type', BRASS_TYPES, { num: true }), SEL(pp + 'brJump', 'Jump bend', [[0, 'Off (smooth)'], [1, 'JS +X'], [2, 'JS \u2212X'], [3, 'Both']], { num: true }), SEL(pp + 'brPrsEg', 'Pressure EG', EG_OPTS), S(pp + 'brPrsInt', 'EG intensity', -99, 99, { fmt: F.sgn }), S(pp + 'brNoise', 'Breath noise', 0, 99)],
       help: 'More pressure plays louder and brighter. Breath noise comes from the noise generator, so its filter shapes the breath. Mod page: \u201cOSC 1: pressure\u201d.' });
     secs.push({ title: 'Lips and bell', controls: [S(pp + 'brLip', 'Lip character', 0, 99), S(pp + 'brBell', 'Bell tone', 0, 99), S(pp + 'brBellRes', 'Bell resonance', 0, 99), S(pp + 'brStr', 'Strength', 0, 99)],
       help: 'Higher lip character is firmer, harder blowing. Higher bell tone removes the low end. Strength overdrives the tone.' });

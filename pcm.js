@@ -11,6 +11,8 @@ class PCM {
   // filter EG): 0 = 250 Hz, 99 = 20 kHz; the filter EG reaches twice as far as a cutoff step (EGK)
   static cutHz(x, sr) { const f = 250 * Math.pow(2, x / 15.6); return f < 30 ? 30 : f > sr * 0.45 ? sr * 0.45 : f; }
   static get EGK() { return 2; }
+  // bend STEP list (Korg): 0 continuous, 1 = 1/8 semitone, 2 = 1/4, 3 = 1/2, 4 = 1 ... 15 = 12 semitones
+  static stepSemis(v) { return !(v > 0) ? 0 : v < 4 ? [0.125, 0.25, 0.5][v - 1] : v - 3; }
   static kReso(r) { return MD.kReso((r < 0 ? 0 : r > 31 ? 31 : r) / 31 * 92); }
   static ramp(n, kl, kh, rl, rh) { return n < kl ? (kl - n) / 12 * rl / 99 * 12 : n > kh ? (n - kh) / 12 * rh / 99 * 12 : 0; } // in parameter units per octave
   // EG time multiplier from keyboard track (center C4) and velocity: +99 halves the time per octave / at full velocity
@@ -311,7 +313,9 @@ class PcmVoice {
       semis += peg * (Pt.egInt * (1 + Pt.egVel / 99 * (this.vel - 1)) + (Pt.egAmsInt ? Pt.egAmsInt * this.ams(eng, Pt.egAmsSrc, i) : 0));
       const vib = Pt.lfoInt + MD.pitchScale(O.lfoPitch.jsy) * c.jsy + MD.pitchScale(O.lfoPitch.at) * c.at + (O.lfoPitch.amsInt ? O.lfoPitch.amsInt * this.ams(eng, O.lfoPitch.amsSrc, i) : 0);
       semis += lv * vib + Pt.ribbon * c.ribbon + (Pt.amsInt ? Pt.amsInt * this.ams(eng, Pt.amsSrc, i) : 0);
-      const x = c.jsx; semis += x >= 0 ? x * Pt.jsUp : -x * Pt.jsDown;
+      const x = c.jsx, bst = PCM.stepSemis(x >= 0 ? Pt.stepUp : Pt.stepDown); let bend = x >= 0 ? x * Pt.jsUp : -x * Pt.jsDown;
+      if (bst > 0) bend = Math.round(bend / bst) * bst; // STEP: the bend moves in steps
+      semis += bend;
       semis += eng.tuneSemis(this.pitch - eng.keyShift[this.note]);
       const inc = z.rate / sr * Math.pow(2, (semis - o.root) / 12);
       // filters

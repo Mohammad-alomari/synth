@@ -147,7 +147,7 @@ function korgDecodeMoss(r, userScale, fmt) {
   }
   // OSC common
   P.voice.bendUp = lim(s(145), -60, 24, 'Pitch bend +'); P.voice.bendDown = lim(s(146), -60, 24, 'Pitch bend -');
-  if (u(147)) notes.push('Stepped pitch bend is played smoothly');
+  P.voice.bendStepUp = KORG_PCM.stepSemis(u(147) & 15); P.voice.bendStepDown = KORG_PCM.stepSemis(u(147) >> 4); // bend Step (+X / -X)
   route(src(148), 'pitch', s(149));
   P.voice.porta = u(150) & 1; P.voice.portaFingered = (u(150) >> 1) & 1; P.voice.portaTime = lim(u(151), 0, 99, 'Portamento time');
   route(src(152), 'portaTime', s(153));
@@ -213,7 +213,6 @@ function korgDecodeMoss(r, userScale, fmt) {
       p.rdNoise = u(sb + 13); route(src(sb + 26), M(1), s(sb + 27)); p.rdHpf = u(sb + 28); p.rdHpfReso = u(sb + 29);
       p.rdEqF = u(sb + 30); p.rdEqQ = u(sb + 31); p.rdEqG = s(sb + 32);
       p.rdWsOff = s(sb + 34); p.rdWsTable = (u(sb + 35) >> 7) ? 'reso' : 'clip'; p.rdWsShape = u(sb + 35) & 127; route(src(sb + 36), M(2), s(sb + 37));
-      if (p.rdJump) notes.push('Jump pitch bend (overblowing) is played as a smooth bend');
     } else if (t === 'pluck') {
       p.plAtk = u(sb); p.plAtkVel = s(sb + 1); p.plUp = u(sb + 2); p.plUpVel = s(sb + 3); p.plDn = u(sb + 4); p.plDnVel = s(sb + 5); p.plNoise = u(sb + 6); p.plNoiseVel = s(sb + 7);
       p.plPos = u(sb + 8); route(src(sb + 9), M(0), s(sb + 10)); p.plDisp = u(sb + 11); route(src(sb + 12), M(1), s(sb + 13));
@@ -241,7 +240,6 @@ function korgDecodeMoss(r, userScale, fmt) {
       p.brLip = lim(u(sb + 9), 0, 99, 'Lip character'); route(src(sb + 10), M(1), s(sb + 11));
       p.brBell = lim(u(sb + 15), 0, 99, 'Bell tone'); p.brBellRes = lim(u(sb + 16), 0, 99, 'Bell resonance'); p.brNoise = lim(u(sb + 17), 0, 99, 'Breath noise');
       p.brEqF = lim(u(sb + 28), 0, 49, 'Brass EQ frequency'); p.brEqQ = lim(u(sb + 29), 0, 29, 'Brass EQ Q'); p.brEqG = lim(s(sb + 30), -18, 18, 'Brass EQ gain'); p.brStr = lim(u(sb + 31), 0, 99, 'Strength');
-      if (p.brJump) notes.push('Jump pitch bend (overblowing) is played as a smooth bend');
     }
     p.korg = Array.from(r.slice(sb, sb + 38)); // raw oscillator block, as stored
   }
@@ -470,6 +468,8 @@ const KORG_PCM = {
   // PITCH INT (-12.00..+12.00 semitones), signed byte, piecewise steps
   pint(b) { return b <= -61 ? -12 + (Math.max(b, -115) + 115) * 0.2 : b <= -51 ? -1 + (b + 60) * 0.05 : b <= 50 ? b * 0.01 : b <= 60 ? 0.55 + (b - 51) * 0.05 : 1.2 + (Math.min(b, 115) - 61) * 0.2; },
   // DELAY START list: ms, or -1 = start at note-off
+  // bend STEP list: 0 continuous, 1 = 1/8 semitone, 2 = 1/4, 3 = 1/2, 4 = 1 ... 15 = 12 semitones
+  stepSemis(v) { return v <= 0 ? 0 : v < 4 ? [0.125, 0.25, 0.5][v - 1] : v - 3; },
   delayMs(v) { if (v === 255) return -1; if (v <= 25) return v * 2; if (v <= 40) return 60 + (v - 26) * 10; if (v <= 56) return 250 + (v - 41) * 50; if (v <= 96) return 1100 + (v - 57) * 100; return 5000; },
   KEY_SLOPE: [0, 1, 2, 3, 4, 6, 8, 10, 12, 18, 24, 30, 36, 48, 60, 72]
 };
