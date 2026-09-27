@@ -19,7 +19,7 @@ function mossOscDefaults() {
     // Bowed string (double size)
     bwSpdEg: 'amp', bwSpdInt: 60, bwDiff: 0, bwPrsEg: 'amp', bwPrsInt: 80, bwRosin: 40, bwPos: 12, bwDamp: 45, bwDampKey: 60, bwDampLo: 0, bwDampHi: 0, bwDisp: 40, bwRefl: 95, bwEqF: 20, bwEqQ: 10, bwEqG: 0,
     // Reed (double size)
-    rdType: 5, rdPrsEg: 'amp', rdPrsInt: 75, rdNoise: 15, rdHpf: 25, rdHpfReso: 10, rdEqF: 25, rdEqQ: 10, rdEqG: 0, rdWsOff: 0, rdWsTable: 'clip', rdWsShape: 15,
+    rdType: 5, rdJump: 0, rdPrsEg: 'amp', rdPrsInt: 75, rdNoise: 15, rdHpf: 25, rdHpfReso: 10, rdEqF: 25, rdEqQ: 10, rdEqG: 0, rdWsOff: 0, rdWsTable: 'clip', rdWsShape: 15,
     // Plucked string (double size)
     plAtk: 90, plAtkVel: 40, plUp: 40, plUpVel: 0, plDn: 90, plDnVel: 0, plNoise: 25, plNoiseVel: 0, plPos: 25, plDisp: 5, plDamp: 50, plDampKt: 0, plDecay: 70, plDecayKt: 20, plRel: 30,
     plHarm: 0, plPickup: 1, plPickPos: 30, plEqF: 10, plEqG: 0, plBoost: 20,
@@ -43,7 +43,7 @@ function mossFilter(o) { return Object.assign({ type: 'lpf', trimA: 80, trimB: 8
 function mossDefaultPatch() {
   return {
     name: 'Init Program',
-    voice: { mode: 'poly', priority: 'last', maxVoices: 6, unison: 1, uniDetune: 20, random: 0, porta: 0, portaTime: 30, portaFingered: 0, bendUp: 2, bendDown: -2, hold: 0, tempo: 120 },
+    voice: { mode: 'poly', priority: 'last', maxVoices: 6, unison: 1, uniDetune: 20, random: 0, porta: 0, portaTime: 30, portaFingered: 0, bendUp: 2, bendDown: -2, bendStepUp: 0, bendStepDown: 0, hold: 0, tempo: 120 },
     osc: [mossOsc('standard'), mossOsc('standard')],
     sub: { wave: 'saw', octave: 0, transpose: 0, tune: 0, foffset: 0 },
     noise: { ftype: 'thru', trim: 99, freq: 99, reso: 0 },

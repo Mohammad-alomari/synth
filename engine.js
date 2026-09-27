@@ -195,6 +195,7 @@ class MossVoice {
     this.target = note;
     if (glideFrom !== null && glideFrom !== undefined) this.pitch = glideFrom; else this.pitch = note;
     this.glideSpan = Math.abs(this.target - this.pitch);
+    for (const o of this.osc) o.jb = undefined; // Jump Bend starts from the joystick's current position
     if (!legato) {
       this.randOff = (P.voice.random || 0) / 99 * 0.5 * this.rnd();
       const perc = eng.percussionOK();
@@ -284,6 +285,14 @@ class MossVoice {
     const c = O.slopeCenter === undefined ? 60 : O.slopeCenter;
     const slope = n < c ? (n - c) * (O.slopeLow === undefined ? 1 : O.slopeLow) : (n - c) * (O.slopeHigh === undefined ? 1 : O.slopeHigh);
     let semis = c + slope + O.octave * 12 + O.transpose + O.tune / 100 + semisBase + d[1] + d[2 + i];
+    // Reed / Brass "Jump Bend" (bit 0 = joystick +X, bit 1 = -X): bending in that direction moves in semitone jumps,
+    // like overblowing or changing the fingering, with a quick 15 ms move to each new step (estimate)
+    const jmp = O.type === 'reed' ? p.rdJump : O.type === 'brass' ? p.brJump : 0;
+    if (jmp) {
+      const on = (pb > 0 && (jmp & 1)) || (pb < 0 && (jmp & 2)), tgt = on ? Math.round(pb) : pb;
+      o.jb = on && o.jb !== undefined ? o.jb + (tgt - o.jb) * (1 - Math.exp(-(this._dtb || 0) / 0.015)) : tgt;
+      semis += o.jb - pb;
+    }
     const mb = 43 + i * 8, M = this.Mf[i];
     const A = (d[5 + i * 2] + d[mb]) / 99, B = (d[6 + i * 2] + d[mb + 1]) / 99;
     bc.type = O.type; { const ti = MossVoice.TI[O.type]; bc.ti = ti === undefined ? -1 : ti; } bc.A = A; bc.B = B; bc.lvlMul = MD.lvl(99 + d[9 + i]);
@@ -1147,7 +1156,11 @@ class MossEngine {
     return bpm / 60 / beats;
   }
   sustainHeld(v) { return this.ctl.sustain && v.sustained; }
-  bendSemis() { const x = this.ctl.jsx, V = this.patch.voice; return x >= 0 ? x * V.bendUp : -x * V.bendDown; }
+  // joystick X bend; the program's bend Step (0 = continuous) makes it move in steps of that many semitones
+  bendSemis() {
+    const x = this.ctl.jsx, V = this.patch.voice, b = x >= 0 ? x * V.bendUp : -x * V.bendDown, st = x >= 0 ? V.bendStepUp : V.bendStepDown;
+    return st > 0 ? Math.round(b / st) * st : b;
+  }
   applyEgOffsets(eg) { eg.susOff = this.egSus; eg.timeOff = this.egTime; }
   handle(m) {
     if (this.combi) {

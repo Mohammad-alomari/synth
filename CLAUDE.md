@@ -113,17 +113,18 @@ UI: MOSS pages show "Trinity number · model estimate" (e.g. "40 · 250 ms"); pa
 Done: MOSS models + effects; PCM engine; 111 stand-in packs; combinations; PCG import of
 Bank M + PCM banks + combinations; Korg-number display; tests; IndexedDB storage; synth memory; Record button (WAV);
 combination timbre Delay start (byte 243; key-off timbres released after 0.25 s, estimate) and MIDI filters
-(byte 247 b1 damper, b2 aftertouch, b3 CC = rxDamper/rxAT/rxCC; b0 program change kept as rxPC, unused).
+(byte 247 b1 damper, b2 aftertouch, b3 CC = rxDamper/rxAT/rxCC; b0 program change kept as rxPC, unused);
+MOSS bend Step (byte 147: b0-3 +X, b4-7 -X, STEP list 0 cont, 1/8, 1/4, 1/2, 1..12 st = voice.bendStepUp/Down; PCM
+programs' own STEP too) and Reed/Brass Jump Bend (rdJump/brJump bit0 +X, bit1 -X: bend in semitone jumps, 15 ms
+move - interpretation; the OS labels it "Jump Bend:"). Multisample names = Trinity OS 3.1.1 wave-ROM directory.
 Checks passed: all 2,560 PCM programs render (no NaN); 1,408 combinations render (no NaN, 1 silent by data);
 MOSS sound identical to Version 11 (regress.js); browser tests in AudioWorklet and ScriptProcessor modes; phone width.
 
 Open / ideas (not built):
-1. MOSS: reed/brass "jump pitch bend" (overblowing) played as smooth bend; byte 147 (stepped bend?) unclear.
-   Owner wants a REMINDER about this one later - do not start it unasked.
-2. Combination: per-timbre (program) scale not modelled.
-3. Bank S (Solo-TRI board) not modelled; timbres pointing to S are silent.
-4. RAM/Flash samples (0x1000|n) guessed by program name (PCM_RAMGUESS) - the audio only lived in the user's synth.
-5. Timbre ifx rule inferred; calibration constants are estimates.
+1. Combination: per-timbre (program) scale not modelled.
+2. Bank S (Solo-TRI board) not modelled; timbres pointing to S are silent.
+3. RAM/Flash samples (0x1000|n) guessed by program name (PCM_RAMGUESS) - the audio only lived in the user's synth.
+4. Timbre ifx rule inferred; calibration constants are estimates.
 Decisions by the owner (do NOT propose these again):
 - Never limit combinations to one MOSS program (the real Trinity's limit is deliberately not copied).
 - Drum kits are removed and stay removed (no drum-sample list / kit fixes).

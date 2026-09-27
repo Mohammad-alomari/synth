@@ -49,3 +49,13 @@ const ok = (name, cond, extra) => { if (!cond) process.exitCode = 1; console.log
 { // 8 CC120 cuts, CC123 releases
   const e = mk(); e.handle({ t: 'on', n: 60, v: 100 }); run(e, 0.1); e.handle({ t: 'cc', c: 120, v: 0 }); ok('CC120 all sound off', act(e) === 0);
 }
+{ // 9 Reed "Jump Bend": bending moves in semitone jumps; without it the bend is smooth
+  const pitchAt = (jump, x) => { const e = mk(P => { P.osc[0].type = 'reed'; P.osc[0].p.rdJump = jump; P.voice.bendUp = 2; P.voice.bendDown = -2; });
+    e.handle({ t: 'on', n: 60, v: 100 }); run(e, 0.05); const v = e.voices.find(v => v.active), s0 = v.bc[0].semC; e.handle({ t: 'bend', v: x }); run(e, 0.1); return v.bc[0].semC - s0; };
+  const smooth = pitchAt(0, 0.4), jump = pitchAt(3, 0.4), down = pitchAt(1, -0.4);
+  ok('Jump Bend: +0.8 semitone of bend jumps to +1; smooth without; -X ignored when only +X is set', Math.abs(smooth - 0.8) < 1e-6 && Math.abs(jump - 1) < 0.01 && Math.abs(down + 0.8) < 1e-6, [smooth, jump, down].map(x => x.toFixed(3)).join(' '));
+}
+{ // 10 program bend Step: the bend moves in steps of that many semitones
+  const e = mk(P => { P.voice.bendUp = 12; P.voice.bendStepUp = 2; }); e.handle({ t: 'bend', v: 0.3 });
+  ok('bend Step 2: +3.6 semitones of bend plays as +4', e.bendSemis() === 4, e.bendSemis());
+}
