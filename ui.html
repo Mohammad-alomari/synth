@@ -188,6 +188,8 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 20px; border-radius: 
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; background: var(--panel-2);
   border-top: 1px solid var(--line); padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0px));
   display: flex; gap: 10px; align-items: stretch;
+  /* phones: no text selection, callout menu or double-tap zoom while playing */
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; touch-action: manipulation;
 }
 .dock .ctrls { display: flex; flex-direction: column; gap: 6px; flex: none; width: 150px; }
 .dockbar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
@@ -237,7 +239,9 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 20px; border-radius: 
 .dock.kbfix #kb { flex: none; height: var(--kb-h); min-height: 0; }
 /* play mode: the dock fills the screen (made for a phone held sideways) */
 .playbar { display: none; }
-body.play { padding-bottom: 0; overflow: hidden; }
+body.play { padding-bottom: 0; overflow: hidden; overscroll-behavior: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+body.play .dock { touch-action: none; }
+body.play .dock .ctrls { touch-action: pan-y; }
 body.play .wrap { display: none; }
 body.play .dock {
   top: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); gap: 8px;

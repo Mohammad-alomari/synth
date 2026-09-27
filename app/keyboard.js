@@ -151,6 +151,15 @@ kbEl.addEventListener('pointermove', e => {
 const ptrUp = e => { if (!ptr.has(e.pointerId)) return; playOff('p' + e.pointerId); ptr.delete(e.pointerId); };
 kbEl.addEventListener('pointerup', ptrUp); kbEl.addEventListener('pointercancel', ptrUp); kbEl.addEventListener('lostpointercapture', ptrUp);
 kbEl.addEventListener('contextmenu', e => e.preventDefault());
+// phones: touches on the playing surfaces must not select text, show the magnifier, scroll or zoom (iOS ignores
+// touch-action for some of these, so the touch events themselves are cancelled; pointer events still arrive)
+const noTouch = e => { if (e.cancelable) e.preventDefault(); };
+for (const s of ['#kb', '#joy', '#ribbon']) for (const t of ['touchstart', 'touchmove', 'touchend']) $(s).addEventListener(t, noTouch, { passive: false });
+// iOS pinch zoom (Safari ignores user-scalable=no): cancel it on the dock and everywhere in play mode
+const inPlayArea = e => document.body.classList.contains('play') || (e.target && e.target.closest && e.target.closest('#dock'));
+for (const t of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(t, e => { if (inPlayArea(e)) noTouch(e); }, { passive: false });
+document.addEventListener('touchmove', e => { if (e.touches.length > 1 && inPlayArea(e)) noTouch(e); }, { passive: false });
+$('#dock').addEventListener('dblclick', e => e.preventDefault());
 let rsT = 0; window.addEventListener('resize', () => { clearTimeout(rsT); rsT = setTimeout(buildKb, 120); });
 
 // computer keyboard
@@ -205,8 +214,12 @@ function setDockH() { if (document.body.classList.contains('play')) return; cons
 
 // ---------------- play mode ----------------
 // The keyboard and controllers fill the screen; on phones that allow it, the page goes full screen and turns sideways.
+const vpMeta = document.querySelector('meta[name="viewport"]'), vpBase = vpMeta ? vpMeta.content : '';
 function setPlayMode(on) {
   document.body.classList.toggle('play', on);
+  // no zoom while playing (also resets a zoom that happened before); normal zoom returns when play mode ends
+  if (vpMeta) vpMeta.content = on ? vpBase + ', maximum-scale=1, user-scalable=no' : vpBase;
+  if (on) { try { const sel = window.getSelection(); if (sel) sel.removeAllRanges(); } catch (e) { console.debug('clear selection failed', e); } }
   wakeLock(on);
   if (on && kbs.fullscreen) {
     const de = document.documentElement, rf = de.requestFullscreen || de.webkitRequestFullscreen;
