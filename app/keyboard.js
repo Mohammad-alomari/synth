@@ -246,7 +246,7 @@ function swShow(k, on) { swState[k] = on ? 1 : 0; $(k ? '#sw2' : '#sw1').setAttr
 [['#sw1', 0, 80], ['#sw2', 1, 81]].forEach(([id, k, cc]) => { const b = $(id); if (!b) return;
   b.addEventListener('click', () => { swShow(k, !swState[k]); if (!ctx) startAudio(); send({ t: 'cc', c: cc, v: swState[k] ? 127 : 0 }); }); });
 $('#ctltog').addEventListener('click', () => { const c = $('#ctrls'); const open = c.classList.toggle('collapsed') === false; $('#ctltog').setAttribute('aria-expanded', String(open)); setDockH(); });
-function setDockH() { if (document.body.classList.contains('play')) return; const h = $('#dock').getBoundingClientRect().height; document.documentElement.style.setProperty('--dock-h', Math.ceil(h) + 'px'); }
+function setDockH() { if (document.body.classList.contains('play') || document.body.classList.contains('midi')) return; const h = $('#dock').getBoundingClientRect().height; document.documentElement.style.setProperty('--dock-h', Math.ceil(h) + 'px'); }
 
 // ---------------- play mode ----------------
 // The keyboard and controllers fill the screen; on phones that allow it, the page goes full screen and turns sideways.
@@ -256,6 +256,7 @@ function setPlayMode(on) {
   // no zoom while playing (also resets a zoom that happened before); normal zoom returns when play mode ends
   if (vpMeta) vpMeta.content = on ? vpBase + ', maximum-scale=1, user-scalable=no' : vpBase;
   if (on) { try { const sel = window.getSelection(); if (sel) sel.removeAllRanges(); } catch (e) { console.debug('clear selection failed', e); } }
+  else { pbListOpen(false); if (favOnly) setFavOnly(false); }
   wakeLock(on);
   if (on && kbs.fullscreen) {
     const de = document.documentElement, rf = de.requestFullscreen || de.webkitRequestFullscreen;
@@ -277,11 +278,24 @@ async function wakeLock(on) {
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && document.body.classList.contains('play')) wakeLock(true); });
 // Sustain: an on-screen damper pedal (CC64); it also shows the pedal of a MIDI keyboard
 let sustainOn = false;
-function sustainShow(on) { sustainOn = !!on; $('#pbsus').setAttribute('aria-pressed', String(sustainOn)); }
-$('#pbsus').addEventListener('click', () => { sustainShow(!sustainOn); if (!ctx) startAudio(); send({ t: 'cc', c: 64, v: sustainOn ? 127 : 0 }); });
+function sustainShow(on) { sustainOn = !!on; for (const b of [$('#pbsus'), $('#mmsus')]) b.setAttribute('aria-pressed', String(sustainOn)); }
+for (const b of [$('#pbsus'), $('#mmsus')]) b.addEventListener('click', () => { sustainShow(!sustainOn); if (!ctx) startAudio(); send({ t: 'cc', c: 64, v: sustainOn ? 127 : 0 }); });
 $('#playbtn').addEventListener('click', () => { startAudio(); setPlayMode(true); });
 $('#pbexit').addEventListener('click', () => setPlayMode(false));
 $('#pbkeys').addEventListener('click', () => { setPlayMode(false); selectPage('keys'); });
 $('#pbprev').addEventListener('click', () => stepProgram(-1));
 $('#pbnext').addEventListener('click', () => stepProgram(1));
-window.addEventListener('keydown', e => { if (e.key === 'Escape' && document.body.classList.contains('play') && !document.fullscreenElement) setPlayMode(false); });
+// the program list: tapping the name opens it; picking a program (or Close, or Escape) closes it
+const pbList = progBrowser($('#pblbody'), e => { loadProgram(e.b, e.i); pbListOpen(false); }, () => !$('#pbl').hidden);
+function pbListOpen(on) {
+  const box = $('#pbl'); if (box.hidden === !on) return;
+  box.hidden = !on; $('#pbnamebtn').setAttribute('aria-expanded', String(on));
+  if (on) pbList.open(); else if (document.body.classList.contains('play')) $('#pbnamebtn').focus({ preventScroll: true });
+}
+$('#pbnamebtn').addEventListener('click', () => pbListOpen(true));
+$('#pblclose').addEventListener('click', () => pbListOpen(false));
+window.addEventListener('keydown', e => {
+  if (e.key !== 'Escape' || !document.body.classList.contains('play')) return;
+  if (!$('#pbl').hidden) { e.preventDefault(); pbListOpen(false); return; }
+  if (!document.fullscreenElement) setPlayMode(false);
+});

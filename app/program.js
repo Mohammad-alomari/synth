@@ -24,13 +24,18 @@ function progEntries() {
 }
 // the search box: every word must appear in the program's name, number or group (upper/lower case alike)
 let progQuery = '';
+// favourites (the ★ in MIDI mode), kept by list group + program text so they survive re-imports;
+// favOnly limits the list and the ‹ › steps to them
+const favs = new Set((a => Array.isArray(a) ? a : [])(store.get('moss-favs', []))); let favOnly = false;
+const favKey = e => e.g + '|' + e.t, isFav = e => favs.has(favKey(e));
 const progMatch = (e, words) => { const t = (e.t + ' ' + e.g).toLowerCase(); return words.every(w => t.includes(w)); };
 function progList() {
-  const all = progEntries(), words = progQuery.toLowerCase().split(/\s+/).filter(Boolean);
+  let all = progEntries(); if (favOnly) all = all.filter(isFav);
+  const words = progQuery.toLowerCase().split(/\s+/).filter(Boolean);
   return words.length ? all.filter(e => progMatch(e, words)) : all;
 }
 function fillProgSelect() {
-  const s = $('#prog'), sig = progQuery + '|' + userBank.map(p => p.name || '').join('') + '|' + pcgBanks.map(b => b.name + ':' + b.n).join('|') + '|' + pcmBanks.map(b => b.set.name + b.letter).join('|') + '|' + combiBanks.map(b => b.set.name + b.letter).join('|');
+  const s = $('#prog'), sig = progQuery + '|' + (favOnly ? favs.size : '-') + '|' + userBank.map(p => p.name || '').join('') + '|' + pcgBanks.map(b => b.name + ':' + b.n).join('|') + '|' + pcmBanks.map(b => b.set.name + b.letter).join('|') + '|' + combiBanks.map(b => b.set.name + b.letter).join('|');
   const cur = prog.bank + ':' + prog.idx;
   if (sig === progSig && s.options.length && [...s.options].some(o => o.value === cur)) { s.value = cur; return; }
   progSig = sig; s.innerHTML = '';
@@ -50,7 +55,7 @@ function lcd() {
   $('#pname').textContent = (patch.name || 'Untitled') + (edited ? ' *' : '');
   $('#pname').title = edited ? 'Edited, not saved' : '';
   $('#pbname').textContent = $('#pnum').textContent + ' ' + $('#pname').textContent;
-  perfLcd();
+  perfLcd(); mmLcd(); browsers.forEach(b => b.sync());
 }
 function loadProgram(bank, idx) {
   let pm = null;
@@ -80,6 +85,57 @@ $('#prog').addEventListener('change', e => { const [b, i] = e.target.value.split
 $('#prev').addEventListener('click', () => stepProgram(-1));
 $('#next').addEventListener('click', () => stepProgram(1));
 function renderAll() { fillProgSelect(); lcd(); renderTabs(); renderPage(); renderFlow(); }
+
+// ---------------- program browser (play mode list, MIDI mode Browse) ----------------
+// Lists one bank at a time, starting with the current program's; the bank button above the list shows every bank to
+// switch to. A search or the favourites filter lists the matches from every bank. The search is the same as the
+// editor's search box, so ‹ › then step through its results.
+const browsers = [];
+function setProgQuery(v) { progQuery = v; $('#progq').value = v; fillProgSelect(); }
+function setFavOnly(on) { favOnly = on; fillProgSelect(); browsers.forEach(b => b.render()); }
+function progBrowser(host, onPick, shown = () => !host.hidden) {
+  const bar = el('div', 'pbr-bar'), q = el('input'), fav = el('button', 'hw', '★ Favourites'), bankBtn = el('button', 'pbr-bank'), list = el('div', 'pbr-list');
+  q.type = 'search'; q.placeholder = 'Find a program'; q.autocomplete = 'off'; q.setAttribute('aria-label', 'Find a program');
+  fav.type = 'button'; fav.title = 'Show and step through favourites only'; bankBtn.type = 'button';
+  list.setAttribute('role', 'listbox'); list.setAttribute('aria-label', 'Programs');
+  bar.append(q, fav); host.innerHTML = ''; host.append(bar, bankBtn, list);
+  let bank = null, showBanks = false, shownFor = '', qT = 0;
+  const item = (label, sel, cls, fn) => { const b = el('button', null); b.type = 'button'; b.setAttribute('role', 'option'); b.setAttribute('aria-selected', String(sel)); b.appendChild(el('span', null, label)); if (cls) b.appendChild(el('span', cls[0], cls[1])); b.addEventListener('click', fn); list.appendChild(b); return b; };
+  const centre = b => { list.scrollTop = b ? Math.max(0, b.offsetTop - list.clientHeight / 2 + b.offsetHeight / 2) : 0; };
+  function render() {
+    if (!shown()) return;
+    const cur = prog.bank + ':' + prog.idx, all = progEntries(), ce = all.find(e => e.v === cur), groups = [...new Set(all.map(e => e.g))];
+    if (document.activeElement !== q) q.value = progQuery;
+    fav.setAttribute('aria-pressed', String(favOnly));
+    if (!bank || !groups.includes(bank)) bank = ce ? ce.g : groups[0];
+    list.innerHTML = ''; let sel = null;
+    if (progQuery || favOnly) { // matches from every bank, under their bank names
+      bankBtn.hidden = true;
+      const hits = progList(); let g = null;
+      for (const e of hits) { if (e.g !== g) { g = e.g; list.appendChild(el('div', 'g', g)); } const b = item(e.t, e.v === cur, isFav(e) ? ['st', '★'] : null, () => onPick(e)); if (e.v === cur) sel = b; }
+      if (!hits.length) list.appendChild(el('div', 'empty', favOnly && !progQuery ? 'No favourites yet: tap ☆ beside a program name to add it.' : 'No program matches.'));
+    } else if (showBanks) { // every bank; the current one is marked
+      bankBtn.hidden = false; bankBtn.replaceChildren(el('span', 'bn', 'Choose a bank'), el('span', 'bx', 'Back'));
+      bankBtn.setAttribute('aria-label', 'Back to ' + bank);
+      for (const g of groups) { const b = item(g, g === bank, ['n', String(all.filter(e => e.g === g).length)], () => { bank = g; showBanks = false; render(); }); if (g === bank) sel = b; }
+    } else { // the programs of one bank
+      bankBtn.hidden = false; bankBtn.replaceChildren(el('span', 'bn', bank), el('span', 'bx', 'Banks ▾'));
+      bankBtn.setAttribute('aria-label', 'Bank: ' + bank + '. Show all banks');
+      for (const e of all) if (e.g === bank) { const b = item(e.t, e.v === cur, isFav(e) ? ['st', '★'] : null, () => onPick(e)); if (e.v === cur) sel = b; }
+    }
+    centre(sel);
+  }
+  q.addEventListener('input', () => { clearTimeout(qT); qT = setTimeout(() => { setProgQuery(q.value.trim()); render(); }, 150); });
+  fav.addEventListener('click', () => setFavOnly(!favOnly));
+  bankBtn.addEventListener('click', () => { showBanks = !showBanks; render(); });
+  const api = {
+    render,
+    // open, or follow the playing program into its bank when it changes
+    open() { bank = null; showBanks = false; shownFor = prog.bank + ':' + prog.idx; render(); },
+    sync() { const cur = prog.bank + ':' + prog.idx; if (!shown() || cur === shownFor) return; api.open(); }
+  };
+  browsers.push(api); return api;
+}
 
 // ---------------- signal flow (TouchView-style block diagram) ----------------
 function renderFlow() {
@@ -149,6 +205,7 @@ function renderFlowPcm(svg) {
 function showVoices(v) {
   const h = $('#vleds'); if (h.children.length !== v.length) { h.innerHTML = ''; v.forEach(() => h.appendChild(el('i'))); h.classList.toggle('many', v.length > 16); }
   v.forEach((s, i) => { h.children[i].className = s === 2 ? 'g' : s === 1 ? 'r' : ''; });
+  if (document.body.classList.contains('midi')) { let n = 0; for (const s of v) if (s) n++; $('#mmvoices').textContent = n; }
 }
 const scopeBuf = new Float32Array(2048);
 let scopeInk = '', scopeGain = 1;

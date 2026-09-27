@@ -80,9 +80,8 @@ function perfLcd() {
   if (perf.oct) parts.push('Oct ' + sgn(perf.oct));
   if (perf.trans) parts.push('Trans ' + sgn(perf.trans));
   $('#shiftinfo').textContent = parts.join('  ');
-  const ov = $('#octv'), tv = $('#trv');
-  ov.textContent = sgn(perf.oct) || '0'; ov.classList.toggle('nz', !!perf.oct);
-  tv.textContent = sgn(perf.trans) || '0'; tv.classList.toggle('nz', !!perf.trans);
+  for (const ov of [$('#octv'), $('#mmoctv')]) { ov.textContent = sgn(perf.oct) || '0'; ov.classList.toggle('nz', !!perf.oct); }
+  for (const tv of [$('#trv'), $('#mmtrv')]) { tv.textContent = sgn(perf.trans) || '0'; tv.classList.toggle('nz', !!perf.trans); }
 }
 function setOct(v) { perf.oct = Math.max(-3, Math.min(3, v)); savePerf(); perfLcd(); buildKb(); }
 function setTrans(v) { perf.trans = Math.max(-12, Math.min(12, v)); savePerf(); perfLcd(); }
@@ -209,26 +208,27 @@ function quickScale() {
   }
   return { v: perf.scale, key: perf.key };
 }
+// the scale menus of the play bar and MIDI mode (.qscale / .qkey)
 function quickScaleUI() {
-  const s = $('#pbscale'), k = $('#pbkey'); if (!s) return;
   const { v, key } = quickScale(), opts = [['equal', 'Equal'], ['arabic', 'Arabic']].concat(MAQAMS.map(m => ['mq:' + m[0], m[1]]), [['user', perf.scale === 'user' && v === 'user' && perf.userLabel ? perf.userLabel : 'Your scale']]);
   if (v === 'prog') opts.unshift(['prog', 'Program scale']);
   else if (!opts.some(o => o[0] === v)) opts.unshift([v, scaleDef()[1]]);
-  s.innerHTML = ''; for (const [val, t] of opts) { const o = el('option', null, t); o.value = val; s.appendChild(o); }
-  s.value = v;
-  if (!k.options.length) NOTE_NAMES.forEach((n, i) => { const o = el('option', null, n); o.value = i; k.appendChild(o); });
-  k.disabled = !(v === 'arabic' || v.startsWith('mq:')); k.value = String(key);
+  document.querySelectorAll('.qscale').forEach(s => { s.innerHTML = ''; for (const [val, t] of opts) { const o = el('option', null, t); o.value = val; s.appendChild(o); } s.value = v; });
+  document.querySelectorAll('.qkey').forEach(k => {
+    if (!k.options.length) NOTE_NAMES.forEach((n, i) => { const o = el('option', null, n); o.value = i; k.appendChild(o); });
+    k.disabled = !(v === 'arabic' || v.startsWith('mq:')); k.value = String(key);
+  });
 }
-$('#pbscale').addEventListener('change', e => {
+document.querySelectorAll('.qscale').forEach(s => s.addEventListener('change', e => {
   const v = e.target.value; if (v === 'prog') return;
   perf.progScale = false;
   if (v.startsWith('mq:')) { const m = MAQAMS.find(x => 'mq:' + x[0] === v); loadMaqam(m[0], m[2]); } // on its usual key
   else { perf.scale = v; applyScaleChange(); }
-});
-$('#pbkey').addEventListener('change', e => {
+}));
+document.querySelectorAll('.qkey').forEach(k => k.addEventListener('change', e => {
   const key = Number(e.target.value), { v } = quickScale();
   if (v === 'arabic') { perf.key = key; applyScaleChange(); } else if (v.startsWith('mq:')) loadMaqam(v.slice(3), key);
-});
+}));
 function editUser(pc, cents) {
   let msg = '';
   if (perf.scale !== 'user') {
