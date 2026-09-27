@@ -73,8 +73,8 @@ function pcgPatch(idx) {
 const LS_TRI = 'moss-tri';
 const triSets = [], pcmBanks = [], combiBanks = []; // flat lists of { set, letter, bytes, names }; ids 'pc:' / 'cb:' + (index * 128 + number)
 const pad3 = n => String(n).padStart(3, '0');
-function addTriSet(name, scale, pcm, kitBytes, combis, builtin) {
-  const set = { name, scale: scale || new Array(12).fill(0), kitBytes, kits: null, combis: combis || [], builtin, dbId: null };
+function addTriSet(name, scale, pcm, kitBytes, combis, builtin, hasS) {
+  const set = { name, scale: scale || new Array(12).fill(0), kitBytes, kits: null, combis: combis || [], builtin, hasS: !!hasS, dbId: null };
   triSets.push(set);
   for (const b of pcm) {
     const names = []; for (let i = 0; i < 128; i++) names.push(korgName(b.bytes.subarray(i * 433, i * 433 + 16)) || 'Untitled');
@@ -88,17 +88,31 @@ function addTriSet(name, scale, pcm, kitBytes, combis, builtin) {
 }
 function kitsOf(set) { if (!set.kits) { set.kits = []; const B = set.kitBytes || new Uint8Array(0); for (let o = 0; o + 1426 <= B.length; o += 1426) set.kits.push(korgDecodeKit(B.subarray(o, o + 1426))); } return set.kits; }
 function triFromFile(name, bytes, builtin) { // a whole Trinity PCG -> set
-  const S = korgTrinitySections(bytes); if (!S.ok || (!S.pcm.length && !S.kits.length)) return null;
+  const S = korgTrinitySections(bytes); if (!S.ok || (!S.pcm.length && !S.kits.length && !S.combis.length && !S.bankM.length)) return null;
   const cat = recs => { const rs = recs[0].length, u = new Uint8Array(recs.length * rs); recs.forEach((r, i) => u.set(r, i * rs)); return u; };
   const kitBytes = S.kits.length ? cat(S.kits) : null;
-  return addTriSet(name, S.userScale, S.pcm.map(b => ({ letter: b.bank, bytes: cat(b.recs) })), kitBytes, S.combis.map(b => ({ letter: b.bank, bytes: cat(b.recs) })), builtin);
+  return addTriSet(name, S.userScale, S.pcm.map(b => ({ letter: b.bank, bytes: cat(b.recs) })), kitBytes, S.combis.map(b => ({ letter: b.bank, bytes: cat(b.recs) })), builtin, S.bankS.length > 0);
 }
-(typeof TRI_BUILTIN !== 'undefined' ? TRI_BUILTIN : []).forEach(t => addTriSet(t.name, t.scale, t.pcm.map(b => ({ letter: b.bank, bytes: b64dec(b.m) })), t.kits ? b64dec(t.kits) : null, t.combis.map(b => ({ letter: b.bank, bytes: b64dec(b.m) })), true));
+(typeof TRI_BUILTIN !== 'undefined' ? TRI_BUILTIN : []).forEach(t => addTriSet(t.name, t.scale, t.pcm.map(b => ({ letter: b.bank, bytes: b64dec(b.m) })), t.kits ? b64dec(t.kits) : null, t.combis.map(b => ({ letter: b.bank, bytes: b64dec(b.m) })), true, !!t.s));
+// ---- synth memory ----
+// Like loading PCG files into a real Trinity: an imported file brings the banks it contains; whatever it lacks
+// (PCM banks A-D, drum kits, Bank M) comes from what was loaded before it: earlier imports (newest first), then the
+// built-in files in their list order (Hadi2024 first: it has every bank, so one file fills everything in). Built-in files keep to their own data, as before. A file with a Bank S (Solo-TRI) never takes a
+// Bank M from memory: in that synth, bank 4 is the Solo-TRI bank (not modelled, silent).
+const mossOf = s => pcgBanks.find(x => x.name === s.name && x.fmt !== 'triton' && !!x.builtin === !!s.builtin) || null;
+function setHas(s, what) { return what === 'kits' ? !!(s.kitBytes && s.kitBytes.length) : what === 'M' ? !!mossOf(s) : pcmBanks.some(b => b.set === s && b.letter === what); }
+function memoryFor(set, what) {
+  if (setHas(set, what)) return set;
+  if (set.builtin || (what === 'M' && set.hasS)) return null;
+  const imp = triSets.filter(s => !s.builtin), order = imp.slice(0, imp.indexOf(set)).reverse().concat(triSets.filter(s => s.builtin));
+  for (const s of order) { if (what === 'M' && s.hasS) return null; if (setHas(s, what)) return s; }
+  return null;
+}
 function pcmPatch(idx) {
   const b = pcmBanks[Math.floor(idx / 128)], i = idx % 128;
   if (!b) return null;
   const P = korgDecodePcm(b.bytes.subarray(i * 433, (i + 1) * 433), b.set.scale);
-  if (P.mode === 'drum') P.kitData = kitsOf(b.set)[P.kit] || null;
+  if (P.mode === 'drum') { const ks = memoryFor(b.set, 'kits'); P.kitData = ks ? kitsOf(ks)[P.kit] || null : null; if (ks && ks !== b.set) P.korgInfo.kitFrom = ks.name; }
   P.korgInfo.source = b.set.name + ', Bank ' + b.letter + ' ' + String(i).padStart(3, '0');
   return P;
 }
@@ -106,8 +120,9 @@ function pcmPatch(idx) {
 // (MOSS, Trinity V3); a Solo-TRI Bank S is not modelled, so such a timbre stays silent
 function timbreProgram(set, t) {
   t.p = null; t.pId = ''; t.pLabel = ('ABCD'[t.bank] || (t.bank === 4 ? 'M' : '?')) + pad3(t.prog);
-  if (t.bank <= 3) { const bi = pcmBanks.findIndex(x => x.set === set && x.letter === 'ABCD'[t.bank]); if (bi >= 0) { t.p = pcmPatch(bi * 128 + t.prog); t.pId = 'pc:' + (bi * 128 + t.prog); } }
-  else if (t.bank === 4) { const mi = pcgBanks.findIndex(x => x.name === set.name && x.fmt !== 'triton'); if (mi >= 0) { t.p = pcgPatch(mi * 128 + t.prog); t.pId = 'pm:' + (mi * 128 + t.prog); } else t.pLabel = 'S' + pad3(t.prog); }
+  t.from = '';
+  if (t.bank <= 3) { const L = 'ABCD'[t.bank], src = memoryFor(set, L), bi = src ? pcmBanks.findIndex(x => x.set === src && x.letter === L) : -1; if (bi >= 0) { t.p = pcmPatch(bi * 128 + t.prog); t.pId = 'pc:' + (bi * 128 + t.prog); if (src !== set) t.from = src.name; } }
+  else if (t.bank === 4) { const src = memoryFor(set, 'M'), mb = src && mossOf(src), mi = mb ? pcgBanks.indexOf(mb) : -1; if (mi >= 0) { t.p = pcgPatch(mi * 128 + t.prog); t.pId = 'pm:' + (mi * 128 + t.prog); if (src !== set) t.from = src.name; } else if (set.hasS || set.builtin) t.pLabel = 'S' + pad3(t.prog); }
   if (t.p) delete t.p.korg; // the raw bytes are not needed inside a combination
   t.pName = t.p ? t.p.name : '';
 }
@@ -164,7 +179,7 @@ async function importPcgInner(file) {
   if (r.fmt === 'triton') {
     if (!r.bankM.length) { status(name + ': this Triton-family file has no MOSS (bank F) programs.' + (r.pcmPrograms ? ' Its ' + r.pcmPrograms + ' PCM programs need the Triton\u2019s samples.' : '')); toast('No MOSS programs in ' + name); return; }
   }
-  if (pcgBanks.filter(b => !b.builtin).length + triSets.filter(t => !t.builtin).length >= MAX_IMPORTED) { toast('Remove an imported bank first (limit ' + MAX_IMPORTED + ')'); return; }
+  if (new Set(pcgBanks.filter(b => !b.builtin).concat(triSets.filter(t => !t.builtin)).map(x => x.name)).size >= MAX_IMPORTED) { /* counts files, not banks */ toast('Remove an imported bank first (limit ' + MAX_IMPORTED + ')'); return; }
   const got = [];
   let first = null, notKept = false;
   if (r.bankM.length) {
@@ -174,7 +189,7 @@ async function importPcgInner(file) {
     catch (e) { console.error('Could not store bank', e); notKept = true; }
     got.push(r.bankM.length + (r.fmt === 'triton' ? ' MOSS (bank F)' : ' Bank M') + ' programs'); first = ['pm', (pcgBanks.length - 1) * 128];
   }
-  if (r.fmt !== 'triton' && (r.pcmPrograms || r.drumKits)) {
+  if (r.fmt !== 'triton' && (r.pcmPrograms || r.drumKits || r.combis || r.bankM.length)) {
     const before = pcmBanks.length, set = triFromFile(name, bytes, false);
     if (set) {
       try { set.dbId = await idb.add({ kind: 'tri', name, bytes }); }
@@ -182,7 +197,7 @@ async function importPcgInner(file) {
       const nb = pcmBanks.length - before;
       if (nb) { got.push(nb * 128 + ' PCM programs (banks ' + pcmBanks.slice(before).map(b => b.letter).join('') + ')'); if (!first) first = ['pc', before * 128]; }
       if (set.kitBytes) got.push(Math.floor(set.kitBytes.length / 1426) + ' drum kits');
-      if (set.combis.length) got.push(set.combis.length * 128 + ' combinations');
+      if (set.combis.length) { got.push(set.combis.length * 128 + ' combinations'); if (!first) first = ['cb', (combiBanks.length - set.combis.length) * 128]; }
     }
   }
   if (!got.length) { status(name + ': nothing this synth can play' + (r.bankS ? ' (it has a Bank S for the SOLO-TRI board, not supported yet)' : '') + '.'); toast('Nothing imported from ' + name); return; }
@@ -911,7 +926,7 @@ const tLabel = (t, k) => 'T' + (k + 1) + ' ' + (t.pLabel || '') + (t.pName ? ' '
 const zoneTxt = t => (t.keyBot > 0 || t.keyTop < 127 ? F.note(t.keyBot) + '–' + F.note(t.keyTop) : 'all keys');
 function combiStatus() {
   const C = patch, on = C.timbres.filter(tPlays), miss = C.timbres.filter(t => t.status !== 'off' && !t.p);
-  return 'Combination: ' + on.length + (on.length === 1 ? ' timbre plays' : ' timbres play') + ' from the keyboard' + (miss.length ? '; ' + miss.length + ' use a program this file does not have (silent)' : '') + '. PCM timbres play stand-in samples.';
+  return 'Combination: ' + on.length + (on.length === 1 ? ' timbre plays' : ' timbres play') + ' from the keyboard' + (miss.length ? '; ' + miss.length + ' use a program not in memory (silent)' : '') + (C.timbres.some(t => t.from) ? '; some programs come from other loaded files (see the Timbres table)' : '') + '. PCM timbres play stand-in samples.';
 }
 function renderTimbreTable(host) {
   const wrap = el('div', 'kitwrap'), t = el('table', 'kit'), hd = el('tr');
@@ -919,7 +934,7 @@ function renderTimbreTable(host) {
   patch.timbres.forEach((tb, k) => {
     const tr = el('tr', 'trow' + (k === curTimbre ? ' sel' : '') + (tPlays(tb) ? '' : ' dim'));
     const fx = tb.chain >= 0 ? 'chain ' + (tb.chain + 1) : tb.status === 'off' ? '' : 'none';
-    ['T' + (k + 1), (tb.pLabel || '') + ' ' + (tb.pName || (tb.status !== 'off' ? '(not in this file)' : '')), TSTAT[tb.status] || tb.status, tb.ch === 16 ? 'Global' : 'Ch ' + (tb.ch + 1),
+    ['T' + (k + 1), (tb.pLabel || '') + ' ' + (tb.pName || (tb.status !== 'off' ? '(not in memory)' : '')) + (tb.from ? ' \u00b7 from ' + tb.from : ''), TSTAT[tb.status] || tb.status, tb.ch === 16 ? 'Global' : 'Ch ' + (tb.ch + 1),
       tb.level, tb.pan === 'prog' ? 'Program' : tb.pan < 0 ? 'Off' : F.pan(tb.pan), sgn(tb.transpose), zoneTxt(tb), tb.velBot + '–' + tb.velTop, fx].forEach(x => tr.appendChild(el('td', null, String(x))));
     tr.tabIndex = 0; tr.title = 'Edit timbre ' + (k + 1);
     const go = () => { curTimbre = k; selectPage('timbre'); };
@@ -939,16 +954,17 @@ function renderTimbrePick(host) {
   patch.timbres.forEach((t, k) => { const b = el('button', 'hw sm' + (k === curTimbre ? ' on' : ''), 'T' + (k + 1)); b.type = 'button'; b.setAttribute('aria-pressed', k === curTimbre ? 'true' : 'false'); if (!tPlays(t)) b.style.opacity = '0.55'; b.addEventListener('click', () => { curTimbre = k; renderPage(); renderFlow(); }); row.appendChild(b); });
   host.appendChild(row);
 }
-// the timbre's program: any program of the same PCG file (its PCM banks, and its Bank M on a V3 file)
+// the timbre's program: any program in memory for this file (its own banks, else earlier loaded files; see memoryFor)
 function renderTimbreProgram(host) {
   const t = patch.timbres[curTimbre], cb = combiBanks[Math.floor(prog.idx / 128)], set = prog.bank === 'cb' && cb ? cb.set : null;
   const w = el('label', 'ctl'), s = el('select');
   w.append(el('span', 'nm', 'Program'), el('span'), s);
   if (!set) { const o = el('option', null, t.pLabel + ' ' + (t.pName || '')); s.appendChild(o); s.disabled = true; }
   else {
-    pcmBanks.forEach((b, bi) => { if (b.set !== set) return; const g = el('optgroup'); g.label = 'Bank ' + b.letter; b.names.forEach((n, i) => { const o = el('option', null, b.letter + pad3(i) + ' ' + n); o.value = 'ABCD'.indexOf(b.letter) + ':' + i; g.appendChild(o); }); s.appendChild(g); });
-    const mb = pcgBanks.find(x => x.name === set.name && x.fmt !== 'triton');
-    if (mb) { const g = el('optgroup'); g.label = 'Bank M (MOSS)'; mb.names.forEach((n, i) => { const o = el('option', null, 'M' + pad3(i) + ' ' + n); o.value = '4:' + i; g.appendChild(o); }); s.appendChild(g); }
+    const fromTxt = src => src !== set ? ' (from ' + src.name + ')' : '';
+    for (const L of 'ABCD') { const src = memoryFor(set, L), b = src && pcmBanks.find(x => x.set === src && x.letter === L); if (!b) continue; const g = el('optgroup'); g.label = 'Bank ' + L + fromTxt(src); b.names.forEach((n, i) => { const o = el('option', null, L + pad3(i) + ' ' + n); o.value = 'ABCD'.indexOf(L) + ':' + i; g.appendChild(o); }); s.appendChild(g); }
+    const msrc = memoryFor(set, 'M'), mb = msrc && mossOf(msrc);
+    if (mb) { const g = el('optgroup'); g.label = 'Bank M (MOSS)' + fromTxt(msrc); mb.names.forEach((n, i) => { const o = el('option', null, 'M' + pad3(i) + ' ' + n); o.value = '4:' + i; g.appendChild(o); }); s.appendChild(g); }
     s.value = t.bank + ':' + t.prog;
     s.addEventListener('change', () => {
       const [bk, pg] = s.value.split(':').map(Number); t.bank = bk; t.prog = pg; timbreProgram(set, t);
@@ -1030,7 +1046,7 @@ function renderFlowCombi(svg) {
     const g = add('g', { class: 'blk' + (curPage === 'timbre' && curTimbre === k ? ' sel' : '') + (live ? '' : ' dim'), tabindex: 0, role: 'button', 'aria-label': 'Edit timbre ' + (k + 1) });
     add('rect', { x, y, width: w, height: h, rx: 2 }, g);
     add('text', { x: x + 5, y: y + 13, class: 't' }, g).textContent = 'T' + (k + 1) + ' ' + (t.status === 'off' ? 'OFF' : (t.pLabel || ''));
-    add('text', { x: x + 5, y: y + 27 }, g).textContent = (t.pName || (t.status === 'off' ? '' : 'NOT IN FILE')).toUpperCase().slice(0, 18);
+    add('text', { x: x + 5, y: y + 27 }, g).textContent = (t.pName || (t.status === 'off' ? '' : 'NOT IN MEMORY')).toUpperCase().slice(0, 18);
     const go = () => { curTimbre = k; selectPage('timbre'); }; g.addEventListener('click', go); g.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
   });
   const g = add('g', { class: 'blk' + (curPage === 'fx' ? ' sel' : ''), tabindex: 0, role: 'button', 'aria-label': 'Edit effects' });
@@ -1150,7 +1166,12 @@ function renderMemory(host) {
   b('Export or import', () => { $('#dlgtxt').value = JSON.stringify(patch); $('#dlg').showModal(); });
   b('Import Trinity PCG', () => { const f = el('input'); f.type = 'file'; f.accept = '.pcg,.PCG'; f.addEventListener('change', () => { if (f.files && f.files[0]) importPcgFile(f.files[0]); }); f.click(); });
   const cb = prog.bank === 'pm' ? pcgBanks[Math.floor(prog.idx / 128)] : null;
-  if (cb && !cb.builtin) b('Remove this Trinity bank', () => { pcgBanks.splice(pcgBanks.indexOf(cb), 1); forget(cb); loadProgram('st', 0); toast('Removed ' + cb.name); });
+  if (cb && !cb.builtin) b('Remove this Trinity bank', () => {
+    pcgBanks.splice(pcgBanks.indexOf(cb), 1); forget(cb);
+    // a file that held only this Bank M also leaves the memory
+    const ms = triSets.find(s => !s.builtin && s.name === cb.name && !s.combis.length && !s.kitBytes && !pcmBanks.some(b => b.set === s)); if (ms) { removeTriSet(ms); forget(ms); }
+    loadProgram('st', 0); toast('Removed ' + cb.name);
+  });
   const ts = prog.bank === 'pc' ? (pcmBanks[Math.floor(prog.idx / 128)] || {}).set : prog.bank === 'cb' ? (combiBanks[Math.floor(prog.idx / 128)] || {}).set : null;
   if (ts && !ts.builtin) b('Remove these PCM banks and combinations', () => { removeTriSet(ts); forget(ts); loadProgram('st', 0); toast('Removed ' + ts.name); });
   b('Revert', () => loadProgram(prog.bank, prog.idx));
