@@ -38,9 +38,19 @@ function pageKeys() {
         host.appendChild(g); }
       host.appendChild(el('p', 'help', kbs.hideBlack ? 'Only the white keys are shown, each one wider. Sharps and flats still play from MIDI and the computer keyboard.' : 'Length and width are measured against a white key. Shorter black keys leave more of the white keys free to touch.'));
     } },
+    { title: 'Controls', custom: host => {
+      const g = el('div', 'grid'), setCtl = (k, v) => { kbs.ctl[k] = v; kbApply(); };
+      for (const [k, label] of CTL_ITEMS) g.appendChild(tog(label, kbs.ctl[k], v => setCtl(k, v)));
+      host.appendChild(g);
+      const row = el('div', 'btnrow');
+      row.appendChild(btn('Show all', () => { for (const [k] of CTL_ITEMS) kbs.ctl[k] = true; kbApply(); renderPage(); }));
+      row.appendChild(btn('Hide all', () => { for (const [k] of CTL_ITEMS) kbs.ctl[k] = false; kbApply(); renderPage(); }));
+      row.appendChild(btn('Default', () => { kbs.ctl = clone(kbDefault.ctl); kbApply(); renderPage(); }));
+      host.appendChild(row);
+      host.appendChild(el('p', 'help', 'Choose what sits next to the keys (normal view and play mode). Fewer controls leave more width for the keys. The vertical sticks go at the left of the keys and spring back to the centre: the X stick bends the pitch (up +X, down −X, like the joystick left/right), the Y stick sends modulation (up +Y = CC1, down −Y = CC2).'));
+    } },
     { title: 'Play mode', custom: host => {
       const g = el('div', 'grid');
-      g.appendChild(tog('Show joystick, ribbon and SW buttons', kbs.playCtl, v => set('playCtl', v)));
       g.appendChild(tog('Full screen and turn sideways', kbs.fullscreen, v => set('fullscreen', v)));
       host.appendChild(g);
       const row = el('div', 'btnrow'); row.appendChild(btn('Start play mode', () => { startAudio(); setPlayMode(true); })); host.appendChild(row);
@@ -100,15 +110,30 @@ function noteOff(n) { playOff('api:' + n); }
 const isBlack = n => [1, 3, 6, 8, 10].includes(((n % 12) + 12) % 12);
 // keyboard settings (Keyboard page). oct 0 = as many keys as fit at width kw; start -1 = middle C near the centre;
 // rows 1 or 2 (the upper row goes on from the lower one's top key); h 0 = automatic height; bl / bw = black key length / width in % of a white key; vel 0 = by where the key is touched
-const kbDefault = { oct: 0, kw: 0, start: -1, rows: 1, h: 0, bl: 60, bw: 62, hideBlack: false, labels: 'c', vel: 0, playCtl: true, fullscreen: true, pc: 'step', midiNext: null, midiPrev: null };
+// ctl: which controls are shown beside the keys (CTL_ITEMS)
+const CTL_ITEMS = [['oct', 'Octave buttons'], ['trans', 'Transpose buttons'], ['joy', 'Joystick'], ['xbar', 'Vertical X stick (pitch bend)'], ['ybar', 'Vertical Y stick (modulation)'], ['ribbon', 'Ribbon'], ['sw', 'SW1 / SW2 buttons']];
+const kbDefault = { oct: 0, kw: 0, start: -1, rows: 1, h: 0, bl: 60, bw: 62, hideBlack: false, labels: 'c', vel: 0, fullscreen: true, pc: 'step', midiNext: null, midiPrev: null,
+  ctl: { oct: true, trans: true, joy: true, xbar: false, ybar: false, ribbon: true, sw: true } };
 const kbs = Object.assign(clone(kbDefault), store.get('moss-kb', {}));
+{ const c = kbs.ctl && typeof kbs.ctl === 'object' ? kbs.ctl : {}; kbs.ctl = {};
+  // older settings had one switch, playCtl (joystick, ribbon and SW buttons in play mode)
+  for (const [k] of CTL_ITEMS) kbs.ctl[k] = typeof c[k] === 'boolean' ? c[k] : kbs.playCtl === false && ['joy', 'ribbon', 'sw'].includes(k) ? false : kbDefault.ctl[k];
+  delete kbs.playCtl; }
 { const num = (v, lo, hi, d) => { v = Number(v); return Number.isFinite(v) ? Math.max(lo, Math.min(hi, Math.round(v))) : d; };
   kbs.oct = num(kbs.oct, 0, 7, 0); kbs.kw = kbs.kw ? num(kbs.kw, 16, 80, 0) : 0; kbs.h = kbs.h ? num(kbs.h, 60, 400, 0) : 0;
   kbs.rows = num(kbs.rows, 1, 2, 1); kbs.start = num(kbs.start, -1, 108, -1); if (kbs.start >= 0 && isBlack(kbs.start)) kbs.start--;
   kbs.bl = num(kbs.bl, 20, 80, 60); kbs.bw = num(kbs.bw, 25, 90, 62); kbs.vel = num(kbs.vel, 0, 127, 0);
   if (!['none', 'c', 'all'].includes(kbs.labels)) kbs.labels = 'c'; if (!['step', 'bank', 'off'].includes(kbs.pc)) kbs.pc = 'step'; }
 const saveKbs = () => store.set('moss-kb', kbs);
-function kbApply() { saveKbs(); const d = $('#dock'); d.classList.toggle('kbfix', !!kbs.h); d.classList.toggle('rows2', kbs.rows > 1); d.style.setProperty('--kb-h', kbs.h + 'px'); document.body.classList.toggle('noctl', !kbs.playCtl); buildKb(); setDockH(); }
+function kbApply() { saveKbs(); const d = $('#dock'); d.classList.toggle('kbfix', !!kbs.h); d.classList.toggle('rows2', kbs.rows > 1); d.style.setProperty('--kb-h', kbs.h + 'px'); ctlApply(); buildKb(); setDockH(); }
+// show or hide each control; the controls column goes away when it has nothing to show
+function ctlApply() {
+  const c = kbs.ctl;
+  $('#octgrp').hidden = !c.oct; $('#trgrp').hidden = !c.trans; $('#joy').hidden = !c.joy; $('#ribbon').hidden = !c.ribbon; $('#swrow').hidden = !c.sw;
+  $('#xbar').hidden = !c.xbar; $('#ybar').hidden = !c.ybar; $('#ctltog').hidden = !c.joy && !c.ribbon;
+  const none = !c.oct && !c.trans && !c.joy && !c.ribbon && !c.sw;
+  $('#ctrls').hidden = none; document.body.classList.toggle('noctl', none);
+}
 function buildKb() {
   const kb = $('#kb'), W = kb.clientWidth || 360; kb.innerHTML = '';
   const whites = kbs.oct ? 7 * kbs.oct + 1 : Math.max(8, Math.min(52, Math.floor(W / (kbs.kw || (W < 520 ? 25 : 30)))));
@@ -154,7 +179,7 @@ kbEl.addEventListener('contextmenu', e => e.preventDefault());
 // phones: touches on the playing surfaces must not select text, show the magnifier, scroll or zoom (iOS ignores
 // touch-action for some of these, so the touch events themselves are cancelled; pointer events still arrive)
 const noTouch = e => { if (e.cancelable) e.preventDefault(); };
-for (const s of ['#kb', '#joy', '#ribbon']) for (const t of ['touchstart', 'touchmove', 'touchend']) $(s).addEventListener(t, noTouch, { passive: false });
+for (const s of ['#kb', '#joy', '#ribbon', '#xbar', '#ybar']) for (const t of ['touchstart', 'touchmove', 'touchend']) $(s).addEventListener(t, noTouch, { passive: false });
 // iOS pinch zoom (Safari ignores user-scalable=no): cancel it on the dock and everywhere in play mode
 const inPlayArea = e => document.body.classList.contains('play') || (e.target && e.target.closest && e.target.closest('#dock'));
 for (const t of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(t, e => { if (inPlayArea(e)) noTouch(e); }, { passive: false });
@@ -186,18 +211,29 @@ window.addEventListener('blur', () => { kdown.forEach((_, k) => playOff('k:' + k
 // ---------------- joystick & ribbon ----------------
 const joy = $('#joy'), knob = joy.querySelector('.knob');
 let joyId = null, lastCC1 = -1, lastCC2 = -1;
-function joySet(x, y) {
-  knob.style.left = (50 + x * 44) + '%'; knob.style.top = (50 - y * 40) + '%';
-  send({ t: 'bend', v: x });
+// X = pitch bend, Y = modulation (+Y CC1, -Y CC2); shared by the joystick and the vertical sticks
+function sendX(x) { send({ t: 'bend', v: x }); }
+function sendY(y) {
   const c1 = y > 0 ? Math.round(y * 127) : 0, c2 = y < 0 ? Math.round(-y * 127) : 0;
   if (c1 !== lastCC1) { send({ t: 'cc', c: 1, v: c1 }); lastCC1 = c1; }
   if (c2 !== lastCC2) { send({ t: 'cc', c: 2, v: c2 }); lastCC2 = c2; }
 }
+function joySet(x, y) { knob.style.left = (50 + x * 44) + '%'; knob.style.top = (50 - y * 40) + '%'; sendX(x); sendY(y); }
 function joyFromEvent(e) { const r = joy.getBoundingClientRect(); const x = Math.max(-1, Math.min(1, (e.clientX - r.left) / r.width * 2 - 1)); const y = Math.max(-1, Math.min(1, 1 - (e.clientY - r.top) / r.height * 2)); joySet(Math.abs(x) < 0.06 ? 0 : x, Math.abs(y) < 0.06 ? 0 : y); }
 joy.addEventListener('pointerdown', e => { e.preventDefault(); joyId = e.pointerId; try { joy.setPointerCapture(e.pointerId); } catch (x) { console.debug('pointer capture failed', x); } if (!ctx) startAudio(); joyFromEvent(e); });
 joy.addEventListener('pointermove', e => { if (e.pointerId === joyId) joyFromEvent(e); });
 const joyUp = e => { if (e.pointerId !== joyId) return; joyId = null; joySet(0, 0); };
 joy.addEventListener('pointerup', joyUp); joy.addEventListener('pointercancel', joyUp); joy.addEventListener('lostpointercapture', joyUp);
+// vertical sticks: up = +, down = -, back to the centre on release
+for (const [id, out] of [['#xbar', sendX], ['#ybar', sendY]]) {
+  const bar = $(id), bk = bar.querySelector('.knob'); let bid = null;
+  const setV = v => { bk.style.top = (50 - v * 42) + '%'; out(v); };
+  const from = e => { const r = bar.getBoundingClientRect(); const v = Math.max(-1, Math.min(1, 1 - (e.clientY - r.top) / r.height * 2)); setV(Math.abs(v) < 0.06 ? 0 : v); };
+  bar.addEventListener('pointerdown', e => { e.preventDefault(); bid = e.pointerId; try { bar.setPointerCapture(e.pointerId); } catch (x) { console.debug('pointer capture failed', x); } if (!ctx) startAudio(); from(e); });
+  bar.addEventListener('pointermove', e => { if (e.pointerId === bid) from(e); });
+  const up = e => { if (e.pointerId !== bid) return; bid = null; setV(0); };
+  bar.addEventListener('pointerup', up); bar.addEventListener('pointercancel', up); bar.addEventListener('lostpointercapture', up);
+}
 const rib = $('#ribbon'), dot = rib.querySelector('.dot'); let ribId = null;
 function ribFrom(e) { const r = rib.getBoundingClientRect(); const x = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)); dot.style.left = 'calc(' + (x * 100) + '% - 9px)'; send({ t: 'cc', c: 16, v: Math.round(x * 127) }); }
 rib.addEventListener('pointerdown', e => { e.preventDefault(); send({ t: 'ribz', v: 1 }); ribId = e.pointerId; try { rib.setPointerCapture(e.pointerId); } catch (x) { console.debug('pointer capture failed', x); } if (!ctx) startAudio(); ribFrom(e); });

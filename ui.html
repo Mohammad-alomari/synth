@@ -186,19 +186,21 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 20px; border-radius: 
 /* performance dock */
 .dock {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; background: var(--panel-2);
-  border-top: 1px solid var(--line); padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0px));
-  display: flex; gap: 10px; align-items: stretch;
+  border-top: 1px solid var(--line); padding: 5px 6px calc(5px + env(safe-area-inset-bottom, 0px));
+  display: flex; gap: 6px; align-items: stretch;
   /* phones: no text selection, callout menu or double-tap zoom while playing */
   -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; touch-action: manipulation;
 }
-.dock .ctrls { display: flex; flex-direction: column; gap: 6px; flex: none; width: 150px; }
-.dockbar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-.swrow { display: flex; gap: 6px; }
-.swrow .sw { flex: 1; justify-content: center; min-height: 30px; padding: 3px 6px; }
+.dock .ctrls { display: flex; flex-direction: column; gap: 4px; flex: none; width: 118px; }
+.dockbar { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+.dock .hw { min-height: 28px; padding: 2px 8px; font-size: 14px; }
+.swrow { display: flex; gap: 4px; }
+.swrow .sw { flex: 1; justify-content: center; padding: 2px 4px; }
 .swrow .sw[aria-pressed="true"] { color: var(--led); border-color: var(--led); box-shadow: inset 0 0 0 1px var(--led); }
-.step { display: inline-flex; align-items: center; gap: 3px; }
-.step .sl { font-family: var(--f-ui); font-weight: 600; font-size: 14px; color: var(--muted); min-width: 32px; }
-.dockbar .hw.val { min-width: 36px; justify-content: center; padding: 4px 3px; font-variant-numeric: tabular-nums; }
+.step { display: inline-flex; align-items: center; gap: 2px; }
+.step .sl { font-family: var(--f-ui); font-weight: 600; font-size: 13px; color: var(--muted); min-width: 32px; }
+.dockbar .step .hw { min-width: 26px; justify-content: center; padding: 2px 4px; }
+.dockbar .hw.val { min-width: 30px; justify-content: center; padding: 2px 3px; font-variant-numeric: tabular-nums; }
 .dockbar .hw.val.nz { color: var(--led); border-color: var(--led); }
 .lcd .lcdlink { width: auto; height: auto; padding: 1px 7px; font-size: 19px; text-align: left; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .shiftinfo { white-space: pre; }
@@ -217,18 +219,23 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 20px; border-radius: 
 .grid.fine { grid-template-columns: minmax(0, 1fr); max-width: 560px; gap: 8px; }
 .meta { row-gap: 4px; }
 .nudge { margin-top: 0; }
-.dockbar .hw { padding: 4px 9px; min-height: 32px; }
 .octv { font-family: var(--f-ui); font-weight: 600; min-width: 30px; text-align: center; }
-#joy { width: 100%; height: 96px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); position: relative; touch-action: none; cursor: grab; }
+#joy { width: 100%; height: 76px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); position: relative; touch-action: none; cursor: grab; }
 #joy::before, #joy::after { content: ""; position: absolute; background: var(--line); }
 #joy::before { left: 50%; top: 6px; bottom: 6px; width: 1px; }
 #joy::after { top: 50%; left: 6px; right: 6px; height: 1px; }
-#joy .knob { position: absolute; width: 22px; height: 22px; border-radius: 50%; background: var(--ink); left: 50%; top: 50%; transform: translate(-50%, -50%); pointer-events: none; }
+#joy .knob { position: absolute; width: 18px; height: 18px; border-radius: 50%; background: var(--ink); left: 50%; top: 50%; transform: translate(-50%, -50%); pointer-events: none; }
 #joy .lb { position: absolute; font-family: var(--f-ui); font-size: 12px; color: var(--muted); pointer-events: none; }
-#ribbon { height: 26px; border: 1px solid var(--line); border-radius: 13px; background: var(--panel); position: relative; touch-action: none; }
-#ribbon .dot { position: absolute; top: 3px; width: 18px; height: 18px; border-radius: 50%; background: var(--ink); left: calc(50% - 9px); pointer-events: none; }
-.kbwrap { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-#kb { position: relative; flex: 1; min-height: 120px; touch-action: none; user-select: none; -webkit-user-select: none; }
+#ribbon { height: 22px; flex: none; border: 1px solid var(--line); border-radius: 11px; background: var(--panel); position: relative; touch-action: none; }
+#ribbon .dot { position: absolute; top: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--ink); left: calc(50% - 8px); pointer-events: none; }
+.kbwrap { flex: 1; min-width: 0; display: flex; gap: 4px; }
+/* vertical sticks beside the keys: X bends pitch, Y sends modulation (+Y CC1, -Y CC2); both spring back to the centre */
+.vbar { flex: none; width: 30px; position: relative; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); touch-action: none; cursor: grab;
+  display: flex; flex-direction: column; justify-content: space-between; align-items: center; padding: 2px 0; }
+.vbar::before { content: ""; position: absolute; left: 4px; right: 4px; top: 50%; height: 1px; background: var(--line); }
+.vbar .knob { position: absolute; left: 50%; top: 50%; width: 20px; height: 20px; border-radius: 50%; background: var(--ink); transform: translate(-50%, -50%); pointer-events: none; }
+.vbar .lb { font-family: var(--f-ui); font-size: 11px; color: var(--muted); pointer-events: none; }
+#kb { position: relative; flex: 1; min-width: 0; min-height: 120px; touch-action: none; user-select: none; -webkit-user-select: none; }
 .wk, .bk { position: absolute; top: 0; border-radius: 0 0 4px 4px; }
 .wk { background: var(--key-w); border: 1px solid var(--line); height: 100%; }
 .bk { background: var(--key-b); height: 60%; z-index: 2; border: 1px solid #000; }
@@ -236,7 +243,7 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 20px; border-radius: 
 .wk .c { position: absolute; bottom: 4px; left: 0; right: 0; text-align: center; font-family: var(--f-ui); font-size: 11px; color: #707880; pointer-events: none; }
 .wk .c.cn { color: #2a2f33; font-weight: 600; }
 .dock.rows2 #kb { min-height: 200px; }
-.dock.kbfix #kb { flex: none; height: var(--kb-h); min-height: 0; }
+.dock.kbfix #kb { height: var(--kb-h); min-height: 0; }
 /* play mode: the dock fills the screen (made for a phone held sideways) */
 .playbar { display: none; }
 body.play { padding-bottom: 0; overflow: hidden; overscroll-behavior: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
@@ -244,20 +251,20 @@ body.play .dock { touch-action: none; }
 body.play .dock .ctrls { touch-action: pan-y; }
 body.play .wrap { display: none; }
 body.play .dock {
-  top: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); gap: 8px;
-  padding: calc(6px + env(safe-area-inset-top, 0px)) calc(10px + env(safe-area-inset-right, 0px)) calc(8px + env(safe-area-inset-bottom, 0px)) calc(10px + env(safe-area-inset-left, 0px));
+  top: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); gap: 5px;
+  padding: calc(4px + env(safe-area-inset-top, 0px)) calc(6px + env(safe-area-inset-right, 0px)) calc(4px + env(safe-area-inset-bottom, 0px)) calc(6px + env(safe-area-inset-left, 0px));
 }
-body.play .playbar { display: flex; grid-column: 1 / -1; align-items: center; gap: 6px; min-width: 0; }
-.playbar .pb-name { flex: 1; min-width: 0; font-family: var(--f-lcd); font-size: 24px; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: var(--lcd); color: var(--lcd-ink); border-radius: 4px; padding: 5px 8px; }
-.playbar .hw { min-height: 34px; padding: 4px 12px; }
+body.play .playbar { display: flex; grid-column: 1 / -1; align-items: center; gap: 4px; min-width: 0; }
+.playbar .pb-name { flex: 1; min-width: 0; font-family: var(--f-lcd); font-size: 20px; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: var(--lcd); color: var(--lcd-ink); border-radius: 4px; padding: 4px 6px; }
+.playbar .hw { min-height: 30px; padding: 2px 10px; }
 .playbar .rot { display: none; font-size: 13px; color: var(--muted); }
-.playbar select { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 5px 4px; min-height: 34px; font-family: var(--f-ui); font-size: 15px; max-width: 130px; }
+.playbar select { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 2px 3px; min-height: 30px; font-family: var(--f-ui); font-size: 14px; max-width: 120px; }
 .playbar select:disabled { opacity: 0.5; }
 .playbar .hw[aria-pressed="true"] { color: var(--led); border-color: var(--led); box-shadow: inset 0 0 0 1px var(--led); }
 
 .kbrow { position: absolute; left: 0; right: 0; }
-body.play .dock .ctrls { width: 150px; flex-direction: column; align-items: stretch; overflow-y: auto; min-height: 0; }
-body.play .dock .ctrls #joy { display: block; width: 100%; height: 96px; flex: none; }
+body.play .dock .ctrls { width: 118px; flex-direction: column; align-items: stretch; overflow-y: auto; min-height: 0; }
+body.play .dock .ctrls #joy { display: block; width: 100%; height: 76px; flex: none; }
 body.play .dock .ctrls #ribbon { display: block; flex: none; }
 body.play .dock .ctrls .mob-only { display: none; }
 body.play.noctl .dock .ctrls { display: none; }
@@ -266,11 +273,13 @@ body.play .kbwrap { min-height: 0; }
 body.play #kb { flex: 1; height: auto; min-height: 0; }
 body.play .toast { bottom: auto; top: calc(60px + env(safe-area-inset-top, 0px)); }
 @media (orientation: portrait) {
-  body.play .playbar { flex-wrap: wrap; } body.play .playbar .pb-name { flex-basis: 40%; } body.play .playbar .rot { display: inline; flex-basis: 100%; }
+  /* held upright: row 1 = < name >, row 2 = scale, Sustain, Keys, Exit; the turn hint goes last */
+  body.play .playbar { flex-wrap: wrap; } body.play .playbar .pb-name { flex-basis: calc(100% - 80px); }
+  body.play .playbar #pbscale { flex: 1 1 0; } body.play .playbar .rot { display: inline; flex-basis: 100%; order: 1; font-size: 12px; line-height: 1.2; }
   /* held upright: the controllers sit in a row above the keys, which keep the full width */
   body.play .dock { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr); }
   body.play .dock .ctrls { width: auto; flex-direction: row; flex-wrap: wrap; align-items: center; overflow: visible; }
-  body.play .dock .ctrls #joy { width: 110px; height: 70px; }
+  body.play .dock .ctrls #joy { width: 96px; height: 60px; }
   body.play .dock .ctrls #ribbon { flex: 1; min-width: 90px; }
   body.play.noctl .kbwrap { grid-column: auto; }
 }.bkpre { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
@@ -280,12 +289,12 @@ body.play .toast { bottom: auto; top: calc(60px + env(safe-area-inset-top, 0px))
 .hw.learning { color: var(--led); border-color: var(--led); box-shadow: inset 0 0 0 1px var(--led); }
 .mob-only { display: none; }
 @media (max-width: 720px) {
-  :root { --dock-h: 176px; }
-  .dock { flex-direction: column; gap: 6px; }
+  :root { --dock-h: 160px; }
+  .dock { flex-direction: column; gap: 4px; }
   .dock .ctrls { width: auto; flex-direction: row; align-items: center; flex-wrap: wrap; }
-  .swrow .sw { flex: none; min-width: 48px; }
+  .swrow .sw { flex: none; min-width: 44px; }
   .dock .ctrls.collapsed #joy, .dock .ctrls.collapsed #ribbon { display: none; }
-  #joy { width: 110px; height: 70px; }
+  #joy { width: 96px; height: 60px; }
   #ribbon { flex: 1; }
   .mob-only { display: inline-flex; }
   #kb { min-height: 112px; }
@@ -358,13 +367,13 @@ dialog textarea { width: 100%; min-height: 220px; background: var(--panel); bord
   </div>
   <div class="ctrls collapsed" id="ctrls">
     <div class="dockbar">
-      <div class="step" role="group" aria-label="Octave">
+      <div class="step" id="octgrp" role="group" aria-label="Octave">
         <span class="sl">Oct</span>
         <button class="hw" type="button" id="octdn" aria-label="Octave down">&minus;</button>
         <button class="hw val" type="button" id="octv" title="Tap to reset" aria-label="Octave shift, tap to reset">0</button>
         <button class="hw" type="button" id="octup" aria-label="Octave up">+</button>
       </div>
-      <div class="step" role="group" aria-label="Transpose">
+      <div class="step" id="trgrp" role="group" aria-label="Transpose">
         <span class="sl">Trans</span>
         <button class="hw" type="button" id="trdn" aria-label="Transpose down a semitone">&minus;</button>
         <button class="hw val" type="button" id="trv" title="Tap to reset" aria-label="Transpose in semitones, tap to reset">0</button>
@@ -374,9 +383,9 @@ dialog textarea { width: 100%; min-height: 220px; background: var(--panel); bord
     </div>
     <div id="joy" role="application" aria-label="Joystick: left-right bends pitch, up sends modulation 1, down sends modulation 2"><span class="knob"></span><span class="lb" style="top:2px;left:6px">+Y</span><span class="lb" style="bottom:2px;left:6px">&minus;Y</span></div>
     <div id="ribbon" aria-label="Ribbon controller"><span class="dot"></span></div>
-    <div class="swrow"><button class="hw sw" type="button" id="sw1" aria-pressed="false" title="Panel switch 1 (CC80)">SW1</button><button class="hw sw" type="button" id="sw2" aria-pressed="false" title="Panel switch 2 (CC81)">SW2</button></div>
+    <div class="swrow" id="swrow"><button class="hw sw" type="button" id="sw1" aria-pressed="false" title="Panel switch 1 (CC80)">SW1</button><button class="hw sw" type="button" id="sw2" aria-pressed="false" title="Panel switch 2 (CC81)">SW2</button></div>
   </div>
-  <div class="kbwrap"><div id="kb" aria-label="Keyboard"></div></div>
+  <div class="kbwrap"><div class="vbar" id="xbar" role="application" aria-label="Pitch stick: up bends up (+X), down bends down (−X)"><span class="lb">+X</span><span class="knob"></span><span class="lb">&minus;X</span></div><div class="vbar" id="ybar" role="application" aria-label="Modulation stick: up sends modulation 1 (+Y), down sends modulation 2 (−Y)"><span class="lb">+Y</span><span class="knob"></span><span class="lb">&minus;Y</span></div><div id="kb" aria-label="Keyboard"></div></div>
 </div>
 
 <dialog id="dlg">
