@@ -86,7 +86,7 @@ function mmBrowse(open) {
 $('#mmfav').addEventListener('click', () => {
   const e = curEntry(); if (!e) return;
   const k = favKey(e); if (favs.has(k)) favs.delete(k); else favs.add(k);
-  store.set('moss-favs', [...favs]); if (favOnly) fillProgSelect(); mmLcd(); mmBr.render();
+  store.set('moss-favs', [...favs]); if (favOnly) refreshProgs(); mmLcd(); mmBr.render();
   toast(favs.has(k) ? 'Added to favourites' : 'Removed from favourites');
 });
 

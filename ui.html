@@ -83,9 +83,9 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .pnum { font-family: var(--f-lcd); font-size: 26px; line-height: 1; padding: 1px 6px; border: 1px solid var(--lcd-ink); border-radius: 3px; }
 .pname { font-family: var(--f-lcd); font-size: 32px; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
 .lcd button { background: transparent; border: 1px solid var(--lcd-ink); color: var(--lcd-ink); border-radius: 3px; width: 34px; height: 30px; cursor: pointer; font-family: var(--f-lcd); font-size: 22px; line-height: 1; }
-.lcd input[type=search] { width: 100%; min-width: 0; flex: 1; background: var(--lcd-2); border: 1px solid var(--lcd-ink); color: var(--lcd-ink); border-radius: 3px; font-family: var(--f-lcd); font-size: 20px; padding: 2px 6px; }
-.lcd input[type=search]::placeholder { color: var(--lcd-dim); }
-.lcd select { width: 100%; background: var(--lcd-2); border: 1px solid var(--lcd-ink); color: var(--lcd-ink); border-radius: 3px; font-family: var(--f-lcd); font-size: 20px; padding: 2px 4px; max-width: 100%; min-width: 0; flex: 1; }
+.lcd .progbtn { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; width: auto; background: var(--lcd-2); font-size: 20px; text-align: left; padding: 2px 6px; }
+.lcd .progbtn .pg { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lcd .progbtn[aria-expanded="true"] .cr { transform: rotate(180deg); }
 .meta { font-family: var(--f-lcd); font-size: 19px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center; color: var(--lcd-ink); }
 .vleds { display: inline-flex; flex-wrap: wrap; gap: 4px; max-width: 100%; vertical-align: middle; }
 .vleds.many { gap: 2px; }
@@ -359,6 +359,8 @@ body.midi .mm { display: flex; flex-direction: column; gap: 8px; max-width: 900p
 #mmbrowse { font-size: 16px; padding: 4px 14px; }
 #mmbrowse[aria-expanded="true"] { color: var(--accent); border-color: var(--accent); }
 .mm-browse .pbr-list { max-height: 50vh; }
+.ed-browse { margin: 8px 0; }
+.ed-browse .pbr-list { max-height: 45vh; }
 .mm-perf { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; }
 .mm-grp { display: inline-flex; align-items: center; gap: 3px; }
 .mm-grp .sl, .mm-meter .sl { font-family: var(--f-ui); font-weight: 600; font-size: 13px; color: var(--muted); margin-right: 3px; }
@@ -411,11 +413,8 @@ body.midi .mm { display: flex; flex-direction: column; gap: 8px; max-width: 900p
       </div>
       <div class="lcd-row" style="margin-top:6px">
         <button type="button" id="prev" aria-label="Previous program">&lsaquo;</button>
-        <select id="prog" aria-label="Program"></select>
+        <button type="button" class="progbtn" id="progbtn" aria-expanded="false" aria-controls="edbrowse" title="Choose a bank and program, or search"><span class="pg" id="progbank"></span><span class="cr" aria-hidden="true">&#9662;</span></button>
         <button type="button" id="next" aria-label="Next program">&rsaquo;</button>
-      </div>
-      <div class="lcd-row" style="margin-top:6px">
-        <input type="search" id="progq" placeholder="Find a program (name, bank, number…)" aria-label="Find a program" autocomplete="off" spellcheck="false">
       </div>
       <div class="meta" style="margin-top:6px">
         <span>Voices <span class="vleds" id="vleds"></span></span>
@@ -426,6 +425,7 @@ body.midi .mm { display: flex; flex-direction: column; gap: 8px; max-width: 900p
     </div>
     <svg class="flow" id="flow" viewBox="0 0 400 150" role="group" aria-label="Voice signal flow. Select a block to edit it."></svg>
   </section>
+  <div class="pbr ed-browse" id="edbrowse" role="region" aria-label="Programs" hidden></div>
 
   <nav class="tabs" role="tablist" id="tabs"></nav>
   <main class="page" id="page" role="tabpanel"></main>

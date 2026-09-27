@@ -33,9 +33,11 @@ window.__t = {
   // every page of the current program renders something
   pages() { const ids = [...document.querySelectorAll('#tabs [role=tab]')].map(t => t.id.replace(/^tab-/, '')), empty = [];
     for (const id of ids) { window.__moss.selectPage(id); if (!document.querySelector('#page').children.length) empty.push(id); } return [ids.length, empty]; },
-  find(re) { const o = [...document.querySelectorAll('#prog option')].find(o => re.test(o.value + ' ' + o.textContent)); return o ? o.value : null; },
-  group(t) { return [...document.querySelectorAll('#prog optgroup')].filter(g => g.label.includes(t)).length; },
-  firstIn(t) { const g = [...document.querySelectorAll('#prog optgroup')].find(g => g.label.includes(t)); return g ? g.querySelector('option').value : null; },
+  find(re) { const e = window.__moss.progEntries().find(e => re.test(e.v + ' ' + e.t)); return e ? e.v : null; },
+  groups() { return [...new Set(window.__moss.progEntries().map(e => e.g))]; },
+  group(t) { return this.groups().filter(g => g.includes(t)).length; },
+  firstIn(t) { const e = window.__moss.progEntries().find(e => e.g.includes(t)); return e ? e.v : null; },
+  inGroup(re) { return window.__moss.progEntries().filter(e => re.test(e.g)); },
   load(v) { const [b, i] = v.split(':'); window.__moss.loadProgram(b, +i); },
   async import(b64, name) { const bin = atob(b64), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
     await window.__moss.importPcgFile(new File([u], name)); return document.querySelector('#status').textContent; },
@@ -98,16 +100,35 @@ async def keyboard_and_midi(pg):
     await pg.evaluate("window.__moss.kbs.rows = 1; window.__moss.kbApply()")
     await pg.keyboard.down('a'); held = await pg.evaluate("[...document.querySelectorAll('#kb .wk.on')].map(k => +k.dataset.n)"); await pg.keyboard.up('a')
     ok('computer key A plays the lowest C on the screen (C3)', held == [48], held)
-    # program search: the menu and the ‹ › buttons keep to the results
-    await pg.fill('#progq', 'organ'); await pg.wait_for_timeout(300)
-    found = await pg.evaluate("[...document.querySelectorAll('#prog option')].filter(o => o.parentNode.label !== 'Now playing').map(o => [o.textContent, o.parentNode.label])")
+    # editor program browser: the bank button under the display opens the current bank; banks can be switched
+    E = '#edbrowse'
+    eitems = "[...document.querySelectorAll('#edbrowse .pbr-list button')].map(b => b.firstChild.textContent)"
+    await pg.evaluate("window.__moss.loadProgram('st', 1)")
+    ok('editor: the bank button shows the current bank', await pg.text_content('#progbank') == 'Starter programs', await pg.text_content('#progbank'))
+    await pg.click('#progbtn')
+    ok('editor browser: opens on the current bank', await pg.is_visible(E) and await pg.text_content(E + ' .pbr-bank .bn') == 'Starter programs'
+       and (await pg.evaluate("document.querySelector('#edbrowse [aria-selected=true]').textContent")).startswith('01'))
+    await pg.click(E + ' .pbr-bank')
+    banks = await pg.evaluate(eitems)
+    target = next(b for b in banks if b.startswith('Bank A (PCM)'))
+    await pg.evaluate("t => [...document.querySelectorAll('#edbrowse .pbr-list button')].find(b => b.firstChild.textContent === t).click()", target)
+    got = await pg.evaluate(eitems)
+    await pg.evaluate("document.querySelectorAll('#edbrowse .pbr-list button')[2].click()"); await pg.wait_for_timeout(100)
+    ok('editor browser: picking a program in another bank loads it and the list stays open', await pg.is_visible(E) and (await pg.text_content('#pnum')) == got[2][:4]
+       and await pg.text_content('#progbank') == target, [await pg.text_content('#pnum'), got[2][:4]])
+    # program search: the list and the ‹ › buttons keep to the results
+    await pg.fill(E + ' input', 'organ'); await pg.wait_for_timeout(400)
+    found = await pg.evaluate("window.__moss.progList().map(e => [e.t, e.g])")
     names = [t for t, g in found]
-    ok('program search: only matching programs are listed', 0 < len(found) < 200 and all('organ' in (t + ' ' + g).lower() for t, g in found), len(found))
+    ok('program search: only matching programs are listed', 0 < len(found) < 200 and all('organ' in (t + ' ' + g).lower() for t, g in found)
+       and len(await pg.evaluate(eitems)) == len(found), len(found))
     await pg.click('#next'); await pg.wait_for_timeout(100)
-    cur = await pg.evaluate("document.querySelector('#prog').selectedOptions[0].textContent")
-    ok('program search: next steps within the results', cur in names, cur)
-    await pg.fill('#progq', ''); await pg.wait_for_timeout(300)
-    ok('program search cleared: every program is listed again', await pg.evaluate("document.querySelectorAll('#prog option').length") > 1000)
+    cur = await pg.evaluate("(() => { const P = window.__moss.getPatch(); return window.__moss.progList().some(e => e.t.endsWith(' ' + P.name)); })()")
+    ok('program search: next steps within the results', cur)
+    await pg.fill(E + ' input', ''); await pg.wait_for_timeout(400)
+    ok('program search cleared: every program is listed again', await pg.evaluate("window.__moss.progList().length") > 1000)
+    await pg.focus(E + ' input'); await pg.keyboard.press('Escape')
+    ok('editor browser: Escape closes it', not await pg.is_visible(E) and await pg.get_attribute('#progbtn', 'aria-expanded') == 'false')
     # play bar: scale switch loads a maqam on its key; Sustain sends the pedal and shows a MIDI pedal
     await pg.evaluate("window.__moss.setPlayMode(true)")
     await pg.select_option('#pbscale', 'mq:bayati')
@@ -161,7 +182,7 @@ async def keyboard_and_midi(pg):
     await pg.click('#mmrevert')
     ok('MIDI mode: Revert restores the program', await pg.evaluate("window.__moss.getPatch().f[0].freqA") == f0[0])
     # Browse lists the current bank only
-    n_st = await pg.evaluate("document.querySelectorAll('#prog optgroup[label=\"Starter programs\"] option').length")
+    n_st = len(await pg.evaluate("__t.inGroup(/^Starter programs$/)"))
     await pg.click('#mmbrowse')
     ok('MIDI mode: Browse lists the current bank only', await pg.text_content('#mmbrowsebox .pbr-bank .bn') == 'Starter programs'
        and await pg.evaluate("document.querySelectorAll('#mmbrowsebox .pbr-list button').length") == n_st, n_st)
@@ -173,7 +194,7 @@ async def keyboard_and_midi(pg):
     await pg.click('#mmnext'); a = await pg.text_content('#mmnum'); await pg.click('#mmnext'); b2 = await pg.text_content('#mmnum')
     ok('MIDI mode: Next steps through favourites only', a.startswith('ST 01') and b2.startswith('ST 03'), [a, b2])
     await pg.evaluate("window.__moss.setMidiMode(false)"); await pg.wait_for_timeout(100)
-    ok('MIDI mode off: keys back, favourites filter off', await pg.is_visible('#kb') and await pg.evaluate("document.querySelectorAll('#prog option').length") > 1000)
+    ok('MIDI mode off: keys back, favourites filter off', await pg.is_visible('#kb') and await pg.evaluate("window.__moss.progList().length") > 1000)
     # play mode program list: big < > buttons; the name opens the list of the current bank; the bank button lists the banks; a pick closes it
     L = '#pblbody'
     items = "[...document.querySelectorAll('#pblbody .pbr-list button')].map(b => b.firstChild.textContent)"
@@ -270,9 +291,9 @@ async def storage_and_memory(b, url):
     await pg.evaluate("__t.load(__t.firstIn('Combinations A from Full'))")
     ok("memory: a file's own banks come first", all(t[2] == '' for t in await pg.evaluate('__t.timbres()')))
     await pg.evaluate('([b, n]) => __t.import(b, n)', [pcm, 'PcmOnly.PCG'])
-    n = await pg.evaluate("() => [...document.querySelectorAll('#prog optgroup')].filter(g => g.label.includes('(PCM) from PcmOnly')).reduce((a, g) => a + g.children.length, 0)")
+    n = len(await pg.evaluate("__t.inGroup(/\(PCM\) from PcmOnly/)"))
     ok('drum programs of an imported file are left out', 0 < n < 256, n)  # TRINI-1-KJ has 8 drum programs in banks A-B
-    n = await pg.evaluate("() => { let n = 0; for (const g of document.querySelectorAll('#prog optgroup')) if (/^Combinations . from (Hadi2024|TRINI-1-KJ)$/.test(g.label)) for (const o of g.querySelectorAll('option')) { __t.load(o.value); n += __t.timbres().filter(t => t[2]).length; } return n; }")
+    n = await pg.evaluate("() => { let n = 0; for (const e of __t.inGroup(/^Combinations . from (Hadi2024|TRINI-1-KJ)$/)) { __t.load(e.v); n += __t.timbres().filter(t => t[2]).length; } return n; }")
     ok('built-in files only use their own banks', n == 0, n)
     # storage: everything is still there after a reload
     await pg.reload(); await pg.wait_for_timeout(1200)
@@ -324,7 +345,7 @@ async def public_page(b):
     pg.on('pageerror', lambda e: pg.errs.append(str(e)))
     await pg.add_init_script(JS); await pg.goto(url); await pg.wait_for_timeout(500)
     await pg.click('#power'); await pg.wait_for_timeout(800)
-    groups = await pg.evaluate("[...document.querySelectorAll('#prog optgroup')].map(g => g.label)")
+    groups = await pg.evaluate("__t.groups()")
     ok('public page: none of the owner\'s files are listed', not any(n in ' '.join(groups) for n in ['Hadi2024', 'KJ4TRINI', 'TRIN', 'from ', 'Korg factory']), groups)
     ok('public page: starter program plays', await pg.evaluate("__t.play('st', 0, [60])") > 0.005)
     st = await pg.evaluate('([b, n]) => __t.import(b, n)', [pcg('Hadi2024', 'Pub.pcg'), 'Mine.PCG'])

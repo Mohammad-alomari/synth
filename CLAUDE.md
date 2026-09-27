@@ -134,12 +134,13 @@ allowed); MIDI next/prev program buttons (learn a note, CC or program change; pr
 SW1/SW2 lit by incoming CC80/81. Controls (kbs.ctl, Keyboard page 'Controls'): show/hide Oct, Trans, joystick, vertical X stick
 (#xbar, bend), vertical Y stick (#ybar, +Y CC1 / -Y CC2), ribbon, SW buttons; sticks sit left of the keys and spring back; old playCtl migrated. Play bar: Sustain (CC64, shows the MIDI pedal), scale switch
 (Equal / Arabic / maqams via loadMaqam / your scale; choosing turns program scales off), screen wake lock.
-Program search (program.js progEntries/progList): filters the menu and the ‹ › steps. Fonts bundled; PWA.
+Program search (program.js progEntries/progList): filters the browsers and the ‹ › steps. Fonts bundled; PWA.
 MIDI mode (app/midimode.js, body.midi, header button "MIDI mode"): no keys/editor; big program name, Prev/Next, Browse (search +
 favourites; favOnly limits ‹ › too, reset on exit), scale/key, Oct/Trans, Sustain, Record, Panic, MIDI monitor (device, note,
 bend, mod, voices), quick edit (mmMacros: MOSS/PCM Level, Cutoff, Resonance, Filter EG, Attack, Release moving both filters/oscillators
 by the same delta; combis: level per playing timbre), Revert / Save (saveToUser) / Full editor. Arrow keys step, Esc exits.
-Program browser (program.js progBrowser; used by MIDI mode Browse and the play-mode list #pbl, opened by tapping the play-bar
+Program browser (program.js progBrowser; used by the editor (#edbrowse under the display, opened by the bank button #progbtn
+between ‹ ›; replaces the old program menu and search box), MIDI mode Browse and the play-mode list #pbl, opened by tapping the play-bar
 name): one bank (list group) at a time, starting with the playing program's; the bank button lists all banks; a search or the
 favourites filter lists matches from every bank. Play bar ‹ › are 58x42 px.
 Checks passed: all 2,560 PCM programs render (no NaN); 1,408 combinations render (no NaN, 1 silent by data);

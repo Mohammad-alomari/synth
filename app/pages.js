@@ -817,11 +817,11 @@ function restoreOriginal() {
   if (!saveEdits(all)) { toast('Could not save: browser storage is unavailable'); return; }
   bankChanged(w); toast('Restored ' + w.label + ' from ' + w.file);
 }
-function bankChanged(w) { w.rename(); progSig = ''; loadProgram(prog.bank, prog.idx); browsers.forEach(b => b.render()); }
+function bankChanged(w) { w.rename(); loadProgram(prog.bank, prog.idx); browsers.forEach(b => b.render()); }
 function commitUser(msg) {
   if (!store.set(LS_USER, userBank)) { toast('Could not save: browser storage is unavailable'); return; }
   edited = false;
-  fillProgSelect(); lcd(); saveCurrent(); renderPage(); toast(msg);
+  refreshProgs(); lcd(); saveCurrent(); renderPage(); toast(msg);
 }
 $('#dlgcopy').addEventListener('click', async () => {
   const t = $('#dlgtxt'); t.select();

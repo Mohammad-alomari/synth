@@ -178,7 +178,7 @@ async function restoreImported() {
   for (const r of recs) if (!restoreRecord(r)) bad.push(r.name);
   if (bad.length) status('Could not restore imported bank' + (bad.length > 1 ? 's' : '') + ': ' + bad.join(', ') + '. Import the file again.');
   if (!recs.length) return;
-  if (!edited && ['pm', 'pc', 'cb'].includes(prog.bank)) loadProgram(prog.bank, prog.idx); else { fillProgSelect(); lcd(); }
+  if (!edited && ['pm', 'pc', 'cb'].includes(prog.bank)) loadProgram(prog.bank, prog.idx); else { refreshProgs(); lcd(); }
 }
 // any failure while importing ends up in the status line instead of being lost in the console
 async function importPcgFile(file) {
@@ -215,7 +215,7 @@ async function importPcgInner(file) {
     }
   }
   if (!got.length) { status(name + ': nothing this synth can play' + (r.bankS ? ' (it has a Bank S for the SOLO-TRI board, not supported yet)' : '') + '.'); toast('Nothing imported from ' + name); return; }
-  fillProgSelect(); if (first) loadProgram(first[0], first[1]);
+  refreshProgs(); if (first) loadProgram(first[0], first[1]);
   status('Imported from ' + name + ': ' + got.join(', ') + '.' + (r.bankS ? ' Its Bank S (SOLO-TRI) is not supported yet.' : '') + (notKept ? ' Browser storage refused it: it plays now but is gone after a reload.' : ''));
   toast(notKept ? 'Imported ' + name + ' (not kept)' : 'Imported ' + name);
 }
