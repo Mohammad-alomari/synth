@@ -26,7 +26,7 @@ EXB-MOSS bank; tridata.js contains the user's own files.
 ==============================================================================
 2. FILES
 ==============================================================================
-index.html     built page (do not edit; rebuilt by build.py). Loads samples/ at run time.
+index.html     built page (not committed, .gitignore; build with build.py). Loads samples/ at run time.
 ui.html        template: layout + CSS; sources are inserted at %%PATCHES%% %%ENGINE%% %%KORG%% %%PCG%% %%APP%%
 build.py       parts = PATCHES: fxcat.js patches.js | ENGINE: engine.js pcm.js combi.js fxdsp.js |
                KORG: pcmmap.js korg.js | PCG: pcgdata.js tridata.js | APP: app.js
@@ -53,7 +53,7 @@ tools/samples/ build_packs.py (+pack.py, extract_sf.py, sf2parse.py...) rebuilds
                MS General SoundFont FluidR3Mono_GM.sf3 (set SF3=path). Needs ffmpeg.
 docs/research/ format notes: 01 PCM program 433, 02 combination 388, 03 drum kit 1426, 04 global,
                05 PCG file format, 06 effects, 07 multisample names 0-414, 08/09 factory program/combi names.
-test/          Node + Playwright tests (see section 6). demos/: two WAV demos.
+test/          Node + Playwright tests (see section 6). demos/: two MP3 demos.
 
 Conventions / gotchas
 - The AudioWorklet source is generated from class.toString() (ENGINE_CLASSES in app.js). Engine code must

@@ -11,7 +11,7 @@ A playable model of the Korg Trinity V3 that reads Trinity (and Triton) PCG file
 
 | File | What it is |
 |---|---|
-| `index.html` | The finished synth: one self-contained page, built from the files below. It loads the stand-in samples from `samples/`. |
+| `index.html` | The finished synth: one self-contained page, built from the files below by `python3 build.py` (not committed). It loads the stand-in samples from `samples/`. |
 | `ui.html` | Page template: layout and CSS. The sources are inserted at its `%%…%%` markers. |
 | `app.js` | The user interface: pages, keyboard, joystick, MIDI, program list, PCG import, sample loader, save/load, audio start-up. |
 | `engine.js` | The engine: MOSS oscillator models, filters, envelopes, LFOs, modulation, voice allocation, output limiter. |
@@ -29,7 +29,7 @@ A playable model of the Korg Trinity V3 that reads Trinity (and Triton) PCG file
 | `gen_pcgdata.py` | Rebuilds the factory entry of `pcgdata.js` from a Triton Extreme PCG: `python3 gen_pcgdata.py <file.PCG>`. |
 | `tools/samples/` | Rebuilds `samples/` from MuseScore's MS General SoundFont (`FluidR3Mono_GM.sf3`, MIT): `python3 tools/samples/build_packs.py` (set `SF3=` to the file). Needs ffmpeg. |
 | `docs/research/` | Notes on the Trinity's data formats: program, combination, drum kit, global, PCG file, effects, multisample list. |
-| `demos/` | Audio demos of the Mijwiz and Rababa starter programs. |
+| `demos/` | Audio demos (MP3) of the Mijwiz and Rababa starter programs. |
 | `test/` | Offline tests (Node) and browser tests (Python + Playwright). |
 
 ## Run it
@@ -40,7 +40,7 @@ The page must be served over http (audio, MIDI and the samples need it):
 python3 -m http.server 8765
 ```
 
-Then open http://localhost:8765/index.html in Chrome or Edge. Web MIDI works in Chrome, Edge and Firefox; Safari has no Web MIDI.
+Build the page first with `python3 build.py`, then open http://localhost:8765/index.html in Chrome or Edge. Web MIDI works in Chrome, Edge and Firefox; Safari has no Web MIDI.
 
 ## Deploy (Netlify)
 
@@ -60,7 +60,7 @@ Needs Node 18+, python3, ffmpeg (for `combis.js`) and, for the browser test, `pi
 
 | Check | What it does |
 |---|---|
-| index.html | The committed page matches a fresh build of the sources. |
+| `python3 build.py` | The page builds from the sources. |
 | `node test/fxunit.js`, `node test/fuzz.js`, `node test/fxfix.js` | Every effect: no NaN, bounded output with random parameters, fixed bugs stay fixed. |
 | `node test/voicefix.js` | Note handling: sustain, Hold, voice stealing, portamento, MIDI sync. |
 | `node test/progs.js` | Renders built-in MOSS programs (every 8th; `FULL=1` all): NaN, levels, CPU. |

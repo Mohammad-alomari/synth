@@ -7,10 +7,8 @@ fail=0
 log=$(mktemp)
 run() { printf '== %s\n' "$*"; if "$@" > "$log" 2>&1; then tail -n 1 "$log"; else cat "$log"; echo "FAILED: $*"; fail=1; fi; }
 
-# index.html must be the build of the current sources (rebuild with: python3 build.py)
-printf '== index.html matches its sources\n'
-python3 build.py "$log.html" > /dev/null && if cmp -s index.html "$log.html"; then echo ok; else echo 'FAILED: index.html is out of date - run: python3 build.py'; fail=1; fi
-rm -f "$log.html"
+# build index.html from the sources (it is not committed); the browser test uses it
+run python3 build.py
 
 run node test/fxunit.js
 run node test/fuzz.js

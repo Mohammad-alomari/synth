@@ -1,5 +1,4 @@
-# Runs on every push and pull request: all checks in test/run_all.sh. That script also builds the page from the
-# sources and fails if the build breaks or the committed index.html is out of date.
+# Runs on every push and pull request: all checks in test/run_all.sh (it builds the page first, so a broken build fails too).
 name: Tests
 on:
   push:
