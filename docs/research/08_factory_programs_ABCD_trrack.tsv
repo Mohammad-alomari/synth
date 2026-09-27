@@ -1,0 +1,523 @@
+# Korg TR-Rack factory PROGRAM names, banks A-D (512). Banks A and B = Trinity factory banks A/B.
+# Source: TR-Rack Ctrlr panel (github.com/FRDTom/TR-Rack-Editor, Lua progNameList/progNames), hand-typed from
+#   Korg's TR-Rack Voice Name List -> some OCR-style typos (e.g. "Plano" for "Piano", "Hil!" for "Hit!").
+# Suffix in the panel: (S)=Single osc, (D)=Double osc, (d)=Drum program.
+# Evidence A/B == Trinity factory: in the user file TRINI-1-KJ.PCG (Trinity plus/pro, user-edited) 41 of 128 bank-A
+#   and 59 of 128 bank-B program names are identical at the same slot; 95 of those 100 also have the same osc mode.
+# Banks C/D are TR-Rack factory data (may use TR-Rack-only multisamples 375-414); the Trinity Flash-ROM C/D
+#   banks shipped empty/with other data -- do not assume equality.
+# NOTE: Korg also publishes a separate "Voice Name List for V3" (scanned PDF, not transcribed); V3 preloads
+#   (e.g. V3_PLOAD.PCG named in PCG Tools notes) may differ from this list, at least for the M bank.
+# Columns: bank<TAB>no<TAB>name<TAB>osc_mode<TAB>same_name_in_TRINI-1-KJ.PCG(osc mode there)
+A	000	Tsunami Warning	Double	
+A	001	Acoustic Piano	Single	yes(Single)
+A	002	Alto Sax	Double	yes(Double)
+A	003	Take Volcos	Double	
+A	004	Finger Pickin'	Single	
+A	005	VS Bell Boy	Double	
+A	006	Fretless Bass	Double	
+A	007	Stereo Strings	Double	yes(Double)
+A	008	Standard Kit	Drum	
+A	009	Ultra Res. Sweep	Double	
+A	010	Velocity Organ	Double	
+A	011	*Tingly E.Piano	Double	
+A	012	Stereo Brass	Double	yes(Double)
+A	013	Natural Kalimba	Double	
+A	014	RibbonYoHeadOff!	Double	
+A	015	Indian Duet	Double	
+A	016	Planet Of Funk	Double	
+A	017	Dyno-E.Piano	Double	
+A	018	SweetSilverFlute	Double	yes(Double)
+A	019	Breath of Life	Double	
+A	020	Studio Strato	Double	
+A	021	Tubular Vibes	Double	
+A	022	Vinyl Rap Bass	Double	
+A	023	Solo String(SW1)	Double	yes(Double)
+A	024	Lethal Drum Hit	Double	
+A	025	That Heaven Vibe	Double	
+A	026	Rotary Organ	Double	yes(Double)
+A	027	Dreamy E.Plano	Double	
+A	028	Hard Trombone	Single	yes(Single)
+A	029	Mondo Rimba	Double	
+A	030	Spectrum Lead	Double	
+A	031	Adieu Rainforest	Double	
+A	032	Frozen Crystals	Double	
+A	033	[Â¦ 90's PIano Â¦]	Double	
+A	034	Clarinet	Single	
+A	035	Light Choir	Double	yes(Double)
+A	036	Nylon Guitar	Double	yes(Double)
+A	037	Sun Bells	Double	yes(Double)
+A	038	Acoustic Bass	Single	yes(Single)
+A	039	The Symphony	Double	yes(Double)
+A	040	[Mega-Mix)! Kit	Drum	
+A	041	TECHNOphobic	Double	
+A	042	Pipe Tutti	Double	yes(Double)
+A	043	Night Tine EP	Double	yes(Double)
+A	044	Soft Trumpet	Single	yes(Double)
+A	045	Vibraphone	Single	yes(Single)
+A	046	Electric Lead	Double	
+A	047	Mandolin	Double	yes(Double)
+A	048	Moon Walking	Double	
+A	049	Electric Grand	Single	
+A	050	Oboe	Single	yes(Double)
+A	051	Harp Heaven	Double	
+A	052	Lead Guitar/JS-Y	Double	yes(Double)
+A	053	Bell Arena	Double	
+A	054	FM Bass	Double	
+A	055	Solo Violin	Single	
+A	056	Asian Gong	Double	
+A	057	Synth Orchestra	Double	yes(Double)
+A	058	Jazz-Organ 2	Double	
+A	059	Future Synth	Double	
+A	060	Trombone Ens.	Double	
+A	061	Steel Drum	Single	
+A	062	Snoop Doggy Bass	Double	
+A	063	Harp	Single	
+A	064	Dragon's Lair	Double	
+A	065	Clay Control	Single	
+A	066	Soprano Sax	Single	
+A	067	Analog Strings	Single	
+A	068	Power Chard Plus	Single	
+A	069	Ancient Bells	Double	
+A	070	Mono Slap Bass	Double	yes(Double)
+A	071	Modern Strings	Single	
+A	072	Porcussion Kit	Drum	
+A	073	Synclav Pad	Double	
+A	074	Garage Organ	Single	
+A	075	Akkordeon/SW 182	Double	
+A	076	French Horn Ens.	Double	
+A	077	Music Box/SW1	Double	
+A	078	30303 Square	Single	
+A	079	Koto	Single	
+A	080	Hard-Air Hit	Double	
+A	081	20,000 Fathoms	Double	
+A	082	Recorder	Single	
+A	083	Xylospectrum	Double	
+A	084	Tell A Caster	Single	
+A	085	Bell Angels	Double	
+A	086	30303 Mega Bass	Single	yes(Single)
+A	087	Pizzicato Ens.	Single	yes(Single)
+A	088	Jazz/Brush Kits	Drum	
+A	089	Analog Power	Double	
+A	090	Super BX-3	Double	
+A	091	Musette/SW 1&2	Double	
+A	092	Mute Trumpet	Single	
+A	093	African Log Drum	Double	
+A	094	Mr. Nightmare	Double	
+A	095	Nylon Harmonics	Single	
+A	096	Shape Shifter	Double	
+A	097	Breathy Layers	Double	
+A	098	Pan Flute	Single	yes(Single)
+A	099	Doo the Vibe Pad	Double	
+A	100	12 String Guitar	Double	
+A	101	Finger Cymbal	Single	
+A	102	Finger Bass	Single	yes(Single)
+A	103	Marcato Strings	Double	yes(Double)
+A	104	BassDrums&Snares	Drum	
+A	105	Rozpad	Double	
+A	106	Gospel Organ	Double	
+A	107	Brass Pad	Double	
+A	108	Tuba	Single	
+A	109	Staccato Hil!	Double	
+A	110	Orbiting Probes	Double	yes(Double)
+A	111	Chorus E.Guitar	Double	yes(Double)
+A	112	Insectisuicides	Double	yes(Double)
+A	113	Custom Roads	Double	yes(Double)
+A	114	The Sax Band	Double	
+A	115	Martian Winds	Double	yes(Double)
+A	116	Metal Maniac	Double	yes(Double)
+A	117	Breathy Bells	Double	yes(Double)
+A	118	Monster Bass	Double	
+A	119	Solo Cello	Single	yes(Double)
+A	120	01/W Total Kit	Drum	yes(Drum)
+A	121	Flutepad	Double	yes(Double)
+A	122	Pipe Positive	Single	yes(Single)
+A	123	Shakuhachi	Double	yes(Double)
+A	124	Velo Orchestra	Double	yes(Double)
+A	125	Pop Bottle	Single	yes(Single)
+A	126	The UFO Appears	Double	
+A	127	Hawaiian Glass	Double	
+B	000	Sky Diver...	Double	
+B	001	Compressed Piano	Double	yes(Double)
+B	002	Growling Tenor	Double	
+B	003	Mixed Choir	Double	yes(Double)
+B	004	Steel String Gtr	Double	yes(Double)
+B	005	Ensemble Bell	Single	yes(Single)
+B	006	Jacobass	Single	yes(Single)
+B	007	World Strings	Double	yes(Double)
+B	008	Processed Kit	Drum	
+B	009	Mine Sweep	Double	yes(Double)
+B	010	Killer Organ	Double	yes(Double)
+B	011	Phantom Tines	Double	yes(Double)
+B	012	Grando Bando	Double	yes(Double)
+B	013	Xylophone	Single	yes(Single)
+B	014	Monster Lead	Double	yes(Double)
+B	015	Sitar	Single	
+B	016	Hands of Time	Double	
+B	017	Pro-Stage E.P.	Double	
+B	018	Piccolo	Double	
+B	019	BreathyLayerPad	Double	
+B	020	Dynastrat	Double	
+B	021	Tubular Bell	Single	
+B	022	Dark SynBass	Single	
+B	023	Ensemble & Solo	Double	yes(Double)
+B	024	Cyber-Impact/SW1	Double	yes(Double)
+B	025	Solar Ghosts	Double	yes(Double)
+B	026	Perc Rock Organ	Double	yes(Single)
+B	027	*Belliano*	Double	yes(Double)
+B	028	Soft Trombone	Single	yes(Single)
+B	029	Marimba	Single	yes(Single)
+B	030	Syn Pipes	Double	yes(Double)
+B	031	Mandolin Trem	Double	yes(Double)
+B	032	Aurora Borealis	Double	
+B	033	Super Grand	Double	yes(Double)
+B	034	Bass Clarinet	Single	
+B	035	Boys Choir	Double	yes(Double)
+B	036	Dad's JazzGuitar	Single	yes(Single)
+B	037	Pluck Bell	Single	
+B	038	Jazz Bass (SW1)	Double	yes(Double)
+B	039	(Slow Strings)	Single	
+B	040	Psycho Kit	Drum	yes(Drum)
+B	041	Hit The Beast	Double	yes(Double)
+B	042	Pipe Mixture	Double	yes(Double)
+B	043	MIDI Ensemble	Double	yes(Double)
+B	044	Medium Trumpet	Single	
+B	045	Ribbon Rhythm	Double	yes(Double)
+B	046	Espresso Lead	Double	yes(Double)
+B	047	Hackbrett	Double	yes(Double)
+B	048	Random Dancer	Double	yes(Double)
+B	049	Super Whirly	Double	yes(Double)
+B	050	Bassoon	Single	
+B	051	Super Pad	Double	
+B	052	Stadium Guitar	Double	yes(Double)
+B	053	Solar Motion	Double	yes(Double)
+B	054	Euro Bva Bass	Double	
+B	055	Solo Viola	Single	yes(Double)
+B	056	Timpani	Double	yes(Double)
+B	057	Analog Pad	Double	yes(Double)
+B	058	Jazz-Organ 1	Double	yes(Double)
+B	059	Brito FM Roads	Single	
+B	060	Modern Brass	Double	
+B	061	Balaphone	Double	
+B	062	Square Wave Lead	Double	
+B	063	Bouzouki	Double	
+B	064	Vocal Motion	Double	
+B	065	=Snappy= Clavi	Single	
+B	066	Baritone Sax	Single	yes(Single)
+B	067	Symphonic Pad	Double	
+B	068	Parker Piezo	Double	
+B	069	13 Belts Of Bali	Double	
+B	070	Picked Bass	Single	yes(Single)
+B	071	ClassicalStrings	Single	
+B	072	Orch/Ethnic Kits	Drum	
+B	073	Hybrid keys	Double	
+B	074	Big Old JazzOrg	Double	
+B	075	Tango/SW 1&2	Double	
+B	076	Flugelhorn	Single	
+B	077	Glockenspiel	Single	
+B	078	Phat Synth Bass	Double	yes(Double)
+B	079	Shamisen	Single	yes(Single)
+B	080	The Mind	Double	
+B	081	Harpsichord	Double	
+B	082	Tin Flute	Double	yes(Double)
+B	083	Air Thing	Double	yes(Double)
+B	084	ExpressmanShadow	Single	yes(Single)
+B	085	FM Bells	Double	
+B	086	30303 Rez Bass	Single	yes(Single)
+B	087	Solo Pizzicato	Single	yes(Single)
+B	088	Analog/Club Kits	Drum	yes(Drum)
+B	089	Synplano	Double	
+B	090	Dark Old BX-3	Double	
+B	091	Jangle heart	Double	
+B	092	Mute Trombone	Single	
+B	093	Wooden Slit Drum	Single	
+B	094	Pipe Reeds	Single	
+B	095	Banjo Andro	Single	
+B	096	((Scanners ))	Double	
+B	097	Power Piano	Double	
+B	098	Bottle	Single	
+B	099	City of Angels	Double	
+B	100	Funkin' Guitar	Double	
+B	101	Finger Gamelon	Double	
+B	102	Electric Bass	Single	yes(Single)
+B	103	Ribbon Strings	Double	
+B	104	Toms & Cymbals	Drum	yes(Drum)
+B	105	Aftermath	Double	
+B	106	Full Organ	Double	
+B	107	Pedal Steel	Single	
+B	108	Hard Trumpet	Single	
+B	109	Space Hatch	Double	
+B	110	StadiumSW1-Shore	Double	
+B	111	Funky Strato	Single	
+B	112	Out of the myst.	Double	
+B	113	Birds & Bugs	Double	
+B	114	Harmonica	Single	
+B	115	Decaying Organ	Double	
+B	116	TalkBox Gtr/JS-Y	Double	
+B	117	Pot Covers	Single	
+B	118	Pull Me Please	Single	
+B	119	Contrabass&Cello	Single	yes(Single)
+B	120	Marc Tree	Double	yes(Double)
+B	121	Classic Squares	Double	yes(Double)
+B	122	Pipe Tuentiana	Single	yes(Single)
+B	123	Hover Craft	Double	
+B	124	Band Hit!	Double	yes(Double)
+B	125	Thunderstorm!!!!	Double	
+B	126	Bass go pop.	Double	yes(Double)
+B	127	Mute Guitar	Double	yes(Double)
+C	000	Soft-StereoPiano	Double	
+C	001	Clear Mallet	Double	
+C	002	Bed of Vocals	Double	
+C	003	...sleep...	Double	
+C	004	Trance Load	Single	
+C	005	Bass Drum Bass	Single	
+C	006	SweepUp Synth	Double	
+C	007	Sharp Brass	Single	
+C	008	DaDanceMixPiano	Single	
+C	009	KnobbingBass	Double	
+C	010	HipHop/Rap Kit	Drum	
+C	011	Tape Synth	Double	
+C	012	Brain Swimming	Double	
+C	013	Reggae Gtr Chd	Single	
+C	014	ST Sus.Band Hit	Double	
+C	015	Dr.Groove Bass	Double	
+C	016	Vintage Grand	Double	
+C	017	Upsweep	Double	
+C	018	Synth Brazz	Double	
+C	019	Forest Choir	Double	
+C	020	KBed E.P.	Double	
+C	021	Noctiluca	Double	
+C	022	Orchestral Brass	Single	
+C	023	OLD/Dark E.P.	Double	
+C	024	Solo Sax	Single	
+C	025	Pound Bass	Double	
+C	026	Funky Drummin'	Drum	
+C	027	Old & Analog	Double	
+C	028	False Reality	Double	
+C	029	Pop Guitar Chd	Single	
+C	030	ST Disonant Hit	Double	
+C	031	(Hip Pick)	Double	
+C	032	Night Moods	Double	
+C	033	Dance Lead	Double	
+C	034	Square Snaps	Double	
+C	035	ST Old Brass Hit	Double	
+C	036	FM Tubular	Single	
+C	037	Asid Bass	Double	
+C	038	Space Life	Double	
+C	039	ST Brass Fall	Double	
+C	040	ClassicM1Organ2	Single	
+C	041	(POP) House Bass	Double	
+C	042	House/Techno/Jun	Drum	
+C	043	Triangulation	Single	
+C	044	Wavetable E.P.	Double	
+C	045	FunkyGtr 9th Chd	Single	
+C	046	ST Glass O.Hit	Double	
+C	047	Upright Bass	Double	
+C	048	Super CP Layer	Double	
+C	049	brak	Double	
+C	050	Perc, Bottle	Double	
+C	051	Noise Hits	Single	
+C	052	Solar Bells	Double	
+C	053	Nistrom	Double	
+C	054	(LAZER WARS)	Double	
+C	055	Trumpet	Single	
+C	056	Clavi-Attack	Double	
+C	057	Power R&B Organ	Double	
+C	058	Ribbon Rez Bass	Double	
+C	059	Bamboo 'B' II	Double	
+C	060	Pole	Single	
+C	061	[Ribbon] Rok Gtr	Double	
+C	062	Kloor Bass	Single	
+C	063	Mg Lead (Ribbon)	Double	
+C	064	M1 Piano	Single	
+C	065	Sub-Synth	Single	
+C	066	Saw Pad	Double	
+C	067	<<< Going Home >>	Double	
+C	068	son of big one	Double	
+C	069	Jungle Bass 2	Double	
+C	070	SynMallet	Single	
+C	071	WAVE STATION	Double	
+C	072	Piano Pad #3	Double	
+C	073	Knocker Bass	Single	
+C	074	Jungle Kit	Drum	
+C	075	[[The Summit ]]	Double	
+C	076	Ddum'n Bass SQ01	Single	
+C	077	Crunchy Power Gt	Double	
+C	078	ST Power Pop Hit	Double	
+C	079	Punctured BASS	Double	
+C	080	Digi JET Stream	Double	
+C	081	Mondo Rave Pad	Double	
+C	082	Evolver Pad	Double	
+C	083	ST Brass Hit	Double	
+C	084	Mr.8 Sync Lead	Double	
+C	085	StandUpTheBass	Double	
+C	086	Mermaid	Double	
+C	087	01W Trombone1	Single	
+C	088	ChordWork	Double	
+C	089	01W Alto Sax	Double	
+C	090	AnalogSweeper	Double	
+C	091	pressure	Double	
+C	092	Cyber Choir	Double	
+C	093	Street Guitar	Single	
+C	094	ST Major O.Hit	Double	
+C	095	Razor Bass	Double	
+C	096	Velocity EP	Double	
+C	097	BubbleGumRibbon	Double	
+C	098	Cyborg Pad	Double	
+C	099	DSP Noise	Single	
+C	100	TAP RibbonVoices	Double	
+C	101	! Stinky Bass !	Single	
+C	102	Rubber(Wah)Clav	Single	
+C	103	CrawlersLeadSax	Single	
+C	104	Plano Pad #1	Double	
+C	105	SUB-SUB-BASS	Single	
+C	106	Industry/Analog	Drum	
+C	107	Icicle	Double	
+C	108	Lock the Piano!	Double	
+C	109	A Vox Wah (SW1)	Single	
+C	110	ST Intense Hit	Double	
+C	111	Vogue Bass	Double	
+C	112	Bell/Piano/Pad	Single	
+C	113	Analog Scuttlin	Double	
+C	114	3-Way Lead Synth	Single	
+C	115	Fretless	Single	
+C	116	Detuned E.P.	Double	
+C	117	Slap Bass	Single	
+C	118	Funky Lead	Double	
+C	119	01W Trombone2	Single	
+C	120	M1 Grand Piano	Double	
+C	121	Plastic Man	Double	
+C	122	Super Pizz Hit	Double	
+C	123	Disco Brass	Double	
+C	124	Super Stage EP	Single	
+C	125	Touch Wah '70s	Double	
+C	126	ST 5th Choir Hit	Double	
+C	127	Elevator Noise	Single	
+D	000	NeuroSurgery	Double	
+D	001	SinisterDrug3AM	Double	
+D	002	Digital Polysix	Double	
+D	003	Bells In Motion	Double	
+D	004	Octarez Bass	Double	
+D	005	Mr. Impact	Double	
+D	006	Dance Piano	Single	
+D	007	Tek Quire	Double	
+D	008	Electrik Brass	Double	
+D	009	Reggae Organ	Double	
+D	010	Pop/R&B Kit	Drum	
+D	011	StereoBrightOHit	Double	
+D	012	Thunder Pick	Double	
+D	013	D Strings	Double	
+D	014	Troncher	Double	
+D	015	Saw303Devotee JS	Double	
+D	016	TempoSynth-Organ	Double	
+D	017	Sonic Soup	Double	
+D	018	Dynamic Rave	Double	
+D	019	FM Water Ball	Double	
+D	020	Dark Moog	Double	
+D	021	Drub Square	Double	
+D	022	SmoothStage E.P.	Single	
+D	023	Vocalscape	Double	
+D	024	Brass Brothers	Double	
+D	025	Garage Organ	Single	
+D	026	Vintage Kit	Drum	
+D	027	Delicate Morpher	Double	
+D	028	Tri Me Bass	Double	
+D	029	Pop Strings 1	Double	
+D	030	XMeditate)	Double	
+D	031	Lead, or Bass?	Single	
+D	032	Rhythm Sweep	Double	
+D	033	NOISY VOX Ribbon	Single	
+D	034	Rezo Airpad	Double	
+D	035	Bellend	Double	
+D	036	Rave Choir	Double	
+D	037	TranceOrganBass	Double	
+D	038	Saw Stack	Double	
+D	039	Rez Motion Sweep	Double	
+D	040	Band & Fall	Double	
+D	041	Disco ORGAN*Bass	Double	
+D	042	Aggressive Kit (d) (21)	?	
+D	043	=Evaporate =	Double	
+D	044	Savage Squares	Double	
+D	045	Pop Strings 2	Double	
+D	046	Rubber Banned	Single	
+D	047	Cry Baby Bass	Double	
+D	048	Rising The Sun	Double	
+D	049	Soq DDL Lead	Double	
+D	050	Vel-Swellz	Double	
+D	051	Tinkle Bells	Double	
+D	052	SQ Bass	Double	
+D	053	Random Syn Hit	Double	
+D	054	Analog Clav	Double	
+D	055	Basic But Useful	Double	
+D	056	Sweepy Strings	Double	
+D	057	String Stab	Double	
+D	058	Well Hard Kit	Drum	
+D	059	Flashy SAWS	Double	
+D	060	WarmPickedBass	Double	
+D	061	ThrustingThrunge	Double	
+D	062	Tikki	Double	
+D	063	Zapper Bass	Double	
+D	064	Tronic Strinng	Single	
+D	065	Stereo Filters	Double	
+D	066	Ghostly Strings	Double	
+D	067	Solar Lullaby	Double	
+D	068	Sync Bass	Double	
+D	069	Analog Bass SW1	Double	
+D	070	Soft Clavitar	Single	
+D	071	Steady Breath	Single	
+D	072	Trianglular	Double	
+D	073	Interval Sweep	Double	
+D	074	Jazz/Funk/Reggae	Drum	
+D	075	Solarium Pad	Double	
+D	076	Plunky Bass SW1	Double	
+D	077	Ice Whistle	Double	
+D	078	Dance Arp Wave (b)	?	
+D	079	Volo/Rez Bass	Double	
+D	080	Lifting Off...	Double	
+D	081	PWM Pad SW1	Double	
+D	082	OPERA	Double	
+D	083	(Chasing Comets)	Double	
+D	084	Rawsaw Syn. Bass	Double	
+D	085	Junnggle Bass	Single	
+D	086	Radio Piano(SW1)	Single	
+D	087	Digistack Stab	Double	
+D	088	Stabbin' McNally	Double	
+D	089	Staccato Pad	Double	
+D	090	Vox Rhythms	Drum	
+D	091	DigiBell Pad	Double	
+D	092	TsuB Bass	Single	
+D	093	Pop Mutes	Double	
+D	094	Detuned Ana. Era	Double	
+D	095	SQ 303Devotee JS	Double	
+D	096	Hallucinating	Double	
+D	097	Chiff Anatomy	Single	
+D	098	Arpy Guy (JS-Y)	Single	
+D	099	Teknostatic	Double	
+D	100	Organ Hit	Double	
+D	101	TranceBass SW1&2	Single	
+D	102	Synth Clav	Double	
+D	103	Organ grind	Double	
+D	104	Slow Sweeper	Single	
+D	105	Rhythmic Roz	Single	
+D	106	Synth Logg Drum	Double	
+D	107	Ginch	Double	
+D	108	30303 Rozdark	Single	
+D	109	Useful Trash	Single	
+D	110	Unison Filters	Double	
+D	111	Syn-Zap Bass	Double	
+D	112	Classic Whirly	Single	
+D	113	Veloreza	Double	
+D	114	Monstrousity	Double	
+D	115	RADIO-Y&Ribbon	Double	
+D	116	RAVE Siren (SW1)	Double	
+D	117	Skip's DUB Bass	Single	
+D	118	Sticky Rez Clav	Double	
+D	119	Staco-echo	Double	
+D	120	SineUsold	Double	
+D	121	...For Medusa	Double	
+D	122	squinge sqr>SW	Single	
+D	123	Slang Bass	Double	
+D	124	Downsizing	Double	
+D	125	Euro Stab	Double	
+D	126	Super Slammer	Double	
+D	127	Rain Forest	Double	

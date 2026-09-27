@@ -1,0 +1,96 @@
+KORG TRINITY - COMBINATION PARAMETER STRUCTURE  (388 bytes)
+===========================================================
+
+Source: Trinity Parameter Guide, MIDI Implementation "[TABLE 3] COMBINATION PARAMETERS", dated 8.Dec.1995
+(Trinity V1), scanned page 188 of KorgTrinity-ParameterGuideWithMIDIImplementation.pdf
+(github.com/dave-billin/Toluene/doc/).  Page image: research/scans/p188_table3_combination.png
+(The TR-Rack text calls this TABLE2 but does not contain it; only the scan has it.)
+Cross-checked with PCG Tools (TrinityTimbres.cs: timbres at offset 236, 8 x 19 bytes) and with the user's
+PCG files (section type 2): timbre program/bank refs resolve to sensible programs, key/vel zones, MIDI ch
+0x10 = GLOBAL, etc.
+
+PARA No. = Parameter ID , SUB ID (hex) for PARAMETER CHANGE;  n = timbre number 0..7 (T1..T8).
+
+No.    bits   Parameter              Data(hex) : Value                 Notes                         PARA No.
+-----  -----  ---------------------  --------------------------------  ----------------------------  --------
+0-15          COMBI NAME             20..7F ASCII (16 chars)                                         ----
+-- CATEGORY
+16     b0-3   CATEGORY A             0..F : 1..16                      e.g. "for purpose" (Global)    00,00
+16     b4-7   CATEGORY B             0..F : 1..16                      e.g. "for user"                00,01
+-- SCALE (used by timbres whose SCALE SELECT = COMBI)
+17     b0-3   SCALE KEY              0..B : C..B                                                     04,01
+17     b4-7   SCALE TYPE             0..C  (same list as program)                                    04,00
+18            RANDOM INTENSITY       00..07 (same list as program)     normal = 0                    04,02
+-- SWITCH ASSIGN
+19     b0-3   PANEL SW 2 ASSIGN      0..8  (same SW list as program)                                 07,01
+19     b4-7   PANEL SW 1 ASSIGN      0..8                                                            07,00
+-- GROUP 1~8 INSERT FX
+20-195        INSERT FX              8 x 22 bytes = 176 bytes          same 22-byte block layout as  09,00 ..
+                                     (block k at 20 + 22*k, k=0..7)    program IFX (06_effects.txt)  30,??
+-- MASTER EFFECT PARAMETERS
+196-235       MASTER FX              40 bytes                          same layout as program MFX    31,00 ..
+                                                                                                     33,??
+-- TIMBRE 1 PARAMETERS (bytes 236..254); TIMBRE n at 236 + 19*n  (n = 0..7)
+236           PROGRAM NO.            00..7F : 0..127                   Int, Ext                      01,01+4n
+237           PROGRAM BANK           00..04 : A, B, C, D, S            C/D only with Flash ROM;      01,00+4n
+                                                                       4 = S (Solo, Trinity plus/pro)
+                                                                       = M bank on V3 (MOSS)
+238    b0-4   MIDI CHANNEL           0..F : ch1..16, 10h : GLOBAL      Int, Ext                      01,03+4n
+238    b5-6   TIMBRE MODE            0:INT 1:OFF 2:EXT                 (V1 doc; PCG Tools uses        01,02+4n
+                                                                       0 Int,1 Off,2 Both,3 Ext for
+                                                                       later OS -- see note)
+239           OUTPUT LEVEL           00..7F : 0..127                   Int, Ext                      02,01+4n
+240           PITCH BEND RANGE       E7 = PRG, E8..18 : -24..+24       Int                           04,06+4n
+241           TRANSPOSE              E8..18 : -24..+24 semitones       Int, Ext                      04,04+4n
+242           DETUNE                 9D..63 : -99..+99 cents           Int                           04,05+4n
+243           DELAY START            00..60, FF  (same DELAY list)     Int                           03,02+3n (sic)
+244           L:R PAN                FF, 00..7F, 80                    FF=OFF, 00..7F = L00..R127,   02,00+4n
+                                                                       80 = PROG (use program pan)
+245           SEND 1 LEVEL           00..7F, 80 : 0..127, PRG          Int                           02,02+4n
+246           SEND 2 LEVEL           00..7F, 80 : 0..127, PRG          Int                           02,03+4n
+247    b0     PROGRAM CHANGE FILT    0:DIS 1:ENA                       Int, Ext                      07,02+4n
+247    b1     DAMPER FILTER          0:DIS 1:ENA                       Int, Ext                      07,05+4n
+247    b2     AFTER TOUCH FILTER     0:DIS 1:ENA                       Int, Ext                      07,04+4n
+247    b3     CONTROL CHANGE FILT    0:DIS 1:ENA                       Int, Ext                      07,03+4n
+247    b4     SCALE SELECT           0:COMBI 1:PROG                    Int                           04,03+4n
+247    b5     HIDE OSC2              0:NOT HIDE 1:HIDE                 Int (for DOUBLE programs)     03,00+3n (sic)
+247    b6     FORCE POLY             0:NOT FORCE 1:FORCE               Int (for MONO programs)       03,01+3n (sic)
+248           KEY ZONE TOP           00..7F : C-1..G9                  Int, Ext                      05,00+4n
+249           KEY ZONE BOTTOM        00..7F : C-1..G9                  Int, Ext                      05,03+4n
+250    b0-3   K.Z SLOPE OF TOP       0..F (KEY SLOPE list)             Int                           05,01+4n
+250    b4-7   K.Z SLOPE OF BOTTOM    0..F                              Int                           05,02+4n
+251           VEL ZONE TOP           01..7F : 1..127                   Int, Ext                      06,00+4n
+252           VEL ZONE BOTTOM        01..7F : 1..127                   Int, Ext                      06,03+4n
+253    b0-3   V.Z SLOPE OF TOP       0..F (VEL SLOPE list)             Int                           06,01+4n
+253    b4-7   V.Z SLOPE OF BOTTOM    0..F                              Int                           06,02+4n
+254           INSERT EFFECT SIZE     00..0B (INSERT SIZE list)         Int                           08,00+n
+-- TIMBRE 2..8
+255-387       same as TIMBRE 1 (236..254), 19 x 7 = 133 bytes          PARA: n = 1..7
+
+TOTAL = 388 bytes.
+
+LISTS
+  PROGRAM BANK (237): 00 Bank A, 01 B, 02 C (extended/Flash only), 03 D (extended only), 04 S (Solo)
+     PCG Tools (TrinityProgramBanks.GetBankWithPcgId) maps 4 -> S bank if loaded, else M bank (Trinity V3).
+  KEY SLOPE (250): 0:0, 1:1 semitone, 2:2, 3:3, 4:4, 5:6 (0.5 oct), 6:8, 7:10, 8:12 (1 oct), 9:18 (1.5 oct),
+     10(A):24 (2 oct), 11(B):30 (2.5 oct), 12(C):36 (3 oct), 13(D):48 (4 oct), 14(E):60 (5 oct), 15(F):72 (6 oct)
+  VEL SLOPE (253): 0:0, 1:8, ... F:120   (velocity fade slope = value x 8)
+  INSERT EFFECT SIZE (254): 0 OFF, 1 Size 1, 2 Size 2, 3 Size 4, 4..B = Timbre 1..8
+     (4..B presumably "use the insert effect chain of timbre N")
+  PAN (244): 00..7F = L00..R127, 80 = PROG, FF = OFF
+  DELAY START (243): see program list (00..60 time steps, FF = key off)
+
+NOTES
+  * TIMBRE MODE: combi table (V1) lists 0 INT, 1 OFF, 2 EXT; the SONG table (TABLE 8, same track layout)
+    lists "0..3 : INT, OFF, EXT, BOTH". PCG Tools (TrinityTimbre.cs) instead decodes bits 6..5 as
+    {Int, Off, Both, Ext} -- conflicting for values 2/3; Korg's order (2 = EXT, 3 = BOTH) is more likely.
+    In the user's files only 0 (INT) and 1 (OFF) occur.
+  * The combination's bytes 20..235 (8 insert FX groups + master FX) have the same layout as the SONG table's,
+    which Korg documents in detail -- see 06_effects.txt.
+  * PCG Tools field map for the timbre (offsets relative to timbre start, all consistent with the table):
+    +0 program no., +1 bank, +2 b0-4 MIDI ch, +2 b5-6 status, +3 volume, +4 bend range (signed),
+    +5 transpose (signed), +11 b6 force poly, +11 b5 hide OSC2, +12 key top, +13 key bottom,
+    +15 vel top, +16 vel bottom.
+  * PCG Tools' TrinityCombi.cs puts "Tempo" at offset 541 -- a copy/paste from Triton; not valid for Trinity.
+  * TABLE 5 (Combination PLAY-mode parameter numbers, not stored): TIMBRE BANK 00..04 (A..S) 00,00+4n;
+    TIMBRE PROGRAM 00..7F 00,01+4n; TIMBRE PANPOT 00..7F (L00..R127) 00,02+4n; TIMBRE VOLUME 00..7F 00,03+4n.

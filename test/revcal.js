@@ -1,0 +1,6 @@
+global.TFX = require('../fxcat.js').TFX; Object.assign(global, require('../fxdsp.js'));
+const sr = 48000, N = 128;
+function gain(id, p) { const e = TFX.byId(id), u = FxRack.make(sr, e), P = Object.assign(TFX.defaults(id), p); const L = new Float32Array(N), R = new Float32Array(N); let ie = 0, oe = 0; const x = { src: new Float64Array(27) };
+  for (let b = 0; b < 6 * sr / N; b++) { for (let i = 0; i < N; i++) { const v = (Math.random() * 2 - 1) * 0.3; L[i] = R[i] = v; if (b > 2 * sr / N) ie += v * v; } u.process(L, R, N, P, x); if (b > 2 * sr / N) for (let i = 0; i < N; i++) oe += (L[i] * L[i] + R[i] * R[i]) / 2; } return 10 * Math.log10(oe / ie); }
+for (const id of ['MR:1', 'MR:2', 'MR:3', 'MR:4', 'MR:5', 'MR:6', 'MR:7']) console.log(id, TFX.byId(id).name.padEnd(20), 'out100 t2.5:', gain(id, { out: 100, time: 2.5 }).toFixed(1), ' t1:', gain(id, { out: 100, time: 1 }).toFixed(1), ' t6:', gain(id, { out: 100, time: 6 }).toFixed(1), ' noER:', gain(id, { out: 100, time: 2.5, er1l: 0, er2l: 0, er3l: 0, er4l: 0 }).toFixed(1));
+for (const id of ['S2:46', 'S2:47', 'S2:48', 'S2:49', 'S2:50', 'S2:51', 'S1:28', 'S2:45']) console.log(id, TFX.byId(id).name.padEnd(20), 'wet100 t2.5:', gain(id, { wet: 100, time: 2.5 }).toFixed(1));

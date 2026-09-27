@@ -1,0 +1,55 @@
+KORG TRINITY - GLOBAL DATA  (SysEx dump: 1172 bytes;  PCG section type 4: 2-byte header + 1175 bytes)
+=====================================================================================================
+
+Source: Trinity Parameter Guide, MIDI Implementation "[TABLE 4] GLOBAL PARAMETERS" (Trinity V1),
+scanned page 189 (research/scans/p189_table4-7_global_combiplay_progplay_drumkit.png). TR-Rack text also gives 1172 bytes.
+
+A) SysEx GLOBAL DUMP layout (Func 51h), per Korg:
+No.       bits  Parameter               Data(hex) : Value               Notes
+--------  ----  ----------------------  ------------------------------  --------------------------------
+0               MASTER TUNE             CE..32 : -50..+50 cents          Int
+1               KEY TRANSPOSE           F4..0C : -12..+12 semitones      Int, Ext
+2               VELOCITY CURVE          0..7 : 1..8                      Int, Ext
+3               AFTER TOUCH CURVE       0..7 : 1..8                      Int, Ext
+4         b0    PEDAL SW POLARITY       0: -  1: +                       Int, Ext
+4         b1    SUSTAIN SW POLARITY     0: -  1: +                       Int, Ext
+4         b2    CONVERT POSITION        0:POST KBD 1:PRE TG              for transpose, vel/AT curve
+5               (reserved)
+6               PEDAL SW ASSIGN         00..05 : see list *1
+7               PEDAL ASSIGN            00..08 : see list *2
+8-19            USER SCALE (Octave)     9C..64 : -100..+100 cents        12 bytes (C..B)
+20-147          USER SCALE (All Notes)  9C..64 : -100..+100 cents        128 bytes (note 0..127)
+148-659         PROG CATEGORY NAMES     ASCII, 16 x 16 x 2 bytes         set A (16 names) then set B
+660-1171        COMBI CATEGORY NAMES    ASCII, 16 x 16 x 2 bytes         set A then set B
+  *1 PEDAL SW: 0 OFF, 1 PROG(COMBI) UP, 2 PROG(COMBI) DOWN, 3 SONG START/STOP, 4 SONG PUNCH IN/OUT,
+     5 MODULATION (CC#82)
+  *2 PEDAL: 0 OFF, 1 TIMBRE(TRACK) VOLUME (CC#07), 2 TIMBRE(TRACK) EXPRESSION (CC#11), 3 MASTER VOLUME
+     (universal excl.), 4 TEMPO OFFSET, 5 DATA ENTRY, 6 FOOT PEDAL (CC#04), 7 EFFECT CONTROL 1 (CC#12),
+     8 EFFECT CONTROL 2 (CC#13)
+
+B) PCG global record (observed in the user's files; section type 4, count 1, size 1177 = 2-byte header + 1175)
+   The PCG global is NOT byte-identical to the SysEx dump. Empirically:
+     PCG offset = SysEx offset - 2 for SysEx bytes 2..1171   (MASTER TUNE and KEY TRANSPOSE are not at the start)
+     PCG 0      velocity curve   (values 3 / 7 seen)
+     PCG 1      after-touch curve
+     PCG 2      polarity/convert bits
+     PCG 3      reserved
+     PCG 4      pedal SW assign
+     PCG 5      pedal assign
+     PCG 6-17   user octave scale
+     PCG 18-145 user all-note scale
+     PCG 146-401  program category names set A (16 x 16)   <- verified: "Keyboard", "Organ", "Mallet", ...
+     PCG 402-657  program category names set B (16 x 16)   <- "UserCategoryP01".."P16" in user files
+     PCG 658-913  combi category names set A              <- "Pad & Lead", "Bass Splits", ...
+     PCG 914-1169 combi category names set B              <- "UserCategoryC01".."C16"
+     PCG 1170-1174 5 unknown bytes (seen: 00 00 01 99 00 / 00 00 01 9F 00) -- probably master tune, key
+                   transpose and/or other global settings; not documented.
+   PCG Tools (TrinityGlobal.cs) independently uses category offset 146 and the order
+   [prog A][prog B][combi A][combi B], 16 chars each, which matches.
+   The 2-byte section header seen: 00 FF (Hadi2024) / 00 00 (TRINI-1-KJ).
+
+Factory category names (from the user's files, likely factory defaults):
+  Program set A: Keyboard, Organ, Mallet, Bell, Strings, Vocal/Airy, Brass, Woodwind/Reeds, Guitar, Bass,
+                 Plucked, Synth, Synth Lead, Motion Synth, Sound Effect, Drums/Perc.
+  Combi set A:   Pad & Lead, Bass Splits, Breathy/Airy, Bell & Mallet, Motion Synth, Keyboard, Synth, Strings,
+                 Orchestral, Horn Section, Guitar, Bass, Ethnic/Trad., Organ, Complex, Drums/Special FX

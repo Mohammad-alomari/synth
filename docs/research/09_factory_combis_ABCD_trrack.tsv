@@ -1,0 +1,518 @@
+# Korg TR-Rack factory COMBINATION names, banks A-D (512). Banks A and B = Trinity factory combis A/B
+#   (A000 = "Trinity Overture").
+# Source: TR-Rack Ctrlr panel (github.com/FRDTom/TR-Rack-Editor, Lua combiNameList). Typos possible.
+# Evidence: TRINI-1-KJ.PCG (user-edited) still holds 3 bank-A and 23 bank-B combis with identical names in the
+#   same slots (e.g. A120 Piano & Vel.Orch, A122 Beach Vocals, B101 Sombreros ... B127 Harmonium Soul).
+# Columns: bank<TAB>no<TAB>name<TAB>same_name_in_TRINI-1-KJ.PCG
+A	000	Trinity Overture	
+A	001	Old School Split	
+A	002	Vox Morphing	
+A	003	AirPlano Ensemble	
+A	004	NewSetOfStrings	
+A	005	Maximum impact	
+A	006	Killer Miller!	
+A	007	Shakoto	
+A	008	Chamber Strings	
+A	009	Bass & Piano / SW1	
+A	010	Breath Of Fire	
+A	011	Big Perc Organ	
+A	012	Soprano Winds	
+A	013	JamYourButtOff !	
+A	014	Megasaurus Rex	
+A	015	Adventure Bells	
+A	016	Sad Movie Scene	
+A	017	Phat Tip Split	
+A	018	Dragon's World	
+A	019	MIDI Plano	
+A	020	Dyna Slap Bass	
+A	021	Piano & Strings	
+A	022	Brass Band	
+A	023	Stubenmusik	
+A	024	Deep Strings	
+A	025	Standup & Polytone	
+A	026	~Secret ~ Garden~	
+A	027	Jazzy Organ 1	
+A	028	milesAFTERmiles	
+A	029	Virtual Joystick	
+A	030	Synthinity	
+A	031	Jamaican Stuff	
+A	032	Scoring Horns	
+A	033	Modem Ensemble	
+A	034	Meet Thy Doom....	
+A	035	TineOnYourHands	
+A	036	Yeah! DistGuitar	
+A	037	Water World	
+A	038	Old Cool Band	
+A	039	Asian World Orch	
+A	040	Masterpiece	
+A	041	Soul InSpaceport	
+A	042	DurangosDaughter	
+A	043	Tutti Pipe 1	
+A	044	Super Lead Split	
+A	045	Who's Next?	
+A	046	Raw Power	
+A	047	Belish Maniacs	
+A	048	OrchestralHero33	
+A	049	Euro Trance Time	
+A	050	{Lonely} [Alien]	
+A	051	Clav Attack	
+A	052	-> RUDE <-	
+A	053	In The Pyramid	
+A	054	Real Harp Gliss	
+A	055	Taste Of Ireland	
+A	056	String Ensemble	
+A	057	NuJazz Solit	
+A	058	Orbital Voices	
+A	059	The Gospel Truth	
+A	060	Beauty & THE BEAST	
+A	061	Jungle Predator	
+A	062	Dark Analog Pad	
+A	063	Meet The Bushmen	
+A	064	Woodwind Ens. 1	
+A	065	Miles Ahead	
+A	066	Aqua Marine	
+A	067	Player's Layers	
+A	068	Parker ( both p/u )	
+A	069	Street Fighter	
+A	070	Brassband w / Mute	
+A	071	Winds of India	
+A	072	Scoring Woods	
+A	073	The Fleas R here	
+A	074	Egyptian Princes	
+A	075	Mixture Pipe 2	
+A	076	Spectagon & Pad	
+A	077	Inverse Nebula	
+A	078	Romance Player	
+A	079	Bell Landy	
+A	080	Moody Orchestra	
+A	081	Jazz Hits	
+A	082	Cosmic Approach	
+A	083	Algorithm Grand	
+A	084	GuitarraEspanola	
+A	085	Trance Sylvania	
+A	086	Brass Orchestra	
+A	087	Master Fisa	
+A	088	Doubled Strings	
+A	089	Tetra Split	
+A	090	(Holding Angels)	
+A	091	Medium BX3	
+A	092	Choirpad & Stevie	
+A	093	The Sun Surfer	
+A	094	String Sunrise	
+A	095	Halo of Bells	
+A	096	Scoring Barocco1	
+A	097	DynaBass & Brass	
+A	098	Watch Me Grow....	
+A	099	Damper / BodyPlano	
+A	100	Hydra Snap	
+A	101	ScareOnDynamics	
+A	102	Bloodrush Lead	
+A	103	Matsuri Festival	
+A	104	Strings & Basses	
+A	105	POP U Wit This	
+A	106	X - Choir Fader	
+A	107	Positive Tuent.	
+A	108	Pad/Gtr (SW1/wah)	
+A	109	Bell Shifting	
+A	110	BIG BONED ( fat )	
+A	111	Merry Poppin'	
+A	112	Florence 1300's	
+A	113	Bass & Harp Age	
+A	114	Time To Sing	
+A	115	Piano & Organ	
+A	116	Spanish Nights	
+A	117	Delayed Reaction	
+A	118	Whack Dragon	
+A	119	NewAged Bass	
+A	120	Piano & Vel.Orch	yes
+A	121	SuperHoro # 5	
+A	122	Beach Vocals	yes
+A	123	BigStraightOrgan	yes
+A	124	Astral Prelude	
+A	125	Winds of Victory	
+A	126	BriteModemHarp	
+A	127	Massive Bell Pad	
+B	000	DynamicOrchestra	
+B	001	Hip 90's Split )	
+B	002	The Rush...	
+B	003	E. Grand & Voice	
+B	004	StereoGuitarPad	
+B	005	Meganomic	
+B	006	Saxophonia	
+B	007	Koto Velox	
+B	008	Violin Section	
+B	009	Happenin'Church!	
+B	010	'Tim's Bedtime'	
+B	011	Big Rock Organ	
+B	012	Whistlers Dream	
+B	013	Time4daBreakdown	
+B	014	MonsterGodSynth	
+B	015	Trinity Bells	
+B	016	Orchestra & Oboe	
+B	017	Moonlight Split	
+B	018	Mystery Islands	
+B	019	MIDI Grand Stack	
+B	020	Dyna Pick Bass	
+B	021	Cathedral Voices	
+B	022	SizzleSynthBrass	
+B	023	MIDI Akkordeon	
+B	024	Legato Strings	
+B	025	Policemen	
+B	026	Sparkling Voices	
+B	027	Jazzy Organ 2	
+B	028	Nashville Duet	
+B	029	[Unhappy - Planet]	
+B	030	X - Fader Synth	
+B	031	The Mallet Men	
+B	032	BOLD Orchestra	
+B	033	Bass Piano Vibe	
+B	034	=Dream Theatre=	
+B	035	SuperNightTines	
+B	036	Distraught	
+B	037	Luna Breath	
+B	038	Dizzy Big Band	
+B	039	Evening in Bali	
+B	040	Green House Pad	
+B	041	TheName'sJazzmin	
+B	042	Bottlized Air	
+B	043	Tutti Pipe 2	
+B	044	SynthPad & Solo	
+B	045	Rockestra ( SW1 )	
+B	046	Song for Darth	
+B	047	Planobell	
+B	048	Harp & Strings	
+B	049	Groove Section	
+B	050	Disquieting Solo	
+B	051	Piezo Clav	
+B	052	MondoSplatBass!	
+B	053	Dream Sequence	
+B	054	Orchestral Brass	
+B	055	Bonny Loch	
+B	056	Arco Strings	
+B	057	MondoSynthSplit	
+B	058	Heavenly Voices	
+B	059	Standard BX3	
+B	060	They split up...	
+B	061	African Rain	
+B	062	Big Bottomed Bed	
+B	063	Jungle Mouth	
+B	064	Woodwind Ens. 2	
+B	065	Flugel Trio SW1	
+B	066	Virtual Vortex	
+B	067	Liquid Piano	
+B	068	Nice Acoustics	
+B	069	Ghost Town	
+B	070	Loud Mules	
+B	071	Indian Nights	
+B	072	Orchestral World	
+B	073	Culture^Shock	
+B	074	Rising Tides	
+B	075	Mixture Pipe 1	
+B	076	Xanosphere	
+B	077	Cyber>Sequence	
+B	078	Ballader	
+B	079	Magical Organ	
+B	080	Final Movement	
+B	081	Power Funk	
+B	082	Ghostly Spectrum	
+B	083	Ballad E.Piano	
+B	084	Mr. Martin	
+B	085	Tradewinds	
+B	086	Trpt & Trombones	
+B	087	Accordion	
+B	088	3 Octave Strings	
+B	089	Sus4 Split	
+B	090	Choir of the Sun	
+B	091	Jazzy Organ 3	
+B	092	Dream Of Lambada	
+B	093	Martian Sunset	
+B	094	Swirling Pad	
+B	095	Spectrum Bells	
+B	096	Scoring Barocco2	
+B	097	Salsa Split	
+B	098	Solar Mystery	
+B	099	Stereo Roads	
+B	100	Analog - Log Bass	
+B	101	Sombreros	yes
+B	102	Big & Nasty Lead	yes
+B	103	Asia Ensemble	yes
+B	104	DynamicPizzicato	yes
+B	105	Band Of Fusion	yes
+B	106	Ambient Choir	yes
+B	107	Pos / Tuent.Spit	
+B	108	Rainy Night Lead	yes
+B	109	Alien Nation	yes
+B	110	Resonant Sweep	yes
+B	111	Pan'n Drum Jam	
+B	112	Harpsi & Strings	yes
+B	113	Bass & Vibe	yes
+B	114	Jazz Split Organ	yes
+B	115	ReallyHonkyTonky	yes
+B	116	Sassy - Vox Cat	
+B	117	new silverware	yes
+B	118	Superclavitar	yes
+B	119	Magic Koto	yes
+B	120	Salsa Ensemble	yes
+B	121	==Metropolis==	yes
+B	122	{{Cyber - Visual}}	
+B	123	Full BX3	yes
+B	124	Once upon a time	yes
+B	125	TheFinalFrontier	yes
+B	126	MIDI Harp	yes
+B	127	Harmonium Soul	yes
+C	000	TrinitySoundRack	
+C	001	Power {HIT} Split	
+C	002	UndeWater Parade	
+C	003	EAuditorium + MIDI	
+C	004	Ice Guitar	
+C	005	Soft Galaxy	
+C	006	Brass & Sax	
+C	007	Airy Piano	
+C	008	Liquid String	
+C	009	Flanged DDL Bass	
+C	010	Cloud Forest	
+C	011	Rn ' B Organ	
+C	012	Free Fall	
+C	013	L / R WACKO Kit	
+C	014	MegaPower Pad	
+C	015	Mystical Warrior	
+C	016	Exodus	
+C	017	Dooop Bass & Pad	
+C	018	Unicorn Forest	
+C	019	Sparkle PianoPad	
+C	020	Da Phat Guitars	
+C	021	Asteroid Orbits	
+C	022	Brass Blasts	
+C	023	Indian Forest	
+C	024	Ele.Grand@Church	
+C	025	DelicateDynamics	
+C	026	Antarctic Night	
+C	027	Clav Power	
+C	028	Sweep - in ' left	
+C	029	Atomic Rhythm	
+C	030	Tape Strings	
+C	031	Grinchoid	
+C	032	Clustered Orch.	
+C	033	LR Hands Soloist	
+C	034	Universal Spirit	
+C	035	Ballad PianoStak	
+C	036	Cyberguitar	
+C	037	Tsunami Strikes !	
+C	038	Too Much Sax	
+C	039	Orgabass + SW2	
+C	040	}Millenium{	
+C	041	Foggy Duty Solo	
+C	042	Almost Awake...	
+C	043	Bad Science	
+C	044	sololos padbag	
+C	045	TechnoHitz	
+C	046	Obesity Bass	
+C	047	Bellish Stuff	
+C	048	Velocity Brass	
+C	049	SuperSub Rap Baz	
+C	050	Buenas Dias	
+C	051	Perfect*PlanoPad	
+C	052	Ricky's Delight	
+C	053	Minor StringStab	
+C	054	Saxify	
+C	055	Shanghai Muzak	
+C	056	Technosynthorgan	
+C	057	Bas D'Joure	
+C	058	Flight From 2000	
+C	059	Serene Bell Pad	
+C	060	Sunspots	
+C	061	Trip - Hop Noizes	
+C	062	Rez - o - matic	
+C	063	Bellmove Unicorn	
+C	064	Japanese Scores	
+C	065	Smooovvv Split	
+C	066	SweeperPad	
+C	067	Dance <|> Plano	
+C	068	Dream Guitar	
+C	069	Underwater Chasm	
+C	070	POWER Brass Ens.	
+C	071	Ac.Bass & Sax	
+C	072	Philly Strings	
+C	073	Hip Hop Dog Bass	
+C	074	Heaven Smiles	
+C	075	Organ Pad	
+C	076	Falling	
+C	077	Seance Spirits	
+C	078	Comet [Fly - By]	
+C	079	Serengeti	
+C	080	Evan's Horn	
+C	081	Harp n ' Stein	
+C	082	Relaxation	
+C	083	Saloon Plano	
+C	084	Jazz - mine	
+C	085	SoftArp & HardSolo	
+C	086	Clay Thang	
+C	087	Polyphonic Now!	
+C	088	East Meets West	
+C	089	Wack Split	
+C	090	Solar Bell Pad	
+C	091	Complex E.Piano	
+C	092	Any Dynamic	
+C	093	NCC - 1701 - A	
+C	094	The Thing	
+C	095	Solar / Pluck Bell	
+C	096	Bell*Brass*Strng	
+C	097	Waving Splitting	
+C	098	Pedal & Arpeggio	
+C	099	Plano + Strings	
+C	100	Bag of Strings	
+C	101	Pad of It's Own	
+C	102	Bonefied	
+C	103	Lite Swirling EP	
+C	104	Splitting Pool	
+C	105	R & B Split	
+C	106	Solar Voices	
+C	107	OldDreamingOrgan	
+C	108	Funky Tool	
+C	109	Sweet Digital	
+C	110	Stingy Passage	
+C	111	Pop Tops	
+C	112	Lovely Nylon	
+C	113	Breathing ElPno	
+C	114	Cloud Surfing	
+C	115	Jungle Bass	
+C	116	Bellysh Guitar	
+C	117	Passage to Pluto	
+C	118	Wired Synthicord	
+C	119	Bella Bella	
+C	120	SombreroSombra	
+C	121	Grab Your Teeth!	
+C	122	Holy , Holy , Holy	
+C	123	Piano In Blue	
+C	124	Quiet Resonances	
+C	125	Nemo	
+C	126	Nocturnal Dreams	
+C	127	Chorus Bell	
+D	000	Philharmonic	
+D	001	Waffle Mallot	
+D	002	Sub Maimer	
+D	003	Empty Auditorium	
+D	004	String Shepard	
+D	005	Marvel Starship	
+D	006	Bad - Phat Brass	
+D	007	Spiritual Piano	
+D	008	SuperString Pad	
+D	009	*MIDI DDL Trap*	
+D	010	Closest Cloud	
+D	011	Nicki's Funky	
+D	012	Sub Lime	
+D	013	Hip Hop Hits	
+D	014	Buzzy SynBrass	
+D	015	MajesticMondoPad	
+D	016	Chamber Orchestr	
+D	017	Phat Bass & PAD	
+D	018	Earthglow	
+D	019	Pop Piano	
+D	020	Suspander	
+D	021	Finitol	
+D	022	SparklingBrass	
+D	023	Madrigal	
+D	024	Tronic Piano / Str	
+D	025	Da Motown Rap	
+D	026	A - irish DynaBoom	
+D	027	PowerBallad Clav	
+D	028	Chorus ElPiano	
+D	029	CrazyHitz	
+D	030	Cluster Sample	
+D	031	OldsDontBreath	
+D	032	Lapponian Sleigh	
+D	033	BigBottm / TripTop	
+D	034	Roswell Lights	
+D	035	Princess Keys	
+D	036	RudeGuitar Split	
+D	037	Lost Words	
+D	038	@-Saxination	
+D	039	Holy Phat!	
+D	040	[Nuclear Dawn]	
+D	041	Face Split	
+D	042	LunarLight	
+D	043	Mondo MIDI Synth	
+D	044	Heavenly ElPiano	
+D	045	Dre Rap Effeks	
+D	046	Techno Bass / Syn	
+D	047	*Mystical Bali*	
+D	048	Looney Tunes	
+D	049	Sneakin Up	
+D	050	Wavestation Pad	
+D	051	Sweet Grand Pno	
+D	052	Mango Mallet	
+D	053	Polaris	
+D	054	Compu - Neoclassic	
+D	055	Cairo Connection	
+D	056	Smooth SynStmngs	
+D	057	AdventureBs / Solo	
+D	058	Ringworm	
+D	059	Ears Candy	
+D	060	Split The Thing	
+D	061	Horrible Flight	
+D	062	Mosquito Boy	
+D	063	Electric Eel	
+D	064	Voxathon	
+D	065	Cool Split :-)	
+D	066	UnderwaterGarden	
+D	067	Hammer All	
+D	068	Nylon Clouds	
+D	069	Almost Asleep...	
+D	070	Brite Pop Brass	
+D	071	Bass - n - Sax Split	
+D	072	Double Dip Strgs	
+D	073	Clean Bass Guitr	
+D	074	Andes Mist	
+D	075	Annie Rose Goes	
+D	076	Alien Canyon	
+D	077	#Splits4SciFi#	
+D	078	PercuPad	
+D	079	Kalimba Simba	
+D	080	Dynamic'll Slapu	
+D	081	Take Bass	
+D	082	Swimmin Thru Air	
+D	083	Latin Piano	
+D	084	Steel n ' Fiddle	
+D	085	Fuga Diminuita	
+D	086	Rubber Clav	
+D	087	Pulse Power	
+D	088	GO GO GO Sync!	
+D	089	ClassicM1Split	
+D	090	Cumulonimbus	
+D	091	E.P. 3rd. Type	
+D	092	The View	
+D	093	Hawk's	
+D	094	Breathy Down	
+D	095	Green Eyed Bass	
+D	096	Archer	
+D	097	FreshFreshFresh	
+D	098	Story Teller	
+D	099	NewPiano & Strings	
+D	100	12 of 12!	
+D	101	Play : C > G > A > F >	
+D	102	Symphony Brass	
+D	103	Bright ElPno + Str	
+D	104	Sweet & Low	
+D	105	Walk n ' Talk	
+D	106	Twilight Flight	
+D	107	Cyber Church	
+D	108	Dynaresaurus	
+D	109	Kilimanjaro	
+D	110	Snap Plano	
+D	111	Jamaican Rum - ba	
+D	112	Grungy Attack	
+D	113	Octav - E - PlanoSW2	
+D	114	Forever Waiting	
+D	115	Just Bass ? Neee!	
+D	116	Guitar Strings	
+D	117	Lost Knowledge	
+D	118	Poly - edric	
+D	119	French Tines	
+D	120	Tines n ' Bamboo	
+D	121	Cool Cats	
+D	122	Big Choir	
+D	123	Jacathon	
+D	124	479 The Chord	
+D	125	One Finger 4 SFX	
+D	126	FloatingCloudPad	
+D	127	Breathing Bells	

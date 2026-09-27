@@ -1,0 +1,90 @@
+KORG TRINITY - INSERT / MASTER EFFECT BLOCKS  (block layout decoded; per-effect 16 param bytes NOT transcribed)
+=================================================================
+
+What Korg documents in the MIDI implementation (Trinity V1 guide + TR-Rack text):
+  Program:     bytes 305-392 "INSERT FX1..4 (22 bytes x 4)" PARA 13,00..17,??   ($ ignored in Drum mode, # in Combi)
+               bytes 393-432 "MASTER EFFECT (40 bytes)"     PARA 18,00..1A,??
+  Combination: bytes 20-195  "GROUP 1~8 INSERT FX (22 x 8)" PARA 09,00..30,??
+               bytes 196-235 "MASTER EFFECT (40 bytes)"     PARA 31,00..33,??
+The block layout (type/size/pan/sends) is given only in the SONG table (TABLE 8) -- see below.
+What is NOT in the MIDI implementation are the 16 per-effect parameter bytes. Those tables
+(OFS 0..15 per effect, with DATA hex range and value range) are in Korg's separate, machine-readable PDF
+  "TRINITY Effects MIDI System Exclusive" (Trinity_FX.pdf, 864 KB)
+  https://www.korg.com/us/support/download/manual/1/213/3298/
+  https://cdn.korg.com/us/support/download/files/f911fe327cfcdd5a1a23e1b5fe92d4c5.pdf
+  (not downloadable from this sandbox's shell; WebFetch confirms e.g. "Amp Simulation: OFS0 Amplifier Type
+   00..02 (SS, EL84..), OFS1 Wet/Dry 00..64, OFS2 Wet/Dry Src 00..19, OFS3 Wet/Dry Amt 9C..64 (-100..100)";
+   "Compressor: OFS0 Sensitivity 01..64, OFS1 Attack 01..64 ..."; "Limiter: OFS0 Ratio 00..83 (1.0:1..inf:1)".)
+  -> Next step if effects are needed: fetch that PDF (e.g. by the user) and transcribe the OFS tables.
+
+BLOCK LAYOUT -- documented by Korg in the Trinity guide's "[TABLE 8] SONG SEQUENCE DATA" (scan page 190,
+research/scans/p190_table8_song.png), whose bytes 20-235 are the same 8 insert groups + master block as a
+combination. Cross-checked with the TR-Rack Ctrlr panel's SysEx decoder (github.com/FRDTom/TR-Rack-Editor,
+Lua setProg; its 1-based SysEx positions converted to 8-bit record offsets), Toluene's ParameterIDs.h,
+and statistics over ~500 programs / 256 combis in the user's PCG files.
+
+22-byte INSERT FX block  (Korg TABLE 8 "GROUP 1 INSERT EFFECT" 20..41)
+  +0..+15  EFFECT PARAMETERS (16 bytes, OFS 0..15; meaning per size+type, see Trinity_FX.pdf)
+  +16      b0-6 FX TYPE (doc: 00..1C = 0..28 when size 1; 00..33 = 0..51 when size 2; 00..12 = 0..18 size 4)
+           b7   CASCADE 0:OFF 1:ON
+           NOTE: real data has bit 6 set on most active effects (0x40|type, e.g. 0x47, 0x6F); the Ctrlr panel
+           treats bit 6 as the effect ON/OFF toggle and Toluene has separate "enable" params (13,04-06).
+           -> decode TYPE = b & 0x3F, ON = (b>>6)&1, CASCADE = b>>7.
+  +17      SIZE 0,1,2,3 : 0 (none), 1, 2, 4   (sum over the blocks of one chain <= 4)
+  +18      PAN   00..7F : L00..R127
+  +19      WIDTH 00..7F : 0..127
+  +20      SEND 1 00..7F
+  +21      SEND 2 00..7F
+  Program: 4 blocks at 305/327/349/371; only blocks 1-3 are ever used (block 4 size always 0 in all data;
+    TR-Rack/Toluene expose 3 insert FX with IDs size 13,00-02 / enable 13,04-06 / type 13,08-0A).
+    The Ctrlr panel reads pan/width/send1/send2 only from block 3 (the chain output); blocks 1,2,4 hold
+    40 7F 00 00 in practically all data.
+  Combination/Song: 8 blocks at 20 + 22*k. Data behave like two chains of 4 blocks (1-4, 5-8),
+    e.g. sizes (2,2,0,0,2,2,0,0).
+
+Timbre/track byte 254 "INSERT EFFECT SIZE": doc (combi, V1): 0 OFF, 1 Size 1, 2 Size 2, 3 Size 4,
+  4..B = Timbre 1..8 (song: 4..13 = Track 1..16). Observed combis: T1=3, T2=5, T3=5, T4=3 (Strings+Vibs),
+  T1=3, T2=8, T3=5, T4=3 ... A timbre pointing at itself (T2=5 under the doc's "4 = Timbre 1") makes no
+  sense; the data fit better "5 = share Timbre 1's chain, 8 = share Timbre 4's chain" (value-4 = timbre no.
+  counted from 1, with 4 unused?).
+  UNRESOLVED: verify on hardware / later OS docs before relying on it.
+
+40-byte MASTER FX block  (Korg TABLE 8 "MASTER EFFECT" 196..235)
+  +0..+15  EFFECT 1 PARAMETERS (16 bytes)
+  +16      FX TYPE effect 1: 00..05 (doc). Data also use b6 (ON, per Ctrlr "pMasterToggle-1") and
+           b7 (routing / connect-in-series, Ctrlr "pMasterRoute", Toluene 18,00) -> TYPE = b & 0x3F.
+  +17      PAN   FF, 00..7F : OFF, L00..R127      (0xFF = OFF is the most common value)
+  +18      RETURN LEVEL 00..7F
+  +19..+37 EFFECT 2: same 19-byte layout (16 params, TYPE 00..07 with b6 = ON, PAN, RETURN LEVEL)
+  +38      LOW EQ   DC..24 : -18..+18  (signed)
+  +39      HIGH EQ  DC..24 : -18..+18  (signed)
+  Toluene: MFX1 output level/mod source/mod amount = 19,0B-0D and MFX2 = 1A,14-16, i.e. inside the
+  16 parameter bytes of each master effect.
+
+EFFECT TYPE LISTS  (Toluene ParameterIDs.h and TR-Rack Ctrlr panel agree; index = TYPE value)
+Size 1 (29): 0 Amp Simulation, 1 Compressor, 2 Limiter, 3 Gate, 4 Overdrive/Hi-Gain, 5 Parametric 4EQ,
+  6 Graphic 7Band EQ, 7 Wah/Auto Wah, 8 Random Filter, 9 Dyna Exciter, 10 Sub Oscillator, 11 Decimator,
+  12 Chorus, 13 Harmonic Chorus, 14 Ensemble, 15 Flanger, 16 Tempo Flanger, 17 Envelope Flanger, 18 Phaser,
+  19 Tempo Phaser, 20 Envelope Phaser, 21 Vibrato, 22 Resonator, 23 Ring Modulator, 24 Tremolo,
+  25 Rotary Speaker, 26 Delay, 27 Multitap Delay, 28 Early Reflections
+Size 2 (52): 0 St. Amp Simulation, 1 Stereo Compressor, 2 Stereo Limiter, 3 Multiband Limiter, 4 Stereo Gate,
+  5 OD/Hi-Gain Wah, 6 St. Parametric 4EQ, 7 St. Graphic 7EQ, 8 Graphic 13Band EQ, 9 St. Random Filter,
+  10 Stereo Enhancer, 11 Talking Modulator, 12 Stereo Decimator, 13 Stereo Chorus, 14 St. Harmonic Chorus,
+  15 Multitap Chorus/Delay, 16 Ensemble, 17 Stereo Flanger, 18 St. Random Flanger, 19 St. Tempo Flanger,
+  20 Stereo Phaser, 21 St. Random Phaser, 22 St. Tempo Phaser, 23 St. Bi-Phase Mod, 24 Stereo Vibrato,
+  25 2 Voice Resonator, 26 Doppler, 27 Stereo Tremolo, 28 Stereo Auto Pan, 29 St. Envelope Pan,
+  30 Stereo Dyna Pan, 31 Phaser+Tremolo, 32 Shimmer, 33 Detune, 34 Pitch Shifter, 35 Pitch Shift Mod,
+  36 Rotary Speaker, 37 Dual Delay, 38 Stereo Delay, 39 St. Multitap Delay, 40 L/C/R Delay, 41 Tempo Delay,
+  42 St. Modulation Delay, 43 St. Dynamic Delay, 44 Random Panning Delay, 45 Early Reflections,
+  46 Reverb Hall, 47 Reverb SmoothHall, 48 Reverb Room, 49 Reverb BrightRoom, 50 Reverb Wet Plate,
+  51 Reverb Dry Plate
+Size 4 (19): 0 Piano Body/Damper, 1 St. Multiband Limiter, 2 OD/Hyper-Gain Wah, 3 St. Graphic 13EQ,
+  4 Vocoder, 5 St. Harmonic Chorus, 6 Multitap Chorus/Delay, 7 Stereo Ensemble, 8 St. Tempo Flanger,
+  9 St. Tempo Phaser, 10 St. Pitch Shifter, 11 2Band Pitch Shifter, 12 Rotary Speaker OD,
+  13 Early Reflections, 14 L/C/R Long Delay, 15 Stereo Long Delay, 16 Dual Long Delay, 17 St. Tempo Delay,
+  18 Hold Delay
+Master FX 1 (6): 0 Flanger, 1 Phaser, 2 Multitap Chorus/Delay, 3 Ensemble, 4 Chorus, 5 L/C/R Delay
+Master FX 2 (8): 0 L/C/R Long Delay, 1 Delay/Reverb, 2 Room, 3 Bright Room, 4 Hall, 5 Smooth Hall,
+  6 Wet Plate, 7 Dry Plate
+Sanity check on data: Acoustic Piano IFX3 = 0x6F/size 2 -> Size2 #47 Reverb SmoothHall; MFX2 0x45 -> Smooth Hall;
+MFX1 0x44/0xC4 -> Chorus (most common).

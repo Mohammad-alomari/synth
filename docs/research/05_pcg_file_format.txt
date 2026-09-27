@@ -1,0 +1,65 @@
+KORG TRINITY .PCG FILE LAYOUT  (from PCG Tools source + verification on the 6 user files)
+=========================================================================================
+
+Primary code reference: PCG Tools by Michel Keijzers (C#), GitHub mirror https://github.com/DaBlick/PCG-Tools
+  KorgKronosTools/Model/TrinitySpecific/Pcg/TrinityPcgFileReader.cs   (file layout)
+  KorgKronosTools/Model/TrinitySpecific/Synth/*.cs                     (name/category/timbre offsets)
+  Documentation/Notes.txt lines ~854-900                               (author's hex notes on Trinity PCGs)
+Copies of the relevant sources: research/code_pcgtools_trinity/
+
+All multi-byte values are big-endian. Records inside sections are the 8-bit (unpacked) parameter dumps,
+byte-identical to the SysEx Program / Combination / Drumkit dumps (confirmed: see 01..03 files).
+Exception: the Global record (see 04_global.txt).
+
+0x00  "KORG;" (4B 4F 52 47 3B) 00 00 05 ... zeros
+0x18  u32 = 0x00000050  (start of data)
+0x1C  u32  unknown, differs per file (not sum8/sum16/CRC32 of body; PCG Tools ignores it)
+0x20  directory: 6 entries x 8 bytes, fixed order, each = u16 type, u16 count, u32 size
+        entry 0: type 0000  PCM (ACCESS) programs   count = number of banks (1,2,4)  size = banks*(2+128*433)
+        entry 1: type 0001  S bank (Solo-TRI / Prophecy-based) programs, count 1 bank, size = 2 + N*521 (N=64/128)
+        entry 2: type 0002  combinations            count = banks                   size = banks*(2+128*388)
+        entry 3: type 0003  drum kits               count = number of KITS (12/24)  size = 2 + kits*1426
+        entry 4: type 0004  global                  count 1                         size = 1177 (2 + 1175)
+        entry 5: type 0005  M bank (MOSS, Trinity V3) count 1 bank                  size = 2 + N*521 (N=64/128)
+      unused entry: type FFFF, count 0, size 0 (section absent).
+      A type-1 (S) and type-5 (M) bank never coexist (Solo board vs MOSS board). PCG Tools uses the presence
+      of type 5 to classify the file as Trinity V3.
+0x50  sections, concatenated in directory order (absent ones skipped). Each size in the directory INCLUDES the
+      2-byte bank headers.
+
+Section details
+  PCM programs (type 0): per bank: u16 bank id (0=A,1=B,2=C,3=D), then 128 x 433-byte programs.
+  S / M programs (types 1/5): u16 bank id = 0x0004 (both), then N x 521-byte programs; N = size-2 / 521
+      (64 without, 128 with Flash-ROM option; per the Trinity guide S1 = progs 0-63, S2 = 64-127).
+  Combinations (type 2): per bank: 2-byte bank id (0..3; PCG Tools notes one factory file with 0x0500 for
+      bank 1 -> read only the low byte), then 128 x 388 bytes.
+  Drum kits (type 3): ONE 2-byte header for the whole section (00 00 in user files), then count x 1426 bytes.
+  Global (type 4): 2-byte header (00 00 or 00 FF), then 1175 bytes (PCG Tools calls it 0x499-2).
+
+Bank configurations (Trinity guide, All-Data-Dump note #16):
+  v=0  A+B progs, A+B combis, 12 kits : Trinity (basic)
+  v=1  A+B+C+D, A+B+C+D, 24 kits      : Trinity with Flash ROM option (PBS-TRI)
+  v=2  A+B+S1, A+B, 12 kits           : Trinity plus / pro (basic), Trinity proX
+  v=3  A+B+C+D+S1+S2, A+B+C+D, 24     : all options
+  V3 doc adds v=4 A+B+M1, v=5 A+B+C+D+M1+M2 (MOSS).
+  PCG Tools consistency rule: modeled bank with 64 programs -> 2 PCM banks + 2 combi banks; with 128 -> 4 + 4.
+
+User files (verified):
+  Hadi2024.PCG            4 PCM banks, 4 combi banks, 24 kits, global, M bank (128)       -> V3 w/ Flash
+  KJ4TRINI / TRIN-2KJ / TRIN_3KJ  4 PCM banks, 1 combi bank (A only), 24 kits, global, M bank (128)
+  TRINI-1-KJ.PCG          2 PCM banks, S bank (64), 2 combi banks, 12 kits, global         -> Trinity plus/pro
+  (arabic-named).PCG      2 PCM banks, 2 combi banks, 12 kits, global
+  NOTE: some KJ4TRINI programs (bank B 16-21, bank D 42-50) and drum kits 1..23 contain garbage/non-Trinity
+  data -- a parser should tolerate out-of-range values.
+
+Field quick-reference used by PCG Tools (all agree with the Korg tables):
+  Program (433):  name 0..15; category byte 16 (Trinity category set A = bits 0-3, set B = bits 4-7; PCG Tools
+                  setting "TrinityCategorySetA" chooses bits 3..0 or 7..4); OSC MODE = byte 17 bits 0-1
+                  (0 Single, 1 Double, 2 Drums).  "Init" program names look like "InitlProgramA000".
+  Combi (388):    name 0..15; category byte 16 (same A/B nibble scheme); timbres at 236 + 19*t, t=0..7:
+                  +0 program no, +1 bank (0..3 = A..D, 4 = S or M), +2 b0-4 MIDI ch (16 = GLOBAL),
+                  +2 b5-6 status (Int/Off/Both/Ext), +3 volume, +4 bend range (s8), +5 transpose (s8),
+                  +11 b6 force poly, +11 b5 hide OSC2, +12 key top, +13 key bottom, +15 vel top, +16 vel bottom.
+  Drum kit (1426): name 0..15.  Init names "DrumKit", "Drumkit<n>".
+  Global:         category names at 146 + 16*i, order prog-A, prog-B, combi-A, combi-B (16 each).
+  Multi-byte program multisample numbers are NOT touched by PCG Tools.
