@@ -22,7 +22,8 @@ big new features.
 Live published page (claude.ai artifact, private): https://claude.ai/artifact/NfWhX8WGhgjyWaUww83WsU
 (last published: Version 15). GitHub: private repo Mohammad-alomari/synth (project files at the repo root).
 Keep the repo PRIVATE: pcgdata.js contains Korg's factory
-EXB-MOSS bank; tridata.js contains the user's own files.
+EXB-MOSS bank; tridata.js contains the user's own files. The public Netlify site (moss-synth) is built with
+--public, without the owner's files.
 
 ==============================================================================
 2. FILES
@@ -137,7 +138,8 @@ are not downloadable; the factory preload would also play stand-ins.
 ==============================================================================
 6. BUILD, RUN, TEST
 ==============================================================================
-Build:   python3 build.py index.html
+Build:   python3 build.py [out.html] [--public]   (--public: without the owner's files - tridata.js and his Bank M
+         banks; only the Korg factory bank stays. Netlify publishes the --public build; test/check_public.py checks it.)
 Run:     python3 -m http.server 8765   then open http://localhost:8765/index.html (Chrome/Edge; needs http for audio,
          MIDI and samples). Web MIDI: Chrome, Edge, Firefox (not Safari).
 Tests: sh test/run_all.sh (~1 min, exit 0 = pass; FULL=1 for every program/combination, ~10 min).

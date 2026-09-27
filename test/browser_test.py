@@ -1,7 +1,8 @@
 # Browser test of the built page (Chromium via Playwright). Starts its own http server; exit code 0 = all passed.
 # Usage: python3 test/browser_test.py            (run python3 build.py first; needs node for test/mkpcg.js)
 # Covers: sound of MOSS / PCM / combination programs in both audio modes, drum programs left out, every page renders, effects editing,
-# phone width, imported-PCG storage (IndexedDB, reload, migration, removal), synth memory, error messages.
+# phone width, recording, imported-PCG storage (IndexedDB, reload, migration, removal), synth memory, error messages,
+# and the public (Netlify) build.
 import asyncio, base64, functools, http.server, os, struct, subprocess, sys, tempfile, threading
 from playwright.async_api import async_playwright
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -10,10 +11,10 @@ fails = []
 def ok(name, cond, extra=''):
     print(('PASS ' if cond else 'FAIL ') + name + ('  ' + str(extra) if extra != '' else ''), flush=True)
     if not cond: fails.append(name)
-def serve():
+def serve(root=ROOT):
     class Quiet(http.server.SimpleHTTPRequestHandler):
         def log_message(self, *a): pass
-    h = functools.partial(Quiet, directory=ROOT)
+    h = functools.partial(Quiet, directory=root)
     srv = http.server.ThreadingHTTPServer(('127.0.0.1', 0), h)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     return 'http://127.0.0.1:%d/index.html' % srv.server_address[1]
@@ -148,6 +149,29 @@ async def storage_and_memory(b, url):
     ok('no page errors (storage and memory)', not pg.errs, pg.errs[:5])
     await ctx.close()
 
+async def public_page(b):
+    # the Netlify page: built with --public (no owner files); importing a PCG still works
+    d = tempfile.mkdtemp(); os.symlink(os.path.join(ROOT, 'samples'), os.path.join(d, 'samples'))
+    subprocess.run([sys.executable, os.path.join(ROOT, 'build.py'), os.path.join(d, 'index.html'), '--public'], cwd=ROOT, check=True, capture_output=True)
+    url = serve(d)
+    ctx = await b.new_context(); pg = await ctx.new_page(); pg.errs = []
+    pg.on('pageerror', lambda e: pg.errs.append(str(e)))
+    await pg.add_init_script(JS); await pg.goto(url); await pg.wait_for_timeout(500)
+    await pg.click('#power'); await pg.wait_for_timeout(800)
+    groups = await pg.evaluate("[...document.querySelectorAll('#prog optgroup')].map(g => g.label)")
+    ok('public page: none of the owner\'s files are listed', not any(n in ' '.join(groups) for n in ['Hadi2024', 'KJ4TRINI', 'TRIN', 'from ']), groups)
+    ok('public page: starter program plays', await pg.evaluate("__t.play('st', 0, [60])") > 0.005)
+    st = await pg.evaluate('([b, n]) => __t.import(b, n)', [pcg('Hadi2024', 'Pub.pcg'), 'Mine.PCG'])
+    ok('public page: importing a PCG works', 'Imported from Mine' in st, st)
+    v = await pg.evaluate("__t.firstIn('(PCM) from Mine')")
+    pk = await pg.evaluate("(v) => __t.play('pc', +v.split(':')[1], [48, 60, 64], 1500)", v) if v else 0
+    ok('public page: an imported PCM program plays', pk > 0.005, round(pk, 3))
+    v = await pg.evaluate("__t.firstIn('Combinations A from Mine')")
+    pk = await pg.evaluate("(v) => __t.play('cb', +v.split(':')[1], [48, 60, 64], 1500)", v) if v else 0
+    ok('public page: an imported combination plays', pk > 0.005, round(pk, 3))
+    ok('no page errors (public page)', not pg.errs, pg.errs[:5])
+    await ctx.close()
+
 async def main():
     if not os.path.exists(os.path.join(ROOT, 'index.html')): sys.exit('index.html missing: run python3 build.py')
     url = serve()
@@ -155,6 +179,7 @@ async def main():
         b = await p.chromium.launch(args=['--autoplay-policy=no-user-gesture-required'])
         await sound_and_pages(b, url)
         await storage_and_memory(b, url)
+        await public_page(b)
         await b.close()
     print('ALL PASSED' if not fails else '%d FAILED: %s' % (len(fails), '; '.join(fails)))
     sys.exit(1 if fails else 0)

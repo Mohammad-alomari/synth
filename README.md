@@ -45,7 +45,7 @@ Build the page first with `python3 build.py`, then open http://localhost:8765/in
 
 ## Deploy (Netlify)
 
-`netlify.toml` tells Netlify to run `build.py` on every push and publish only `index.html` + `samples/` (from `dist/`). Connect the GitHub repo in Netlify once (Add new site → Import an existing project); after that every push to the production branch deploys automatically.
+`netlify.toml` tells Netlify to run `python3 build.py dist/index.html --public` on every push and publish only `index.html` + `samples/`. The public build leaves out your own PCG files (`tridata.js` and your Bank M banks); visitors import their own files. `python3 build.py` without `--public` builds the full page with your files, for use on your own computer. Connect the GitHub repo in Netlify once (Add new site → Import an existing project); after that every push to `main` deploys, and every pull request gets a preview.
 
 ## Change and rebuild
 

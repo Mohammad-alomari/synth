@@ -9,6 +9,7 @@ run() { printf '== %s\n' "$*"; if "$@" > "$log" 2>&1; then tail -n 1 "$log"; els
 
 # build index.html from the sources (it is not committed); the browser test uses it
 run python3 build.py
+run python3 test/check_public.py
 
 run node test/fxunit.js
 run node test/fuzz.js

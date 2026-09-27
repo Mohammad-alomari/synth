@@ -96,7 +96,7 @@ function triFromFile(name, bytes, builtin) { // a whole Trinity PCG -> set
 // ---- synth memory ----
 // Like loading PCG files into a real Trinity: an imported file brings the banks it contains; whatever it lacks
 // (PCM banks A-D, Bank M) comes from what was loaded before it: earlier imports (newest first), then the
-// built-in files in their list order (Hadi2024 first: it has every bank, so one file fills everything in). Built-in files keep to their own data, as before. A file with a Bank S (Solo-TRI) never takes a
+// built-in files in their list order (the first one has every bank, so one file fills everything in). Built-in files keep to their own data, as before. A file with a Bank S (Solo-TRI) never takes a
 // Bank M from memory: in that synth, bank 4 is the Solo-TRI bank (not modelled, silent).
 const mossOf = s => pcgBanks.find(x => x.name === s.name && x.fmt !== 'triton' && !!x.builtin === !!s.builtin) || null;
 function setHas(s, what) { return what === 'M' ? !!mossOf(s) : pcmBanks.some(b => b.set === s && b.letter === what); }
