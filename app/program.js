@@ -1,25 +1,31 @@
 // Program list and LCD, signal-flow diagram, voice LEDs and scope.
 // One of the app/ files: build.py joins them in order inside one function scope, so they share their top-level names.
 // ---------------- program select / LCD ----------------
-let progSig = '';
 // removes an imported bank's stored copy
 function forget(b) { if (!b.builtin) dropEdits(b.combis ? 'P' : 'M', b.name); if (b.dbId != null) idb.del(b.dbId).catch(e => { console.error('Could not delete stored bank', e); status('Could not delete ' + b.name + ' from browser storage; it may come back after a reload.'); }); }
 function removeTriSet(set) {
   triSets.splice(triSets.indexOf(set), 1);
   for (const L of [pcmBanks, combiBanks]) for (let i = L.length - 1; i >= 0; i--) if (L[i].set === set) L.splice(i, 1);
 }
-// every program in list order, grouped as the menu shows them: { v: 'bank:idx', b, i, t: option text, g: group }
+// list group (bank) names, as the program browser shows them
+const pmGroup = b => b.builtin && b.fmt === 'triton' ? b.name : 'Bank ' + bankLetter(b) + ' from ' + b.name;
+const pcGroup = b => 'Bank ' + b.letter + ' (PCM) from ' + b.set.name;
+const cbGroup = b => 'Combinations ' + b.letter + ' from ' + b.set.name;
+const userGroup = () => userBank.length ? 'User programs' : 'User programs (none saved yet)';
+// the playing program's group
+function progGroup() {
+  const k = Math.floor(prog.idx / 128), b = prog.bank === 'pm' ? pcgBanks[k] : prog.bank === 'pc' ? pcmBanks[k] : prog.bank === 'cb' ? combiBanks[k] : null;
+  return prog.bank === 'st' ? 'Starter programs' : prog.bank === 'us' ? userGroup() : !b ? '' : prog.bank === 'pm' ? pmGroup(b) : prog.bank === 'pc' ? pcGroup(b) : cbGroup(b);
+}
+// every program in list order, grouped by bank: { v: 'bank:idx', b, i, t: program text, g: group }
 function progEntries() {
   const out = [], add = (g, b, i, t) => out.push({ v: b + ':' + i, b, i, t, g });
   MOSS_PRESETS.forEach((p, i) => add('Starter programs', 'st', i, String(i).padStart(2, '0') + ' ' + p.name));
-  const ug = userBank.length ? 'User programs' : 'User programs (none saved yet)';
+  const ug = userGroup();
   userBank.forEach((p, i) => add(ug, 'us', i, String(i + 1).padStart(2, '0') + ' ' + (p.name || 'Untitled')));
-  pcgBanks.forEach((b, bi) => { const g = b.builtin && b.fmt === 'triton' ? b.name : 'Bank ' + bankLetter(b) + ' from ' + b.name;
-    for (let i = 0; i < b.n; i++) add(g, 'pm', bi * 128 + i, bankLetter(b) + String(i).padStart(3, '0') + ' ' + b.names[i]); });
-  pcmBanks.forEach((b, bi) => { const g = 'Bank ' + b.letter + ' (PCM) from ' + b.set.name;
-    for (let i = 0; i < 128; i++) if (!b.drum[i]) add(g, 'pc', bi * 128 + i, b.letter + String(i).padStart(3, '0') + ' ' + b.names[i]); });
-  combiBanks.forEach((b, bi) => { const g = 'Combinations ' + b.letter + ' from ' + b.set.name;
-    for (let i = 0; i < 128; i++) add(g, 'cb', bi * 128 + i, 'C' + b.letter + pad3(i) + ' ' + b.names[i]); });
+  pcgBanks.forEach((b, bi) => { const g = pmGroup(b); for (let i = 0; i < b.n; i++) add(g, 'pm', bi * 128 + i, bankLetter(b) + String(i).padStart(3, '0') + ' ' + b.names[i]); });
+  pcmBanks.forEach((b, bi) => { const g = pcGroup(b); for (let i = 0; i < 128; i++) if (!b.drum[i]) add(g, 'pc', bi * 128 + i, b.letter + String(i).padStart(3, '0') + ' ' + b.names[i]); });
+  combiBanks.forEach((b, bi) => { const g = cbGroup(b); for (let i = 0; i < 128; i++) add(g, 'cb', bi * 128 + i, 'C' + b.letter + pad3(i) + ' ' + b.names[i]); });
   return out;
 }
 // the search box: every word must appear in the program's name, number or group (upper/lower case alike)
@@ -34,20 +40,8 @@ function progList() {
   const words = progQuery.toLowerCase().split(/\s+/).filter(Boolean);
   return words.length ? all.filter(e => progMatch(e, words)) : all;
 }
-function fillProgSelect() {
-  const s = $('#prog'), sig = progQuery + '|' + (favOnly ? favs.size : '-') + '|' + userBank.map(p => p.name || '').join('') + '|' + pcgBanks.map(b => b.name + ':' + b.n).join('|') + '|' + pcmBanks.map(b => b.set.name + b.letter).join('|') + '|' + combiBanks.map(b => b.set.name + b.letter).join('|');
-  const cur = prog.bank + ':' + prog.idx;
-  if (sig === progSig && s.options.length && [...s.options].some(o => o.value === cur)) { s.value = cur; return; }
-  progSig = sig; s.innerHTML = '';
-  const list = progList(), groups = new Map();
-  if (!progQuery) groups.set('Starter programs', null).set(userBank.length ? 'User programs' : 'User programs (none saved yet)', null); // shown even when empty
-  // the current program stays in the menu even when the search leaves it out
-  if (progQuery && !list.some(e => e.v === cur)) { const e = progEntries().find(x => x.v === cur); if (e) list.unshift(Object.assign({}, e, { g: 'Now playing' })); }
-  for (const e of list) { let g = groups.get(e.g); if (!g) { g = el('optgroup'); g.label = e.g; groups.set(e.g, g); } const o = el('option', null, e.t); o.value = e.v; g.appendChild(o); }
-  for (const [label, g] of groups) { if (g) s.appendChild(g); else { const x = el('optgroup'); x.label = label; s.appendChild(x); } }
-  if (!list.length) { const o = el('option', null, 'No program matches “' + progQuery + '”'); o.value = ''; o.disabled = true; s.appendChild(o); }
-  s.value = cur;
-}
+// the program lists changed (a program saved, a bank imported, the favourites filter): open browsers show it
+function refreshProgs() { browsers.forEach(b => b.render()); }
 function lcd() {
   const pb = prog.bank === 'pc' ? pcmBanks[Math.floor(prog.idx / 128)] : prog.bank === 'cb' ? combiBanks[Math.floor(prog.idx / 128)] : null;
   $('#pnum').textContent = prog.bank === 'st' ? 'ST ' + String(prog.idx).padStart(2, '0') : prog.bank === 'pm' ? bankLetter(pcgBanks[Math.floor(prog.idx / 128)]) + String(prog.idx % 128).padStart(3, '0')
@@ -55,12 +49,13 @@ function lcd() {
   $('#pname').textContent = (patch.name || 'Untitled') + (edited ? ' *' : '');
   $('#pname').title = edited ? 'Edited, not saved' : '';
   $('#pbname').textContent = $('#pnum').textContent + ' ' + $('#pname').textContent;
+  $('#progbank').textContent = progGroup() || 'Programs';
   perfLcd(); mmLcd(); browsers.forEach(b => b.sync());
 }
 function loadProgram(bank, idx) {
   let pm = null;
   try { pm = bank === 'pm' ? pcgPatch(idx) : bank === 'pc' ? pcmPatch(idx) : bank === 'cb' ? combiPatch(idx) : null; }
-  catch (e) { console.error('Could not decode program ' + bank + ':' + idx, e); status('That program could not be read (' + (e && e.message || e) + '); its data may be damaged. The previous program stays.'); fillProgSelect(); return; }
+  catch (e) { console.error('Could not decode program ' + bank + ':' + idx, e); status('That program could not be read (' + (e && e.message || e) + '); its data may be damaged. The previous program stays.'); return; }
   if ((bank === 'us' && !userBank[idx]) || ((bank === 'pm' || bank === 'pc' || bank === 'cb') && !pm) || !['st', 'us', 'pm', 'pc', 'cb'].includes(bank)) { bank = 'st'; idx = 0; }
   patch = bank === 'st' ? mossPreset(idx) : bank === 'pm' || bank === 'pc' || bank === 'cb' ? pm : loadAny(userBank[idx]);
   prog = { bank, idx }; edited = false;
@@ -79,20 +74,17 @@ function stepProgram(dir) {
   k = k < 0 ? (dir > 0 ? 0 : list.length - 1) : (k + dir + list.length) % list.length;
   loadProgram(list[k].b, list[k].i);
 }
-let progQT = 0;
-$('#progq').addEventListener('input', e => { clearTimeout(progQT); progQT = setTimeout(() => { progQuery = e.target.value.trim(); fillProgSelect(); const n = progList().length; status(progQuery ? n + ' program' + (n === 1 ? '' : 's') + ' match “' + progQuery + '”' : ''); }, 150); });
-$('#prog').addEventListener('change', e => { const [b, i] = e.target.value.split(':'); loadProgram(b, Number(i)); });
 $('#prev').addEventListener('click', () => stepProgram(-1));
 $('#next').addEventListener('click', () => stepProgram(1));
-function renderAll() { fillProgSelect(); lcd(); renderTabs(); renderPage(); renderFlow(); }
+function renderAll() { lcd(); renderTabs(); renderPage(); renderFlow(); }
 
-// ---------------- program browser (play mode list, MIDI mode Browse) ----------------
+// ---------------- program browser (editor, play mode list, MIDI mode Browse) ----------------
 // Lists one bank at a time, starting with the current program's; the bank button above the list shows every bank to
-// switch to. A search or the favourites filter lists the matches from every bank. The search is the same as the
-// editor's search box, so ‹ › then step through its results.
+// switch to. A search or the favourites filter lists the matches from every bank. All browsers share the search,
+// so ‹ › then step through its results.
 const browsers = [];
-function setProgQuery(v) { progQuery = v; $('#progq').value = v; fillProgSelect(); }
-function setFavOnly(on) { favOnly = on; fillProgSelect(); browsers.forEach(b => b.render()); }
+function setProgQuery(v) { progQuery = v; }
+function setFavOnly(on) { favOnly = on; refreshProgs(); }
 function progBrowser(host, onPick, shown = () => !host.hidden) {
   const bar = el('div', 'pbr-bar'), q = el('input'), fav = el('button', 'hw', '★ Favourites'), bankBtn = el('button', 'pbr-bank'), list = el('div', 'pbr-list');
   q.type = 'search'; q.placeholder = 'Find a program'; q.autocomplete = 'off'; q.setAttribute('aria-label', 'Find a program');
@@ -136,6 +128,11 @@ function progBrowser(host, onPick, shown = () => !host.hidden) {
   };
   browsers.push(api); return api;
 }
+// the editor's browser opens under the ‹ › buttons from the bank button; it stays open while you try programs
+const edBr = progBrowser($('#edbrowse'), e => loadProgram(e.b, e.i));
+function edBrowse(on) { const box = $('#edbrowse'); box.hidden = !on; $('#progbtn').setAttribute('aria-expanded', String(on)); if (on) { edBr.open(); box.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } }
+$('#progbtn').addEventListener('click', () => edBrowse($('#edbrowse').hidden));
+$('#edbrowse').addEventListener('keydown', e => { if (e.key === 'Escape') { e.stopPropagation(); edBrowse(false); $('#progbtn').focus(); } });
 
 // ---------------- signal flow (TouchView-style block diagram) ----------------
 function renderFlow() {
