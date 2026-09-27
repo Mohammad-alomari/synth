@@ -1,9 +1,9 @@
 // ===== Trinity PCM ("ACCESS") synthesis =====
-// Two oscillators per voice (Single / Double) or a drum kit (Drum). Each oscillator plays a multisample (chosen by
+// Two oscillators per voice (Single / Double). Drum-mode programs (drum kits) are not supported and stay silent. Each oscillator plays a multisample (chosen by
 // velocity between a higher and a lower one), then two filters (A, B: LPF/HPF/BPF/BRF; parallel, serial, single or
 // through), then its amp. Per oscillator: filter EG, amp EG, OSC LFO (pitch), filter LFO; one pitch EG per voice.
 // Parameter ranges and meanings follow Korg's Trinity program table (MIDI implementation, TABLE 1).
-// Korg's sample ROM is not available: every multisample and drum sample is played by a stand-in (PcmStore).
+// Korg's sample ROM is not available: every multisample is played by a stand-in (PcmStore).
 
 class PCM {
   static lfoHz(v) { return 0.03 * Math.pow(1000, (v < 0 ? 0 : v > 140 ? 140 : v) / 99); } // 0: 0.03 Hz, 50: 1 Hz, 75: 5.4 Hz, 99: 30 Hz
@@ -84,13 +84,13 @@ class PcmLFO {
 // A zone: { lo, hi, root (MIDI note at the stored rate, may be fractional), rate, data: Float32Array, ls, le (loop; le <= 0: one-shot), gain, start }
 // Packs (decoded stand-in recordings) arrive from the page; built-in waveforms are generated here on first use.
 class PcmStore {
-  constructor(sr) { this.sr = sr; this.packs = new Map(); this.map = { ms: {}, ds: {} }; this.cache = new Map(); this.need = new Set(); this.kits = []; this.fb = null; }
-  setMap(m) { this.map = { ms: m.ms || {}, ds: m.ds || {} }; this.cache.clear(); }
+  constructor(sr) { this.sr = sr; this.packs = new Map(); this.map = { ms: {} }; this.cache = new Map(); this.need = new Set(); this.fb = null; }
+  setMap(m) { this.map = { ms: m.ms || {} }; this.cache.clear(); }
   putPack(name, zones) { this.packs.set(name, zones); this.cache.clear(); }
-  // zones for multisample (kind 'ms') or drum sample ('ds') number id; null while its pack is still loading
+  // zones for multisample number id (kind 'ms'); a soft placeholder while its pack is still loading
   get(kind, id) {
     const key = kind + id; let z = this.cache.get(key); if (z) return z;
-    const e = this.map[kind][id] || (kind === 'ds' ? { p: 'kit_std', k: 62 } : { syn: 'tri' }); // unknown drum sample (RAM/Flash): a conga
+    const e = this.map[kind][id] || { syn: 'tri' };
     if (e.syn) { z = { zones: PcmStore.synth(e.syn, this.sr), key: -1, shift: 0, gain: 1 }; this.cache.set(key, z); return z; }
     const pk = this.packs.get(e.p);
     if (!pk) { this.need.add(e.p); return this.fallback(); }
@@ -175,10 +175,10 @@ class PcmStore {
   }
 }
 
-// ---- one PCM voice (both oscillators of a note, or one drum key) ----
+// ---- one PCM voice (both oscillators of a note) ----
 class PcmVoice {
   constructor(sr, idx) {
-    this.sr = sr; this.idx = idx; this.active = false; this.gate = false; this.note = 60; this.vel = 1; this.age = 0; this.sustained = false; this.excl = -1;
+    this.sr = sr; this.idx = idx; this.active = false; this.gate = false; this.note = 60; this.vel = 1; this.age = 0; this.sustained = false;
     this.peg = new PcmEG(); this.seed = 7777 + idx * 131;
     this.o = [0, 1].map(k => ({ on: false, z: null, pk: null, pos: 0, root: 60, rate: 1, gain: 0, feg: new PcmEG(), aeg: new PcmEG(), lfo: new PcmLFO(900 + idx * 17 + k), flfo: new PcmLFO(500 + idx * 29 + k),
       sa: new Float64Array(2), sb: new Float64Array(2), ca: new Float64Array(4), cb: new Float64Array(4), xa: NaN, xb: NaN, ra: NaN, rb: NaN,
@@ -187,51 +187,34 @@ class PcmVoice {
   }
   noise() { let x = this.seed | 0; x ^= x << 13; x ^= x >>> 17; x ^= x << 5; this.seed = x; return (x >>> 0) / 4294967296 * 2 - 1; }
   start(eng, note, vel, detune, legato, glideFrom) {
-    const P = eng.patch, drum = P.mode === 'drum';
+    const P = eng.patch;
     this.note = note; this.target = note; this.vel = vel; this.gate = true; this.detune = detune || 0; this.fading = false; this.fadeG = 1; this.silent = 0;
     this.pitch = glideFrom !== null && glideFrom !== undefined ? glideFrom : note; this.glideSpan = Math.abs(this.target - this.pitch);
     if (legato && this.active) return; // mono legato: the new pitch glides in; nothing restarts
     this.rnd = (P.random || 0) * this.noise();
     const G = P.peg, v = vel, tm = Math.pow(2, -(G.velT / 99) * (v * 2 - 1)) * this.amsTime(eng, G.tSrc, G.tInt, 0);
     this.peg.start(G.startL / 99, G.atkL / 99, 0, 0, G.relL / 99, MD.tsec(G.atkT) * tm, MD.tsec(G.decT) * tm, 0, MD.tsec(G.relT) * tm);
-    let kitKey = null;
-    if (drum) {
-      const kit = P.kitData || eng.store.kits[P.kit | 0] || null, k = note - 21;
-      kitKey = kit && k >= 0 && k < 88 ? kit.keys[k] : null;
-      this.excl = kitKey && kitKey.excl > 0 ? kitKey.excl : -1;
-      if (this.excl >= 0) for (const w of eng.voices) if (w !== this && w.active && w.excl === this.excl) w.choke();
-    } else this.excl = -1;
     for (let i = 0; i < 2; i++) {
       const O = P.o[i], o = this.o[i];
-      o.on = i === 0 || (P.mode === 'double' && vel * 127 >= P.osc2Vel);
-      if (drum && i === 1) o.on = false;
+      o.on = P.mode !== 'drum' && (i === 0 || (P.mode === 'double' && vel * 127 >= P.osc2Vel)); // Drum mode: silent
       if (!o.on) continue;
       o.pos = 0; o.sa.fill(0); o.sb.fill(0); o.xa = NaN; o.xb = NaN; o.ra = NaN; o.rb = NaN; o.g = 0; o.lfoT = 0; o.flfoT = 0;
-      let id, lvl, off, kind = 'ms', tune = 0;
-      if (drum) {
-        if (!kitKey) { o.on = false; continue; }
-        const hi = vel * 127 >= kitKey.velSplit || kitKey.lo < 0;
-        id = hi ? kitKey.hi : kitKey.lo; lvl = Math.pow(10, (-3 + (hi ? kitKey.hiLvl : kitKey.loLvl) / 99 * 9) / 20); // kit level -99..+99 = -12..+6 dB (estimate) off = hi ? kitKey.hiOff : kitKey.loOff; tune = hi ? kitKey.hiTune : kitKey.loTune; kind = 'ds';
-        if (id < 0) { o.on = false; continue; }
-        o.filt = !!kitKey.filtered; o.drumDecay = Math.pow(2, (hi ? kitKey.hiDecay : kitKey.loDecay) / 40);
-        o.kpan = kitKey.pan;
-      } else {
-        const hi = vel * 127 >= O.velSplit;
-        id = hi ? O.msHi : O.msLo; lvl = (hi ? O.lvlHi : O.lvlLo) / 127; off = hi ? O.offHi : O.offLo; o.filt = true; o.drumDecay = 1; o.kpan = null;
-        if (id >= 0x1000) id = (P.ramMap && P.ramMap[id & 0xfff] !== undefined) ? P.ramMap[id & 0xfff] : 0;
-      }
-      o.kind = kind; o.id = id; o.lvl = drum ? lvl : lvl * lvl; o.tune = tune;
-      o.key = drum ? 60 : note + O.octave * 12 + O.transpose;
+      const hi = vel * 127 >= O.velSplit;
+      let id = hi ? O.msHi : O.msLo;
+      const lvl = (hi ? O.lvlHi : O.lvlLo) / 127, off = hi ? O.offHi : O.offLo;
+      if (id >= 0x1000) id = (P.ramMap && P.ramMap[id & 0xfff] !== undefined) ? P.ramMap[id & 0xfff] : 0;
+      o.kind = 'ms'; o.id = id; o.lvl = lvl * lvl;
+      o.key = note + O.octave * 12 + O.transpose;
       o.z = null; o.wait = O.delay < 0 ? -1 : O.delay / 1000; o.keyOff = O.delay < 0; o.off = off;
       o.velA = PcmVoice.velAmp(O.amp.vel, vel);
       // EGs (time mods by key, velocity and A.M.; level mods by velocity)
       const F = O.feg, A = O.aeg, fk = PCM.tmul, lv = (base, m) => MD.clamp(base + m * (vel - 1), -99, 99) / 99;
-      const fam = this.amsTime(eng, F.tSrc, F.tInt, i), aam = this.amsTime(eng, A.tSrc, A.tInt, i), dd = o.drumDecay;
+      const fam = this.amsTime(eng, F.tSrc, F.tInt, i), aam = this.amsTime(eng, A.tSrc, A.tInt, i);
       o.feg.start(lv(F.startL, F.lv[0]), lv(F.atkL, F.lv[1]), lv(F.brkL, F.lv[2]), F.susL / 99, F.relL / 99,
         MD.tsec(F.atkT) * fk(F.kt[0], F.vt[0], note, vel) * fam, MD.tsec(F.decT) * fk(F.kt[1], F.vt[1], note, vel) * fam, MD.tsec(F.slpT) * fk(F.kt[2], F.vt[2], note, vel) * fam, MD.tsec(F.relT) * fk(F.kt[3], F.vt[3], note, vel) * fam);
       const al = (base, m) => MD.clamp(base + m * (vel - 1), 0, 99) / 99;
       o.aeg.start(al(A.startL, A.lv[0]), al(A.atkL, A.lv[1]), al(A.brkL, A.lv[2]), A.susL / 99, 0,
-        MD.tsec(A.atkT) * fk(A.kt[0], A.vt[0], note, vel) * aam, MD.tsec(A.decT) * fk(A.kt[1], A.vt[1], note, vel) * aam * dd, MD.tsec(A.slpT) * fk(A.kt[2], A.vt[2], note, vel) * aam * dd, MD.tsec(A.relT) * fk(A.kt[3], A.vt[3], note, vel) * aam * dd);
+        MD.tsec(A.atkT) * fk(A.kt[0], A.vt[0], note, vel) * aam, MD.tsec(A.decT) * fk(A.kt[1], A.vt[1], note, vel) * aam, MD.tsec(A.slpT) * fk(A.kt[2], A.vt[2], note, vel) * aam, MD.tsec(A.relT) * fk(A.kt[3], A.vt[3], note, vel) * aam);
       if (o.keyOff) { o.aeg.kill(); o.feg.kill(); }
       // LFOs
       if (O.lfo.sync || !this.active) o.lfo.reset(); if (O.flfo.sync || !this.active) o.flfo.reset();
@@ -265,7 +248,6 @@ class PcmVoice {
     }
     this.relAt = 1;
   }
-  choke() { for (const o of this.o) { if (!o.on) continue; o.aeg.release(); o.aeg.T[3] = Math.min(o.aeg.T[3], 0.02); } this.gate = false; this.fading = true; }
   kill() { this.active = false; this.gate = false; for (const o of this.o) { o.on = false; o.aeg.kill(); o.feg.kill(); } this.peg.kill(); }
   renderBlock(eng, L, R, off, n) {
     const P = eng.patch, sr = this.sr, dt = n / sr, c = eng.ctl, store = eng.store;
@@ -293,7 +275,7 @@ class PcmVoice {
         const s = store.get(o.kind, o.id);
         if (!o.z || !s.pending) {
           o.z = PcmStore.pick(s.zones, s.key >= 0 ? s.key : o.key); o.pk = s.pending ? 1 : 0; o.sgain = s.gain * (o.z.gain || 1);
-          o.root = (s.key >= 0 ? 60 - s.key + o.z.root : o.z.root) - (s.shift || 0); // a drum stand-in at note 60 sounds as its kit plays it
+          o.root = (s.key >= 0 ? 60 - s.key + o.z.root : o.z.root) - (s.shift || 0); // a percussion stand-in (one drum sound) sounds at its own pitch at note 60
           const st = o.z.start || 0; // offset start: skip the attack
           o.pos = o.off ? Math.min(o.z.le > 0 ? o.z.ls : o.z.data.length * 0.3, st + o.z.rate * 0.03) : st;
         }
@@ -324,16 +306,16 @@ class PcmVoice {
       o.fv = fv;
       const feg = o.feg.tick(dt), aeg = o.aeg.tick(dt);
       // pitch (semitones)
-      const Pt = O.pitch, n0 = P.mode === 'drum' ? 60 : this.pitch;
-      let semis = 60 + (n0 - 60) * Pt.slope + (P.mode === 'drum' ? 0 : O.octave * 12 + O.transpose) + O.tune / 100 + o.tune + this.detune + this.rnd;
+      const Pt = O.pitch;
+      let semis = 60 + (this.pitch - 60) * Pt.slope + O.octave * 12 + O.transpose + O.tune / 100 + this.detune + this.rnd;
       semis += peg * (Pt.egInt * (1 + Pt.egVel / 99 * (this.vel - 1)) + (Pt.egAmsInt ? Pt.egAmsInt * this.ams(eng, Pt.egAmsSrc, i) : 0));
       const vib = Pt.lfoInt + MD.pitchScale(O.lfoPitch.jsy) * c.jsy + MD.pitchScale(O.lfoPitch.at) * c.at + (O.lfoPitch.amsInt ? O.lfoPitch.amsInt * this.ams(eng, O.lfoPitch.amsSrc, i) : 0);
       semis += lv * vib + Pt.ribbon * c.ribbon + (Pt.amsInt ? Pt.amsInt * this.ams(eng, Pt.amsSrc, i) : 0);
       const x = c.jsx; semis += x >= 0 ? x * Pt.jsUp : -x * Pt.jsDown;
-      semis += P.mode === 'drum' ? eng.tuneRef : eng.tuneSemis(this.pitch - eng.keyShift[this.note]);
+      semis += eng.tuneSemis(this.pitch - eng.keyShift[this.note]);
       const inc = z.rate / sr * Math.pow(2, (semis - o.root) / 12);
       // filters
-      const route = O.route, rc = o.filt ? (route === 'single' ? 1 : route === 'serial' ? 2 : route === 'parallel' ? 3 : 0) : 0;
+      const route = O.route, rc = route === 'single' ? 1 : route === 'serial' ? 2 : route === 'parallel' ? 3 : 0;
       // filter LFO intensity grows with joystick -Y, aftertouch and its A.M.; filter EG intensity with its A.M.
       const flInt = O.flfoMod.jsyn * c.jsyn + O.flfoMod.at * c.at + (O.flfoMod.amsInt ? O.flfoMod.amsInt * this.ams(eng, O.flfoMod.amsSrc, i) : 0);
       const feInt = O.fegAms.int ? O.fegAms.int * this.ams(eng, O.fegAms.src, i) : 0;
@@ -356,7 +338,7 @@ class PcmVoice {
       if (A.amsInt) amp *= MD.clamp(1 + A.amsInt / 99 * this.ams(eng, A.amsSrc, i), 0, 2);
       const ae = aeg < 0 ? 0 : aeg, gt = amp * ae * ae * this.fadeG;
       // pan
-      let pan = o.kpan !== null && o.kpan !== undefined ? o.kpan : O.pan; if (pan < 0) pan = 64;
+      let pan = O.pan; if (pan < 0) pan = 64;
       let pn = (pan - 64) / 63; if (O.panInt) pn += O.panInt / 99 * this.ams(eng, O.panSrc, i);
       pn = MD.clamp(pn, -1, 1); const pl = Math.cos((pn + 1) * Math.PI / 4), pr = Math.sin((pn + 1) * Math.PI / 4);
       // render: 4-point Hermite interpolation, then the filters (TPT state-variable, inlined), amp and pan

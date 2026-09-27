@@ -449,7 +449,7 @@ function korgPlayability(P) {
   return { full: missing.length === 0, missing };
 }
 
-// ======== Trinity PCM ("ACCESS") programs, drum kits, combinations ========
+// ======== Trinity PCM ("ACCESS") programs and combinations (drum kits are not supported) ========
 // Byte maps: Korg Trinity Parameter Guide, MIDI Implementation TABLE 1 (program, 433 bytes), TABLE 3 (combination,
 // 388 bytes), TABLE 7 (drum kit, 1426 bytes); PCG records are the unpacked (8-bit) dumps.
 const KORG_PCM = {
@@ -474,10 +474,10 @@ const KORG_PCM = {
   KEY_SLOPE: [0, 1, 2, 3, 4, 6, 8, 10, 12, 18, 24, 30, 36, 48, 60, 72]
 };
 
-// Section contents of a Trinity PCG: PCM program banks, combination banks, drum kits, bank S, global (category names)
+// Section contents of a Trinity PCG: PCM program banks, combination banks, bank S, global (category names); drum kits are skipped
 function korgTrinitySections(buf) {
   const b = buf instanceof Uint8Array ? buf : new Uint8Array(buf), r = korgParsePCG(b);
-  const out = { ok: r.ok, error: r.error, pcm: [], combis: [], kits: [], bankS: [], bankM: r.bankM || [], userScale: r.userScale, cats: null };
+  const out = { ok: r.ok, error: r.error, pcm: [], combis: [], bankS: [], bankM: r.bankM || [], userScale: r.userScale, cats: null };
   if (!r.ok || r.fmt === 'triton') return out;
   for (const s of r.sections) {
     if (s.type === 0 || s.type === 2) {
@@ -487,9 +487,6 @@ function korgTrinitySections(buf) {
         for (let i = 0; i < 128; i++) recs.push(b.slice(o + 2 + i * rs, o + 2 + (i + 1) * rs));
         (s.type === 0 ? out.pcm : out.combis).push({ bank: KORG_PCM.BANKS[id] || KORG_PCM.BANKS[k], recs });
       }
-    } else if (s.type === 3) {
-      const n = Math.min(s.count, Math.floor((s.size - 2) / KORG_PCM.KIT));
-      for (let i = 0; i < n; i++) out.kits.push(b.slice(s.off + 2 + i * KORG_PCM.KIT, s.off + 2 + (i + 1) * KORG_PCM.KIT));
     } else if (s.type === 1) {
       const n = Math.floor((s.size - 2) / KORG.REC);
       for (let i = 0; i < n; i++) out.bankS.push(b.slice(s.off + 2 + i * KORG.REC, s.off + 2 + (i + 1) * KORG.REC));
@@ -582,7 +579,6 @@ function korgDecodePcm(r, userScale) {
     return O;
   };
   X.o.push(osc(31), osc(168));
-  if (mode === 'drum') { X.kit = X.o[0].msHi; X.o[0].msLo = X.o[0].msHi; }
   X.voice.bendUp = X.o[0].pitch.jsUp; X.voice.bendDown = X.o[0].pitch.jsDown;
   // RAM/Flash samples (loaded into the Trinity from disk) are not in the file: a stand-in is guessed from the name
   const ram = [];
@@ -600,19 +596,6 @@ function korgDecodePcm(r, userScale) {
   X.korgInfo = { kind: 'pcm', notes };
   X.korg = Array.from(r);
   return X;
-}
-
-// ---- one drum kit (1426 bytes): 88 keys, A0..C8 ----
-function korgDecodeKit(r) {
-  const s = korgS8, keys = [];
-  for (let k = 0; k < 88; k++) {
-    const b = 18 + k * 16, ds = (h, l) => { const v = ((r[h] & 0x7f) << 8) | r[l]; return v >= 0x7f00 || v === 0x7fff ? -1 : v; };
-    keys.push({ hi: ds(b, b + 1), hiOff: r[b] >> 7, hiTune: s(r[b + 2]) / 2, hiLvl: s(r[b + 3]), hiDecay: s(r[b + 4]),
-      lo: ds(b + 5, b + 6), loOff: r[b + 5] >> 7, loTune: s(r[b + 7]) / 2, loLvl: s(r[b + 8]), loDecay: s(r[b + 9]),
-      pan: r[b + 10] === 255 ? -1 : r[b + 10] & 127, send1: r[b + 11] & 127, send2: r[b + 12] & 127, excl: r[b + 13] === 255 ? -1 : r[b + 13],
-      ifx: r[b + 14] & 15, assign: (r[b + 14] >> 6) & 1, filtered: r[b + 14] >> 7, velSplit: Math.max(1, r[b + 15] & 127) });
-  }
-  return { name: korgName(r) || 'Drum Kit', keys };
 }
 
 // ---- one combination (388 bytes): 8 timbres ----
@@ -675,4 +658,4 @@ function korgDecodeCombi(r, userScale) {
   return C;
 }
 
-if (typeof module !== 'undefined') module.exports = { korgDecodeTrinityFx, KORG, korgParsePCG, korgParseTritonPCG, korgTritonToTrinity, korgDecodeMoss, korgPlayability, korgS8, korgName, KORG_PCM, korgTrinitySections, korgDecodeFxBlocks, korgDecodePcm, korgDecodeKit, korgDecodeCombi, korgCombiChains };
+if (typeof module !== 'undefined') module.exports = { korgDecodeTrinityFx, KORG, korgParsePCG, korgParseTritonPCG, korgTritonToTrinity, korgDecodeMoss, korgPlayability, korgS8, korgName, KORG_PCM, korgTrinitySections, korgDecodeFxBlocks, korgDecodePcm, korgDecodeCombi, korgCombiChains };

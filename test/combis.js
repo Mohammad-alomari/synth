@@ -4,7 +4,7 @@
 const fs = require('fs'), path = require('path'), dir = path.join(__dirname, '..');
 const src = ['fxcat.js', 'patches.js', 'engine.js', 'pcm.js', 'combi.js', 'fxdsp.js', 'pcmmap.js', 'korg.js', 'pcgdata.js', 'tridata.js']
   .map(f => fs.readFileSync(path.join(dir, f), 'utf8').replace(/if \(typeof module !== 'undefined'\)[^\n]*\n/g, '')).join('\n;\n') +
-  '\nmodule.exports={MossEngine,korgDecodePcm,korgDecodeKit,korgDecodeCombi,korgDecodeMoss,TRI_BUILTIN,MOSS_PCG_BUILTIN,PCM_STANDIN};';
+  '\nmodule.exports={MossEngine,korgDecodePcm,korgDecodeCombi,korgDecodeMoss,TRI_BUILTIN,MOSS_PCG_BUILTIN,PCM_STANDIN};';
 const m = new module.constructor(); m._compile(src, path.join(dir, 'bundle_combis.js')); const X = m.exports;
 const PK = require('./pcmpacks.js');
 const sr = 48000, N = 128, only = process.argv[2] || '', max = +(process.argv[3] || 1e9), step = +(process.env.STEP || (process.env.FULL || only ? 1 : 16));
@@ -13,12 +13,11 @@ let seen = 0;
 function build(T, r) {
   const C = X.korgDecodeCombi(r, T.scale);
   const pcm = {}; for (const b of T.pcm) pcm[b.bank] = Buffer.from(b.m, 'base64');
-  const kraw = T.kits ? Buffer.from(T.kits, 'base64') : null;
   const mb = X.MOSS_PCG_BUILTIN.find(b => b.name === T.name), mraw = mb ? Buffer.from(mb.m, 'base64') : null;
   for (const t of C.timbres) {
     t.p = null; if (t.status === 'off') continue;
     const L = 'ABCD'[t.bank];
-    if (L && pcm[L]) { t.p = X.korgDecodePcm(pcm[L].subarray(t.prog * 433, (t.prog + 1) * 433), T.scale); if (t.p.mode === 'drum' && kraw) t.p.kitData = X.korgDecodeKit(kraw.subarray(t.p.kit * 1426, (t.p.kit + 1) * 1426)); }
+    if (L && pcm[L]) { t.p = X.korgDecodePcm(pcm[L].subarray(t.prog * 433, (t.prog + 1) * 433), T.scale); if (t.p.mode === 'drum') t.p = null; } // drum programs: not supported (silent), as on the page
     else if (t.bank === 4 && mraw) t.p = X.korgDecodeMoss(mraw.subarray(t.prog * 521, (t.prog + 1) * 521), T.scale);
   }
   C.voice = { hold: 0 }; C.out = { level: 127 };

@@ -1152,7 +1152,7 @@ class MossEngine {
   handle(m) {
     if (this.combi) {
       if (m.t === 'patch' && !(m.p && m.p.kind === 'combi')) { this.combi.stop(); this.combi = null; }
-      else if (m.t !== 'tune' && m.t !== 'pcmMap' && m.t !== 'pcmPack' && m.t !== 'pcmKits') { this.combi.handle(m); return; }
+      else if (m.t !== 'tune' && m.t !== 'pcmMap' && m.t !== 'pcmPack') { this.combi.handle(m); return; }
     }
     switch (m.t) {
       case 'patch': {
@@ -1165,7 +1165,6 @@ class MossEngine {
       }
       case 'pcmMap': if (this.store) this.store.setMap(m.map); break;
       case 'pcmPack': if (this.store) this.store.putPack(m.name, m.zones); break;
-      case 'pcmKits': if (this.store) this.store.kits = m.kits || []; break;
       case 'set': {
         const ks = m.path.split('.'); let o = this.patch; for (let i = 0; i < ks.length - 1; i++) o = o[ks[i]]; o[ks[ks.length - 1]] = m.v;
         if (ks[0] !== 'fx') this.compile();

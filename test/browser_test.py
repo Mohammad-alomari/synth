@@ -1,6 +1,6 @@
 # Browser test of the built page (Chromium via Playwright). Starts its own http server; exit code 0 = all passed.
 # Usage: python3 test/browser_test.py            (run python3 build.py first; needs node for test/mkpcg.js)
-# Covers: sound of MOSS / PCM / drum / combination programs in both audio modes, every page renders, effects editing,
+# Covers: sound of MOSS / PCM / combination programs in both audio modes, drum programs left out, every page renders, effects editing,
 # phone width, imported-PCG storage (IndexedDB, reload, migration, removal), synth memory, error messages.
 import asyncio, base64, functools, http.server, os, subprocess, sys, tempfile, threading
 from playwright.async_api import async_playwright
@@ -64,12 +64,10 @@ async def sound_and_pages(b, url):
     pc = await pg.evaluate("__t.find(/^pc:\\d+ A\\d+ (?!Initl)/)")
     pk = await pg.evaluate("(v) => __t.play('pc', +v.split(':')[1], [48, 60, 64], 1500)", pc)
     ok('PCM program %s plays (stand-in samples)' % pc, pk > 0.005, round(pk, 3))
-    dr = await pg.evaluate("__t.find(/Mega-Mix/)")  # a TRINI-1-KJ drum program (other files' kits hold odd data)
-    pk = await pg.evaluate("(v) => __t.play('pc', +v.split(':')[1], [36, 38, 42], 1500)", dr) if dr else 0
-    ok('drum program %s plays' % dr, pk > 0.005, round(pk, 3))
+    ok('drum programs are not in the program list', await pg.evaluate("__t.find(/Mega-Mix/)") is None)  # a TRINI-1-KJ drum program
     pk = await pg.evaluate("__t.play('cb', 0, [48, 60, 64], 1500)")
     ok('combination cb:0 plays', pk > 0.005, round(pk, 3))
-    for v in ['st:17', pc, dr, 'cb:0']:
+    for v in ['st:17', pc, 'cb:0']:
         await pg.evaluate('(v) => __t.load(v)', v)
         n, empty = await pg.evaluate('__t.pages()')
         ok('%s: all %d pages render' % (v, n), n > 0 and not empty, empty)
@@ -109,8 +107,8 @@ async def storage_and_memory(b, url):
     await pg.evaluate("__t.load(__t.firstIn('Combinations A from Full'))")
     ok("memory: a file's own banks come first", all(t[2] == '' for t in await pg.evaluate('__t.timbres()')))
     await pg.evaluate('([b, n]) => __t.import(b, n)', [pcm, 'PcmOnly.PCG'])
-    dr = await pg.evaluate("() => { for (const g of document.querySelectorAll('#prog optgroup')) if (g.label.includes('(PCM) from PcmOnly')) for (const o of g.querySelectorAll('option')) { __t.load(o.value); const P = window.__moss.getPatch(); if (P.mode === 'drum') return [!!P.kitData, P.korgInfo.kitFrom || '']; } return null; }")
-    ok('memory: drum programs of a file without kits use the kits in memory', dr == [True, 'Full'], dr)
+    n = await pg.evaluate("() => [...document.querySelectorAll('#prog optgroup')].filter(g => g.label.includes('(PCM) from PcmOnly')).reduce((a, g) => a + g.children.length, 0)")
+    ok('drum programs of an imported file are left out', 0 < n < 256, n)  # TRINI-1-KJ has 8 drum programs in banks A-B
     n = await pg.evaluate("() => { let n = 0; for (const g of document.querySelectorAll('#prog optgroup')) if (/^Combinations . from (Hadi2024|TRINI-1-KJ)$/.test(g.label)) for (const o of g.querySelectorAll('option')) { __t.load(o.value); n += __t.timbres().filter(t => t[2]).length; } return n; }")
     ok('built-in files only use their own banks', n == 0, n)
     # storage: everything is still there after a reload

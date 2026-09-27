@@ -3,8 +3,8 @@
 A playable model of the Korg Trinity V3 that reads Trinity (and Triton) PCG files:
 
 - **MOSS programs (Bank M)**: the DSP-MOSS-TRI board's 13 oscillator models (Standard, Comb, VPM, Resonance, Ring, Cross, Sync, Organ, E.Piano, Brass, Reed, Plucked, Bowed), filters, EGs, LFOs, modulation and the Trinity effects.
-- **PCM programs (Banks A–D)**: Single, Double and Drum mode with the program's own filters, envelopes, LFOs and effects. Korg's sample ROM is not available, so each multisample is played by an openly licensed stand-in recording (General MIDI, MIT licence) or a built-in waveform.
-- **Drum kits**: each Korg drum sample is played by the General MIDI drum sound that matches where Korg's factory kits place it.
+- **PCM programs (Banks A–D)**: Single and Double mode with the program's own filters, envelopes, LFOs and effects. Korg's sample ROM is not available, so each multisample is played by an openly licensed stand-in recording (General MIDI, MIT licence) or a built-in waveform.
+- **Drum kits** are not supported: Drum-mode programs are left out, and combination timbres that use one stay silent.
 - **Combinations**: 8 timbres with key/velocity zones, transpose, detune, bend range, level, pan, sends, the combination's insert-effect chains and master effects.
 
 ## Files
@@ -15,16 +15,16 @@ A playable model of the Korg Trinity V3 that reads Trinity (and Triton) PCG file
 | `ui.html` | Page template: layout and CSS. The sources are inserted at its `%%…%%` markers. |
 | `app.js` | The user interface: pages, keyboard, joystick, MIDI, program list, PCG import, sample loader, save/load, audio start-up. |
 | `engine.js` | The engine: MOSS oscillator models, filters, envelopes, LFOs, modulation, voice allocation, output limiter. |
-| `pcm.js` | The PCM (ACCESS) voice: sample playback, filters, EGs, LFOs, drum kits, the stand-in sample store and built-in waveforms. |
+| `pcm.js` | The PCM (ACCESS) voice: sample playback, filters, EGs, LFOs, the stand-in sample store and built-in waveforms. |
 | `combi.js` | Combinations: one engine per timbre, zones, timbre mix, insert chains and master effects. |
 | `fxcat.js` | Catalogue of the Trinity effects: names, parameters and the byte layout in Korg programs. |
 | `fxdsp.js` | The effect DSP (inserts, master effects, EQ) and the effect rack. |
 | `patches.js` | The MOSS patch model, the default program and the starter programs (Mijwiz, Rababa, …). |
-| `korg.js` | Reads Korg PCG files: MOSS, PCM programs, drum kits, combinations, effects, scales. |
-| `pcmmap.js` | Which stand-in plays each Trinity multisample (0–374) and drum sample (0–258); Korg's multisample names. |
+| `korg.js` | Reads Korg PCG files: MOSS, PCM programs, combinations, effects, scales. |
+| `pcmmap.js` | Which stand-in plays each Trinity multisample (0–374); Korg's multisample names. |
 | `pcgdata.js` | Built-in MOSS banks as base64 (includes Korg's factory EXB-MOSS bank – keep this repository private). |
-| `tridata.js` | Built-in Trinity PCG data (PCM banks, kits, combinations) from your own files. |
-| `samples/` | The stand-in packs: one MP3 per General MIDI instrument or drum kit, plus `packs.json` (the maps). |
+| `tridata.js` | Built-in Trinity PCG data (PCM banks, combinations) from your own files. |
+| `samples/` | The stand-in packs: one MP3 per General MIDI instrument or drum set (used by percussion multisamples), plus `packs.json` (the maps). |
 | `build.py` | Assembles `index.html` from `ui.html` and the `.js` files. |
 | `gen_pcgdata.py` | Rebuilds the factory entry of `pcgdata.js` from a Triton Extreme PCG: `python3 gen_pcgdata.py <file.PCG>`. |
 | `tools/samples/` | Rebuilds `samples/` from MuseScore's MS General SoundFont (`FluidR3Mono_GM.sf3`, MIT): `python3 tools/samples/build_packs.py` (set `SF3=` to the file). Needs ffmpeg. |
