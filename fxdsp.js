@@ -518,7 +518,7 @@ class FxMod extends FxBase {
 
 // ---------------- phasers ----------------
 class FxPhaser extends FxBase {
-  constructor(sr, e) { super(sr, e); this.s = new Float64Array(16); this.fbv = [0, 0]; this.lp = [0, 0]; this.aL = 0; this.aR = 0; this.eg = 0; this.trig = -1; this.rv = 0.5; this.rt = 0.5; this.rph = 0; }
+  constructor(sr, e) { super(sr, e); this.s = new Float64Array(16); this.fbv = [0, 0]; this.lp = [0, 0]; this.dcb = [0, 0]; this.kdc = FXL.k(10, sr); this.aL = 0; this.aR = 0; this.eg = 0; this.trig = -1; this.rv = 0.5; this.rt = 0.5; this.rph = 0; }
   coef(pos) { const f = 80 * Math.pow(160, Math.max(0, Math.min(1, pos))), t = Math.tan(Math.PI * Math.min(f, this.sr * 0.45) / this.sr); return (t - 1) / (t + 1); }
   process(L, R, n, p, x) {
     const v = this.v, sr = this.sr, st = !this.mono;
@@ -547,7 +547,9 @@ class FxPhaser extends FxBase {
         if (st) { const or = aR * yr + s[k + 8]; s[k + 8] = yr - aR * or; yr = or; }
       }
       if (!st) yr = yl;
-      this.lp[0] += kh * (yl - this.lp[0]); this.lp[1] += kh * (yr - this.lp[1]); this.fbv[0] = this.lp[0]; this.fbv[1] = this.lp[1];
+      this.lp[0] += kh * (yl - this.lp[0]); this.lp[1] += kh * (yr - this.lp[1]);
+      // DC blocker in the feedback: without it high resonance piles up DC / sub-bass (~10x at DC)
+      this.dcb[0] += this.kdc * (this.lp[0] - this.dcb[0]); this.dcb[1] += this.kdc * (this.lp[1] - this.dcb[1]); this.fbv[0] = this.lp[0] - this.dcb[0]; this.fbv[1] = this.lp[1] - this.dcb[1];
       let wl = yl, wr = yr;
       if (v === 'phtrem') {
         // phaser with its own wet/dry, followed by a tremolo on the same LFO
@@ -558,7 +560,7 @@ class FxPhaser extends FxBase {
       { const y1_ = wl, y2_ = wr; if (MS_) { L[i] = y1_ * G_; R[i] = y2_ * G_; } else { L[i] = (st ? dl : m) * A_ + y1_ * W_; R[i] = (st ? dr : m) * A_ + y2_ * W_; } }
     }
     for (let k = 0; k < 16; k++) if (!(Math.abs(s[k]) > 1e-20)) s[k] = 0;
-    for (let k = 0; k < 2; k++) if (!(Math.abs(this.lp[k]) > 1e-20)) { this.lp[k] = 0; this.fbv[k] = 0; }
+    for (let k = 0; k < 2; k++) if (!(Math.abs(this.lp[k]) > 1e-20) && !(Math.abs(this.dcb[k]) > 1e-20)) { this.lp[k] = 0; this.dcb[k] = 0; this.fbv[k] = 0; }
     this.flushAll();
   }
 }
