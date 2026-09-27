@@ -218,7 +218,7 @@ class MossVoice {
 
   // modulation sources, per block
   computeSources(eng, P, dtb) {
-    const s = this.src, c = eng.ctl, cc = eng.cc, v = this.vel, n = this.note, SI = eng.SRC_INDEX;
+    const s = this.src, c = eng.ctl, cc = eng.cc, v = this.vel, n = this.note;
     // performance sources (Korg AMS list order is mapped onto these slots by the importer)
     s[0] = 0; s[10] = v; s[11] = (n - 60) / 60; s[12] = c.at; s[13] = c.jsy; s[14] = c.jsyn;
     s[15] = c.jsx; s[16] = c.ribbon; s[17] = c.foot; s[18] = c.sw1; s[19] = c.sw2;
@@ -345,7 +345,7 @@ class MossVoice {
       }
       bc.nb = nb;
     } else if (t === 'ring' || t === 'cross' || t === 'sync') {
-      bc.car = p.mCar; bc.carI = MD.wI(p.mCar); bc.ec = MD.edgeCoef(MD.clamp(p.mEdge + (t === 'sync' ? B : B) * 99, 0, 99), sr);
+      bc.car = p.mCar; bc.carI = MD.wI(p.mCar); bc.ec = MD.edgeCoef(MD.clamp(p.mEdge + B * 99, 0, 99), sr);
       bc.depth = t === 'sync' ? 0 : MD.clamp(p.mDepth / 99 + A, 0, 1);
       bc.mtype = p.mType; bc.min = p.mIn; bc.minI = MD.inI(p.mIn); bc.discs = MD.discs(p.mCar); bc.nd = bc.discs.length;
       bc.xI = bc.depth * bc.depth * 6;

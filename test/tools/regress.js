@@ -14,7 +14,7 @@ function render(X, P, secs, events) {
   seed = 12345; Math.random = rnd;
   const e = new X.MossEngine(sr); e.handle({ t: 'patch', p: JSON.parse(JSON.stringify(P)) });
   const blocks = Math.round(secs * sr / N), L = new Float32Array(N), R = new Float32Array(N), out = new Float32Array(blocks * N * 2);
-  let t = 0; const ev = events.slice();
+  const ev = events.slice();
   const t0 = process.hrtime.bigint();
   for (let b = 0; b < blocks; b++) {
     while (ev.length && ev[0][0] <= b) e.handle(ev.shift()[1]);

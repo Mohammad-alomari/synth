@@ -30,11 +30,18 @@ Korg's factory EXB-MOSS bank was removed (licence); the owner imports it himself
 2. FILES
 ==============================================================================
 index.html     built page (not committed, .gitignore; build with build.py). Loads samples/ at run time.
-ui.html        template: layout + CSS; sources are inserted at %%PATCHES%% %%ENGINE%% %%KORG%% %%PCG%% %%APP%%
+ui.html        template: layout + CSS; sources are inserted at %%FONTS%% %%PATCHES%% %%ENGINE%% %%KORG%% %%PCG%% %%APP%%
 build.py       parts = PATCHES: fxcat.js patches.js | ENGINE: engine.js pcm.js combi.js fxdsp.js |
-               KORG: pcmmap.js korg.js | PCG: pcgdata.js tridata.js | APP: app.js
-app.js         UI: pages, keyboard, joystick, MIDI, program list, PCG import, sample loader, audio start-up,
-               PCM pages, combination pages.
+               KORG: pcmmap.js korg.js | PCG: pcgdata.js tridata.js | APP: app/*.js (APP_FILES order, wrapped in ONE
+               function scope by build.py) | FONTS: fonts/*.woff2 inlined as base64 @font-face (fonts/fonts.json).
+app/           UI, split by section (was app.js): core.js (storage, PCG banks, synth memory, audio start-up, sample
+               loader), pages.js (all editor pages), program.js (program list + search, LCD, flow, scope), scale.js,
+               keyboard.js (notes, on-screen keys, Keyboard page, joystick/ribbon/SW, play mode, wake lock, Sustain),
+               record.js (AudioWorklet recorder, ScriptProcessor fallback), midi.js, boot.js (last; service worker).
+               The files are fragments of one scope: top-level names are shared, file order matters.
+manifest.webmanifest, sw.js, icons/  installable app (PWA). sw.js: network-first for the page, cache-first for
+               samples/*.mp3. Netlify copies them next to index.html. tools/make_icons.py draws the icons.
+package.json, eslint.config.js  npm run lint (ESLint 10; the config collects each file's top-level names as globals).
 engine.js      MossEngine (host), MossVoice (MOSS models), MD helpers, limiter. Voice pools: 16 MossVoice or
                32 PcmVoice (16 in Double mode). Delegates to MossCombi when patch.kind === 'combi'.
 pcm.js         PCM static helpers + calibration, PcmEG, PcmLFO, PcmStore (stand-in map, packs, built-in
@@ -59,14 +66,15 @@ docs/research/ format notes: 01 PCM program 433, 02 combination 388, 03 drum kit
 test/          Node + Playwright tests (see section 6). demos/: two MP3 demos.
 
 Conventions / gotchas
-- The AudioWorklet source is generated from class.toString() (ENGINE_CLASSES in app.js). Engine code must
+- The AudioWorklet source is generated from class.toString() (ENGINE_CLASSES in app/core.js). Engine code must
   be classes with static methods; no module-level helpers in engine files. Add new engine classes to
   ENGINE_CLASSES, build.py, test/harness.js ORDER.
 - build.py strips lines starting with "if (typeof module !== 'undefined')" -> keep each module.exports on ONE line.
 - Messages to the engine: patch, set (path,v), on, off, cc, bend, at, tune, panic, pcmMap, pcmPack (zones,
   transferable buffer). Worklet posts {t:'st', v: voiceStates, need:[pack names]}.
 - Program ids in the UI: st:N starter, us:N user, pm:N MOSS bank, pc:N PCM (bank*128+i), cb:N combination.
-- Stored in browser localStorage: moss-user-programs, moss-current, moss-page. Imported PCGs live in IndexedDB
+- Stored in browser localStorage: moss-user-programs, moss-current, moss-page, moss-perf, moss-kb (Keyboard page settings
+  + learned MIDI next/prev buttons). Imported PCGs live in IndexedDB
   'trinity-web-synth', store 'files': {id, kind 'moss'|'tri', name, scale, fmt, rs, bytes} (raw bytes; restored
   asynchronously after start-up by restoreImported(); old localStorage keys moss-pcg / moss-tri are migrated).
   Max 8 imported files.
@@ -117,6 +125,12 @@ combination timbre Delay start (byte 243; key-off timbres released after 0.25 s,
 MOSS bend Step (byte 147: b0-3 +X, b4-7 -X, STEP list 0 cont, 1/8, 1/4, 1/2, 1..12 st = voice.bendStepUp/Down; PCM
 programs' own STEP too) and Reed/Brass Jump Bend (rdJump/brJump bit0 +X, bit1 -X: bend in semitone jumps, 15 ms
 move - interpretation; the OS labels it "Jump Bend:"). Multisample names = Trinity OS 3.1.1 wave-ROM directory.
+Keyboard page (app/keyboard.js pageKeys, kbs): octaves / 1 or 2 rows / lowest key / key width+height / black key
+length+width or hidden / note names / fixed touch velocity; computer keys start at the lowest on-screen C; Play mode (body.play: dock fills the screen, full screen + landscape lock where
+allowed); MIDI next/prev program buttons (learn a note, CC or program change; program changes step or pick in bank);
+SW1/SW2 always visible and lit by incoming CC80/81. Play bar: Sustain (CC64, shows the MIDI pedal), scale switch
+(Equal / Arabic / maqams via loadMaqam / your scale; choosing turns program scales off), screen wake lock.
+Program search (program.js progEntries/progList): filters the menu and the ‹ › steps. Fonts bundled; PWA.
 Checks passed: all 2,560 PCM programs render (no NaN); 1,408 combinations render (no NaN, 1 silent by data);
 MOSS sound identical to Version 11 (regress.js); browser tests in AudioWorklet and ScriptProcessor modes; phone width.
 
@@ -129,7 +143,7 @@ Decisions by the owner (do NOT propose these again):
 - Never limit combinations to one MOSS program (the real Trinity's limit is deliberately not copied).
 - Drum kits are removed and stay removed (no drum-sample list / kit fixes).
 - No "export edits back to PCG" for now.
-Synth memory (app.js memoryFor): an IMPORTED file uses its own PCM banks / Bank M first; what it lacks
+Synth memory (app/core.js memoryFor): an IMPORTED file uses its own PCM banks / Bank M first; what it lacks
 comes from earlier imports (newest first), then the built-in files in list order (Hadi2024 first). Built-in files
 only use their own data (unchanged behaviour). A file with a Bank S (imports: from the PCG; built-ins: "s":1 in
 tridata.js, TRINI-1-KJ) never takes a Bank M: bank 4 = Solo-TRI there (silent). Timbres record t.from (source file
@@ -145,11 +159,13 @@ Build:   python3 build.py [out.html] [--public]   (--public: without the owner's
          Netlify publishes the --public build; test/check_public.py checks it.)
 Run:     python3 -m http.server 8765   then open http://localhost:8765/index.html (Chrome/Edge; needs http for audio,
          MIDI and samples). Web MIDI: Chrome, Edge, Firefox (not Safari).
+Lint:    npm install once, then npm run lint (also in CI).
 Tests: sh test/run_all.sh (~1 min, exit 0 = pass; FULL=1 for every program/combination, ~10 min).
-  CI: .github/workflows/test.yml runs build.py + run_all.sh on every push / PR.
+  CI: .github/workflows/test.yml runs npm run lint, then build.py + run_all.sh on every push / PR.
   Checks: fxunit, fuzz, fxfix (effects), voicefix (notes), combifix (timbre delay, MIDI filters), progs (MOSS programs, every 8th), combis (every 16th,
   needs ffmpeg), browser_test.py (Playwright; starts its own server; sound in both audio modes, all pages, fx edit,
-  phone width, IndexedDB storage, synth memory, error messages).
+  phone width, recording, keyboard settings, play mode, search, MIDI buttons, IndexedDB storage, synth memory,
+  error messages, public build: manifest, service worker, opens offline).
   test/harness.js loads sources in a vm; test/pcmpacks.js decodes samples/ with ffmpeg; test/mkpcg.js writes a PCG
   from built-in data. window.__moss exposes loadProgram(bank, idx), getPatch, noteOn/noteOff, selectPage, engine()
   (script mode), importPcgFile.

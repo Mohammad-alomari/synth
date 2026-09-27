@@ -3,10 +3,18 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>MOSS-TRI Bank M Engine</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=VT323&display=swap" rel="stylesheet">
+<title>Trinity Web Synth</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="theme-color" content="#2a2e32">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Trinity">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<style>
+%%FONTS%%
+</style>
 <style>
 :root {
   --panel: #c9cdd1; --panel-2: #b3b8be; --panel-3: #e2e5e7; --ink: #1d2226; --muted: #555d64;
@@ -36,6 +44,7 @@
   --focus: #8fb8ea; --accent: #8fb8ea;
 }
 *, *::before, *::after { box-sizing: inherit; }
+[hidden] { display: none !important; }
 html { scroll-padding-top: env(safe-area-inset-top, 0px); }
 body {
   margin: 0; background: var(--panel); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.4;
@@ -74,6 +83,8 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .pnum { font-family: var(--f-lcd); font-size: 26px; line-height: 1; padding: 1px 6px; border: 1px solid var(--lcd-ink); border-radius: 3px; }
 .pname { font-family: var(--f-lcd); font-size: 32px; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
 .lcd button { background: transparent; border: 1px solid var(--lcd-ink); color: var(--lcd-ink); border-radius: 3px; width: 34px; height: 30px; cursor: pointer; font-family: var(--f-lcd); font-size: 22px; line-height: 1; }
+.lcd input[type=search] { width: 100%; min-width: 0; flex: 1; background: var(--lcd-2); border: 1px solid var(--lcd-ink); color: var(--lcd-ink); border-radius: 3px; font-family: var(--f-lcd); font-size: 20px; padding: 2px 6px; }
+.lcd input[type=search]::placeholder { color: var(--lcd-dim); }
 .lcd select { width: 100%; background: var(--lcd-2); border: 1px solid var(--lcd-ink); color: var(--lcd-ink); border-radius: 3px; font-family: var(--f-lcd); font-size: 20px; padding: 2px 4px; max-width: 100%; min-width: 0; flex: 1; }
 .meta { font-family: var(--f-lcd); font-size: 19px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center; color: var(--lcd-ink); }
 .vleds { display: inline-flex; flex-wrap: wrap; gap: 4px; max-width: 100%; vertical-align: middle; }
@@ -183,7 +194,6 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 20px; border-radius: 
 .swrow { display: flex; gap: 6px; }
 .swrow .sw { flex: 1; justify-content: center; min-height: 30px; padding: 3px 6px; }
 .swrow .sw[aria-pressed="true"] { color: var(--led); border-color: var(--led); box-shadow: inset 0 0 0 1px var(--led); }
-.dock .ctrls.collapsed .swrow { display: none; }
 .step { display: inline-flex; align-items: center; gap: 3px; }
 .step .sl { font-family: var(--f-ui); font-weight: 600; font-size: 14px; color: var(--muted); min-width: 32px; }
 .dockbar .hw.val { min-width: 36px; justify-content: center; padding: 4px 3px; font-variant-numeric: tabular-nums; }
@@ -221,12 +231,55 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 20px; border-radius: 
 .wk { background: var(--key-w); border: 1px solid var(--line); height: 100%; }
 .bk { background: var(--key-b); height: 60%; z-index: 2; border: 1px solid #000; }
 .wk.on { background: #c9d9e8; } .bk.on { background: #3d5a78; }
-.wk .c { position: absolute; bottom: 4px; left: 0; right: 0; text-align: center; font-family: var(--f-ui); font-size: 11px; color: #707880; }
+.wk .c { position: absolute; bottom: 4px; left: 0; right: 0; text-align: center; font-family: var(--f-ui); font-size: 11px; color: #707880; pointer-events: none; }
+.wk .c.cn { color: #2a2f33; font-weight: 600; }
+.dock.rows2 #kb { min-height: 200px; }
+.dock.kbfix #kb { flex: none; height: var(--kb-h); min-height: 0; }
+/* play mode: the dock fills the screen (made for a phone held sideways) */
+.playbar { display: none; }
+body.play { padding-bottom: 0; overflow: hidden; }
+body.play .wrap { display: none; }
+body.play .dock {
+  top: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); gap: 8px;
+  padding: calc(6px + env(safe-area-inset-top, 0px)) calc(10px + env(safe-area-inset-right, 0px)) calc(8px + env(safe-area-inset-bottom, 0px)) calc(10px + env(safe-area-inset-left, 0px));
+}
+body.play .playbar { display: flex; grid-column: 1 / -1; align-items: center; gap: 6px; min-width: 0; }
+.playbar .pb-name { flex: 1; min-width: 0; font-family: var(--f-lcd); font-size: 24px; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: var(--lcd); color: var(--lcd-ink); border-radius: 4px; padding: 5px 8px; }
+.playbar .hw { min-height: 34px; padding: 4px 12px; }
+.playbar .rot { display: none; font-size: 13px; color: var(--muted); }
+.playbar select { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 5px 4px; min-height: 34px; font-family: var(--f-ui); font-size: 15px; max-width: 130px; }
+.playbar select:disabled { opacity: 0.5; }
+.playbar .hw[aria-pressed="true"] { color: var(--led); border-color: var(--led); box-shadow: inset 0 0 0 1px var(--led); }
+
+.kbrow { position: absolute; left: 0; right: 0; }
+body.play .dock .ctrls { width: 150px; flex-direction: column; align-items: stretch; overflow-y: auto; min-height: 0; }
+body.play .dock .ctrls #joy { display: block; width: 100%; height: 96px; flex: none; }
+body.play .dock .ctrls #ribbon { display: block; flex: none; }
+body.play .dock .ctrls .mob-only { display: none; }
+body.play.noctl .dock .ctrls { display: none; }
+body.play.noctl .kbwrap { grid-column: 1 / -1; }
+body.play .kbwrap { min-height: 0; }
+body.play #kb { flex: 1; height: auto; min-height: 0; }
+body.play .toast { bottom: auto; top: calc(60px + env(safe-area-inset-top, 0px)); }
+@media (orientation: portrait) {
+  body.play .playbar { flex-wrap: wrap; } body.play .playbar .pb-name { flex-basis: 40%; } body.play .playbar .rot { display: inline; flex-basis: 100%; }
+  /* held upright: the controllers sit in a row above the keys, which keep the full width */
+  body.play .dock { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr); }
+  body.play .dock .ctrls { width: auto; flex-direction: row; flex-wrap: wrap; align-items: center; overflow: visible; }
+  body.play .dock .ctrls #joy { width: 110px; height: 70px; }
+  body.play .dock .ctrls #ribbon { flex: 1; min-width: 90px; }
+  body.play.noctl .kbwrap { grid-column: auto; }
+}.bkpre { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.learnrow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+.learnrow .nm { font-family: var(--f-ui); font-weight: 500; font-size: 15px; min-width: 110px; }
+.learnrow .bind { font-family: var(--f-ui); font-size: 14px; color: var(--accent); min-width: 120px; }
+.hw.learning { color: var(--led); border-color: var(--led); box-shadow: inset 0 0 0 1px var(--led); }
 .mob-only { display: none; }
 @media (max-width: 720px) {
   :root { --dock-h: 176px; }
   .dock { flex-direction: column; gap: 6px; }
-  .dock .ctrls { width: auto; flex-direction: row; align-items: center; }
+  .dock .ctrls { width: auto; flex-direction: row; align-items: center; flex-wrap: wrap; }
+  .swrow .sw { flex: none; min-width: 48px; }
   .dock .ctrls.collapsed #joy, .dock .ctrls.collapsed #ribbon { display: none; }
   #joy { width: 110px; height: 70px; }
   #ribbon { flex: 1; }
@@ -249,11 +302,13 @@ dialog textarea { width: 100%; min-height: 220px; background: var(--panel); bord
 <body>
 <div class="wrap">
   <header class="top">
-    <h1 class="brand">MOSS DSP Engine<small>A playable model of the Korg Trinity V3: the MOSS Bank M synth and the PCM programs (with stand-in samples), built from Korg's published parameter set</small></h1>
+    <h1 class="brand">Trinity Web Synth<small>A playable model of the Korg Trinity V3: the MOSS Bank M synth and the PCM programs (with stand-in samples), built from Korg's published parameter set</small></h1>
     <span class="sp"></span>
     <button class="hw" id="power" type="button"><span class="led" id="pled"></span><span id="ptxt">Start audio</span></button>
     <button class="hw" id="midibtn" type="button"><span class="led" id="mled"></span>MIDI</button>
     <button class="hw" id="recbtn" type="button" aria-pressed="false" title="Record what you play to a WAV file"><span class="led rec" id="rled"></span><span id="rtxt">Record</span></button>
+    <button class="hw" id="installbtn" type="button" hidden title="Add the synth to your home screen; it then opens full screen and works offline">Install app</button>
+    <button class="hw" id="playbtn" type="button" title="Full-screen keyboard; turn a phone sideways">Play mode</button>
     <span class="status" id="status" aria-live="polite"></span>
   </header>
 
@@ -267,6 +322,9 @@ dialog textarea { width: 100%; min-height: 220px; background: var(--panel); bord
         <button type="button" id="prev" aria-label="Previous program">&lsaquo;</button>
         <select id="prog" aria-label="Program"></select>
         <button type="button" id="next" aria-label="Next program">&rsaquo;</button>
+      </div>
+      <div class="lcd-row" style="margin-top:6px">
+        <input type="search" id="progq" placeholder="Find a program (name, bank, number…)" aria-label="Find a program" autocomplete="off" spellcheck="false">
       </div>
       <div class="meta" style="margin-top:6px">
         <span>Voices <span class="vleds" id="vleds"></span></span>
@@ -283,6 +341,17 @@ dialog textarea { width: 100%; min-height: 220px; background: var(--panel); bord
 </div>
 
 <div class="dock" id="dock">
+  <div class="playbar" id="playbar">
+    <button class="hw" type="button" id="pbprev" aria-label="Previous program">&lsaquo;</button>
+    <span class="pb-name" id="pbname"></span>
+    <button class="hw" type="button" id="pbnext" aria-label="Next program">&rsaquo;</button>
+    <select id="pbscale" aria-label="Scale"></select>
+    <select id="pbkey" aria-label="Scale key"></select>
+    <button class="hw" type="button" id="pbsus" aria-pressed="false" title="Damper pedal (CC64)">Sustain</button>
+    <span class="rot">Turn the phone sideways for more keys</span>
+    <button class="hw" type="button" id="pbkeys">Keys</button>
+    <button class="hw" type="button" id="pbexit">Exit</button>
+  </div>
   <div class="ctrls collapsed" id="ctrls">
     <div class="dockbar">
       <div class="step" role="group" aria-label="Octave">

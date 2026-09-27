@@ -1,6 +1,6 @@
 // Offline checks for the Organ, E.Piano and Brass models: pitch, level, spectrum, stability
 const H = require('../harness.js'); const X = H.load(H.ORDER);
-const sr = 48000, N = 128;
+const sr = 48000;
 function patchFor(type, p, extra) {
   const P = X.mossDefaultPatch(); P.osc[0].type = type; Object.assign(P.osc[0].p, p || {});
   P.mix[0] = { osc1: 99, osc2: 0, sub: 0, noise: 0, fb: 0 }; P.mix[1] = { osc1: 0, osc2: 0, sub: 0, noise: 0, fb: 0 };
@@ -16,7 +16,6 @@ function renderVoice(P, note, vel, secs, offAt) {
   const e = new X.MossEngine(sr); e.handle({ t: 'patch', p: JSON.parse(JSON.stringify(P)) });
   e.handle({ t: 'on', n: note, v: vel });
   const n = Math.round(secs * sr), out = new Float64Array(n), L = new Float32Array(16), R = new Float32Array(16);
-  const v = e.voices.find(v => v.active);
   for (let i = 0; i < n; i += 16) {
     if (offAt !== undefined && i === Math.round(offAt * sr / 16) * 16) e.handle({ t: 'off', n: note });
     L.fill(0); R.fill(0);
