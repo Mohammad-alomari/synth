@@ -19,3 +19,4 @@ for (const e of TFX.CAT) for (let trial = 0; trial < 12; trial++) {
   if (nan || pk > 40) bad.push([e.id, e.name, trial, nan ? 'NaN x' + nan : 'peak ' + pk.toFixed(1), JSON.stringify(p).slice(0, 300)]);
 }
 console.log(bad.length ? bad.map(b => b.join(' | ')).join('\n') : 'all bounded, no NaN');
+if (bad.length) process.exitCode = 1;

@@ -3,7 +3,7 @@ const H = require('./harness.js'); const X = H.load(H.ORDER); const sr = 48000;
 const mk = (f) => { const P = X.mossPreset(0); P.fx.ins = []; P.fx.m1.on = 0; P.fx.m2.on = 0; if (f) f(P); const e = new X.MossEngine(sr); e.handle({ t: 'patch', p: P }); return e; };
 const run = (e, secs) => { const L = new Float32Array(128), R = new Float32Array(128); let pk = 0; for (let b = 0; b < Math.round(secs * sr / 128); b++) { e.process(L, R, 128); for (let i = 0; i < 128; i++) pk = Math.max(pk, Math.abs(L[i])); } return pk; };
 const act = e => e.voices.filter(v => v.active).length;
-const ok = (name, cond, extra) => console.log((cond ? 'PASS ' : 'FAIL ') + name + (extra ? '  ' + extra : ''));
+const ok = (name, cond, extra) => { if (!cond) process.exitCode = 1; console.log((cond ? 'PASS ' : 'FAIL ') + name + (extra ? '  ' + extra : '')); };
 { // 1 sustain pedal with a repeated note
   const e = mk(); e.handle({ t: 'cc', c: 64, v: 127 }); e.handle({ t: 'on', n: 60, v: 100 }); run(e, 0.1); e.handle({ t: 'off', n: 60 }); e.handle({ t: 'on', n: 60, v: 100 }); run(e, 0.1);
   e.handle({ t: 'cc', c: 64, v: 0 }); run(e, 0.1); e.handle({ t: 'off', n: 60 }); run(e, 3); ok('sustain pedal + repeated note ends', act(e) === 0, 'active ' + act(e));

@@ -32,3 +32,4 @@ for (const [id, P] of list) {
 if (process.env.VERBOSE) rows.forEach(r => console.log(r));
 lv.sort((a, b) => a - b);
 console.log('programs', lv.length, 'with NaN/faults', nBad, 'level dB min/median/max', lv[0].toFixed(1), lv[lv.length >> 1].toFixed(1), lv[lv.length - 1].toFixed(1), 'max cpu', (cpuMax * 100).toFixed(1) + '%');
+if (nBad) process.exitCode = 1;

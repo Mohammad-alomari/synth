@@ -1,8 +1,8 @@
 # Headless browser test for the Organ / E.Piano / Brass models: programs sound, editor pages render, no errors
-import asyncio, sys
+import asyncio, sys, os, tempfile
 from playwright.async_api import async_playwright
 URL = sys.argv[1] if len(sys.argv) > 1 else 'http://127.0.0.1:8765/index.html'
-SP = '/tmp/claude-0/-home-claude/fd4940bd-9427-59ad-83bc-cbcf72517544/scratchpad/'
+SP = os.environ.get('SHOT', tempfile.gettempdir()) + os.sep  # screenshot folder
 async def main():
     async with async_playwright() as p:
         b = await p.chromium.launch(args=['--autoplay-policy=no-user-gesture-required'])

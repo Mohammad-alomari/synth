@@ -26,7 +26,7 @@ A playable model of the Korg Trinity V3 that reads Trinity (and Triton) PCG file
 | `tridata.js` | Built-in Trinity PCG data (PCM banks, kits, combinations) from your own files. |
 | `samples/` | The stand-in packs: one MP3 per General MIDI instrument or drum kit, plus `packs.json` (the maps). |
 | `build.py` | Assembles `index.html` from `ui.html` and the `.js` files. |
-| `gen_pcgdata.py` | Rebuilds the factory entry of `pcgdata.js` from a Triton Extreme PCG (edit the hard-coded path first). |
+| `gen_pcgdata.py` | Rebuilds the factory entry of `pcgdata.js` from a Triton Extreme PCG: `python3 gen_pcgdata.py <file.PCG>`. |
 | `tools/samples/` | Rebuilds `samples/` from MuseScore's MS General SoundFont (`FluidR3Mono_GM.sf3`, MIT): `python3 tools/samples/build_packs.py` (set `SF3=` to the file). Needs ffmpeg. |
 | `docs/research/` | Notes on the Trinity's data formats: program, combination, drum kit, global, PCG file, effects, multisample list. |
 | `demos/` | Audio demos of the Mijwiz and Rababa starter programs. |
@@ -52,15 +52,19 @@ Then open http://localhost:8765/index.html in Chrome or Edge. Web MIDI works in 
 
 Needs Node 18 or later (and ffmpeg for the PCM tests, which decode `samples/`).
 
+Run all offline checks with `sh test/run_all.sh` (about 10 minutes). It also checks that `index.html` matches its sources, and exits non-zero if anything fails.
+
 | Command | What it does |
 |---|---|
 | `node test/progs.js` | Renders every built-in MOSS program and reports NaN, levels and CPU. Add `VERBOSE=1` for one line per program. |
 | `node test/combis.js [filter] [max]` | Plays every combination of the built-in files: NaN, silence, levels, CPU. |
 | `node test/voicefix.js`, `node test/fxfix.js`, `node test/fuzz.js`, `node test/fxunit.js`, `node test/fxfunc.js` | Engine and effect checks. |
 | `node test/models2.js` | Organ, E.Piano and Brass model checks. |
+| `node test/fxregress.js <folder with an older copy>` | Compares every effect type against an older version. |
+| `node test/fxprof.js`, `node test/showfx.js <ids>` | Tools: effect CPU profile; print a program's decoded effects. |
 | `node test/regress.js <folder with an older copy of these files>` | Compares every MOSS program sample by sample against an older version. Env: `STEP`, `SECS`, `ONLY`, `DRY`, `SHOW`. |
 
-The browser tests need Python with Playwright and `http.server` running on port 8765: `test/browser4.py` (MOSS), `test/browser5.py` (PCM programs), `test/browser6.py` (drum kits), `test/browser7.py` (combinations).
+The browser tests need Python with Playwright and `http.server` running on port 8765: `test/browser.py` (effects pages), `test/browser3.py` (Organ/E.Piano/Brass pages), `test/browser4.py` (MOSS), `test/browser5.py` (PCM programs), `test/browser6.py` (drum kits), `test/browser7.py` (combinations). Screenshots go to the system temp folder (set `SHOT=folder` for browser.py/browser3.py, or pass it as the argument for browser5-7).
 
 ## Licences and data
 

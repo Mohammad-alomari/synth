@@ -1,7 +1,8 @@
 # Headless browser test: loads the built page over http, starts audio, plays programs, visits the Effects page
-import asyncio, sys, json
+import asyncio, sys, json, os, tempfile
 from playwright.async_api import async_playwright
 URL = sys.argv[1] if len(sys.argv) > 1 else 'http://127.0.0.1:8765/index.html'
+SHOT = os.environ.get('SHOT', tempfile.gettempdir())  # screenshot folder
 async def main():
     async with async_playwright() as p:
         b = await p.chromium.launch(args=['--autoplay-policy=no-user-gesture-required'])
@@ -29,7 +30,7 @@ async def main():
         sel = await pg.evaluate("document.querySelectorAll('#page select').length")
         rng = await pg.evaluate("document.querySelectorAll('#page input[type=range]').length")
         print('fx page chips', n, 'selects', sel, 'sliders', rng)
-        await pg.screenshot(path='/tmp/claude-0/-home-claude/fd4940bd-9427-59ad-83bc-cbcf72517544/scratchpad/fx.png', full_page=True)
+        await pg.screenshot(path=os.path.join(SHOT, 'fx.png'), full_page=True)
         # add an insert, change its type, move, remove
         await pg.evaluate("[...document.querySelectorAll('#page .fxchip.add')][0].click()")
         await pg.wait_for_timeout(200)
@@ -41,12 +42,12 @@ async def main():
         # masters
         await pg.evaluate("[...document.querySelectorAll('#page .fxchip')].find(c => /Master 2/.test(c.textContent)).click()")
         await pg.wait_for_timeout(200)
-        await pg.screenshot(path='/tmp/claude-0/-home-claude/fd4940bd-9427-59ad-83bc-cbcf72517544/scratchpad/fx_m2.png', full_page=True)
+        await pg.screenshot(path=os.path.join(SHOT, 'fx_m2.png'), full_page=True)
         # mobile layout
         await pg.set_viewport_size({'width': 390, 'height': 844}); await pg.wait_for_timeout(300)
         ov = await pg.evaluate("document.documentElement.scrollWidth - document.documentElement.clientWidth")
         print('mobile horizontal overflow px', ov)
-        await pg.screenshot(path='/tmp/claude-0/-home-claude/fd4940bd-9427-59ad-83bc-cbcf72517544/scratchpad/fx_mobile.png', full_page=True)
+        await pg.screenshot(path=os.path.join(SHOT, 'fx_mobile.png'), full_page=True)
         errs = [l for l in logs if 'error' in l.lower()]
         print('console errors:', errs[:10])
         await b.close()
