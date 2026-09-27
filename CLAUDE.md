@@ -128,7 +128,8 @@ move - interpretation; the OS labels it "Jump Bend:"). Multisample names = Trini
 Keyboard page (app/keyboard.js pageKeys, kbs): octaves / 1 or 2 rows / lowest key / key width+height / black key
 length+width or hidden / note names / fixed touch velocity; computer keys start at the lowest on-screen C; Play mode (body.play: dock fills the screen, full screen + landscape lock where
 allowed); MIDI next/prev program buttons (learn a note, CC or program change; program changes step or pick in bank);
-SW1/SW2 always visible and lit by incoming CC80/81. Play bar: Sustain (CC64, shows the MIDI pedal), scale switch
+SW1/SW2 lit by incoming CC80/81. Controls (kbs.ctl, Keyboard page 'Controls'): show/hide Oct, Trans, joystick, vertical X stick
+(#xbar, bend), vertical Y stick (#ybar, +Y CC1 / -Y CC2), ribbon, SW buttons; sticks sit left of the keys and spring back; old playCtl migrated. Play bar: Sustain (CC64, shows the MIDI pedal), scale switch
 (Equal / Arabic / maqams via loadMaqam / your scale; choosing turns program scales off), screen wake lock.
 Program search (program.js progEntries/progList): filters the menu and the ‹ › steps. Fonts bundled; PWA.
 Checks passed: all 2,560 PCM programs render (no NaN); 1,408 combinations render (no NaN, 1 silent by data);
