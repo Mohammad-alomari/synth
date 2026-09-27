@@ -42,6 +42,10 @@ python3 -m http.server 8765
 
 Then open http://localhost:8765/index.html in Chrome or Edge. Web MIDI works in Chrome, Edge and Firefox; Safari has no Web MIDI.
 
+## Deploy (Netlify)
+
+`netlify.toml` tells Netlify to run `build.py` on every push and publish only `index.html` + `samples/` (from `dist/`). Connect the GitHub repo in Netlify once (Add new site → Import an existing project); after that every push to the production branch deploys automatically.
+
 ## Change and rebuild
 
 1. Edit the `.js` or `ui.html` files. Don't edit `index.html`: the build overwrites it.
