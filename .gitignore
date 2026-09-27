@@ -1,0 +1,6 @@
+__pycache__/
+node_modules/
+*.log
+*.sf3
+tools/samples/src/
+tools/samples/decoded_tri/

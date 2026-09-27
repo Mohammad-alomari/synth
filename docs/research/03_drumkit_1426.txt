@@ -1,0 +1,55 @@
+KORG TRINITY - DRUM KIT PARAMETER STRUCTURE  (1426 bytes)
+=========================================================
+
+Source: Trinity Parameter Guide, MIDI Implementation "[TABLE 7] DRUMKIT PARAMETERS" (Trinity V1, 1995),
+scanned page 189 of KorgTrinity-ParameterGuideWithMIDIImplementation.pdf (github.com/dave-billin/Toluene/doc/).
+Page image: research/scans/p189_table4-7_global_combiplay_progplay_drumkit.png
+Verified against the user's PCG files (section type 3): factory kit names ("Standard Kit", "Processed Kit",
+"Jazz/Brush Kits", "01/W Producer's"...), per-key drumsample numbers 0..253, tune in 0.5-semitone steps,
+pan 0x40 etc. all decode sensibly with this map in TRINI-1-KJ.PCG.
+
+Drum kits in memory: 12 (basic Trinity, kits 0..11) or 24 (with Flash-ROM option / TR-Rack, kits 0..23).
+A program in OSCILLATOR MODE = DRUM selects the kit through its "HI MULTISAMPLE / DRUMKIT" field (bytes 33-34).
+
+PARA No. = parameter number (MSB,LSB hex) used with DRUMKIT PARAMETER CHANGE (F0 42 3g 3B 53 kk ss pp qq vv ww F7,
+kk = kit 00..17h, ss = key 15h..6Ch = A0..C8). For HIGH/LOWER pairs "a/b": a = HIGH, b = LOWER.
+
+No.    bits   Parameter                Data(hex) : Value                      Notes                       PARA No.
+-----  -----  -----------------------  -------------------------------------  --------------------------  --------
+0-15          DRUMKIT NAME             20..7F ASCII (16 chars)                                            ----
+16            (reserved)                                                      (0x00 in data)              ----
+17            (reserved)                                                      (0x58 in all sample data)   ----
+-- KEY = A0 (MIDI note 21) PARAMETERS, bytes 18..33 (16 bytes)
+18     b7     HIGH DS OFFSET START     0:NORMAL 1:OFFSET                                                  00,02/07
+18     b0-6   HIGH DRUMSAMPLE (MSB)    16-bit: FF, 000..102h : OFF, 0..258    higher-velocity drumsample  00,01/06
+19            HIGH DRUMSAMPLE (LSB)                                           value=((b18&7F)<<8)|b19
+20            HIGHER TUNE              88..30 : -60.0..+24.0 semitones        0.5 semitone step (s8/2)    00,03/08
+21            HIGHER LEVEL             9D..63 : -99..+99                                                  00,04/09
+22            HIGHER DECAY             9D..63 : -99..+99                                                  00,05/0A
+23-27         LOWER (drumsample MSB/LSB+offset bit, tune, level, decay)       same as 18..22 (5 bytes),   00,06..0A
+                                                                              sub IDs right of '/'
+28            L:R PAN                  00..7F, FF : L000..R127, OFF                                       00,0E
+29            SEND 1 LEVEL             00..7F : 0..127                                                    00,0F
+30            SEND 2 LEVEL             00..7F : 0..127                                                    00,10
+31            EXCLUSIVE ASSIGN         FF, 00..0F : OFF, G1..G16              (0 in data = G1? see note)  00,0C
+32     b0-3   INSERT FX GROUP          0, 1..4 : OFF, INST1..4                                            00,11
+32     b6     ASSIGN                   0:OFF 1:ON                             (key assign / poly?)        00,00
+32     b7     FILTER BYPASS            0:BYPASS 1:FILTERED                                                00,0D
+33            BOTTOM VEL OF HIGHER     01..7F : 1..127                        drumsample select by vel    00,0B
+-- KEY = A#0 .. C8 : same as KEY=A0 (18..33), 16 x 87 = 1392 bytes          key k (0..87) at 18 + 16*k    00,00..00,11
+
+TOTAL = 18 + 88 x 16 = 1426 bytes.   Key index k = MIDI note - 21 (A0=21, C4=60, C8=108).
+
+Decoding helpers (verified on factory "Standard Kit"):
+  hiDS  = ((b[0] & 0x7F) << 8) | b[1];  hiOffset = b[0] >> 7
+  loDS  = ((b[5] & 0x7F) << 8) | b[6];  loOffset = b[5] >> 7
+  tune  = int8(b[2]) / 2  semitones;   level = int8(b[3]); decay = int8(b[4])
+  pan   = b[10] (0x40 = center, 0xFF = off); send1 = b[11]; send2 = b[12]; excl = b[13]
+  b[14]: bits 0-3 insert FX group, bit 6 assign, bit 7 filter bypass (values seen: 0x40..0x43, 0xC0..0xC2)
+  b[15]: bottom velocity of HIGH sample.
+Caveats
+  * Exclusive-assign encoding: doc says FF = OFF, 00..0F = G1..G16; in the factory kit most keys hold 0x00
+    and some 1..11 -- so 0 may in practice mean OFF (doc/firmware may differ); check against hardware.
+  * Drumsample "OFF" encoding (FF in doc) not observed in data; probably MSB 0x7F / LSB 0xFF.
+  * Drumsample numbering: Trinity has 258 drumsamples per Basic Guide (range 0..258 in the doc incl. OFF?);
+    TR-Rack has ~200 more. No machine-readable drumsample name list was found (see 07_rom_lists_README.txt).

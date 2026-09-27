@@ -1,0 +1,291 @@
+KORG TRINITY - PCM ("ACCESS") PROGRAM PARAMETER STRUCTURE  (433 bytes)
+=======================================================================
+
+Sources (both Korg; they agree byte-for-byte except where noted):
+  [TRI] Trinity Parameter Guide, MIDI Implementation, "[TABLE 1] PROGRAM PARAMETERS (for PCM Synth)",
+        dated 29.Aug.1995 (Trinity V1). Scanned pages 181-183 of
+        KorgTrinity-ParameterGuideWithMIDIImplementation.pdf (github.com/dave-billin/Toluene/doc/).
+        Page images: research/scans/p181_table1_prog_0-80.png, p182_table1_prog_81-432.png, p183_table1_prog_notes.png
+  [TRR] TR-Rack MIDI Implementation (1997.09.29 / 1997.12.25), Korg text file TR_RACK_MIDIimp.txt,
+        https://www.korg.com/us/support/download/manual/1/212/2728/  (verbatim copy: research/src_TR-Rack_MIDI-implementation_pdftotext.txt)
+        TR-Rack = rack version of Trinity, identical 433-byte program format.
+
+Differences TRI vs TRR:  byte 16 b4-7 (TRI: CATEGORY B; TRR: reserved), byte 21 (TRI: panel SW1/SW2 assign;
+TRR: reserved), multisample range (TRI: 000-176h = 0-374; TRR: 000-19Eh = 0-414, TR-Rack has 40 more).
+
+VERIFIED against the user's PCG files (program section type 0): names, osc mode, multisample numbers
+(= correct instruments, e.g. Clarinet=104, Violin=152, A.Piano=0), EG/level ranges, effect sizes.
+
+Conventions
+  No.      : byte offset inside the 433-byte program record (PCG record == SysEx dump after 7->8 bit unpack).
+  b0..3    : bit field (b0 = LSB).
+  Signed   : values shown as "9D..63 : -99..99" are 8-bit two's complement (0x9D = -99).
+  16-bit   : MSB byte first (big-endian).  Multisample number = ((b[31]&0x7F)<<8) | b[32]  (8-bit LSB!,
+             verified: LSB values > 0x7F occur, e.g. 0x00A4 = 164).
+  PARA No. : Parameter ID , SUB ID (hex) for SysEx PARAMETER CHANGE (F0 42 3g 3B 41 ...). For OSC-1 block
+             rows "a/b": a = OSC1 sub ID, b = OSC2 sub ID (OSC2 param ID = OSC1 ID + 2 for IDs 02,03,07,08,0B,0C,0F,10).
+  $        : ignored when Oscillator Mode = Drum.      # : ignored in Combination / Song (Sequencer) / Multi.
+
+No.   bits   Parameter                    Data(hex) : Value                     Notes                      PARA No.
+----  -----  ---------------------------  ------------------------------------  -------------------------  --------
+-- NAME
+0-15         PROGRAM NAME                 20..7F ASCII (16 chars, space padded)                            ----
+-- CATEGORY
+16    b0-3   CATEGORY A                   0..F : 1..16                          names in Global            00,00
+16    b4-7   CATEGORY B  [TRI only]       0..F : 1..16                          (TRR: reserved)            00,01
+-- OSCILLATOR
+17    b0-1   OSCILLATOR MODE              0:SINGLE 1:DOUBLE 2:DRUM                                         00,02
+17    b2     LEGATO SW $                  0:OFF 1:ON                            when MONO                  00,04
+17    b3     KEY ASSIGN                   0:POLY 1:MONO                                                    00,03
+17    b4     HOLD                         0:OFF 1:ON                                                       00,07
+17    b5-6   KEY PRIORITY                 0:LOW 1:HIGH 2:LAST                   when MONO                  00,05
+17    b7     POLY ASSIGN MODE             0:NORMAL 1:PIANO                      when POLY (self-excl.)     00,06
+18           BOTTOM VEL OF OSC2 $         01..7F : 1..127                       when DOUBLE (OSC2 on/off   01,16
+                                                                                by velocity; OSC1 always)
+-- SCALE
+19    b0-3   SCALE KEY #                  0..B : C..B                                                      00,09
+19    b4-7   SCALE TYPE #                 0..C  (see SCALE list)                                           00,08
+20           RANDOM INTENSITY #           00..07 (see RANDOM list)              normal = 0                 00,0A
+-- PANEL SWITCH ASSIGN  [TRI only; TRR: 21 = reserved]
+21    b0-3   SW 2 ASSIGN #                0..8 (see SW ASSIGN list)                                        00,0C
+21    b4-7   SW 1 ASSIGN #                0..8                                                             00,0B
+-- OSCILLATOR (pitch) EG  (linear)
+22           START LEVEL                  9D..63 : -99..99                                                 06,00
+23           ATTACK TIME                  00..63 : 0..99                                                   06,01
+24           ATTACK LEVEL                 9D..63 : -99..99                                                 06,02
+25           DECAY TIME                   00..63 : 0..99                                                   06,03
+26           RELEASE TIME                 00..63 : 0..99                                                   06,04
+27           RELEASE LEVEL                9D..63 : -99..99                                                 06,05
+-- OSCILLATOR EG TIME MOD (whole EG time)
+28           INT BY VELOCITY              9D..63 : -99..99                                                 06,06
+29           A.M SOURCE                   00..16 (AMS list)                                                06,07
+30           INT BY A.M                   9D..63 : -99..99                                                 06,08
+
+=== OSCILLATOR-1 BLOCK = bytes 31..167 ;  OSCILLATOR-2 BLOCK = bytes 168..304 (same layout, +137) $ ===
+OSC1  OSC2   bits   Parameter                    Data(hex) : Value                     Notes                      PARA No.
+----  ----   -----  ---------------------------  ------------------------------------  -------------------------  --------
+31    168    b7     LOW MS OFFSET START $        0:NORMAL 1:OFFSET                                                01,04/0E
+31    168    b0-6   LOW MULTISAMPLE (MSB) $      16-bit 000..176 : 0..374 (TRR 0..414)  lower-velocity multisample 01,03/0D
+32    169           LOW MULTISAMPLE (LSB) $
+33    170    b7     HI MS OFFSET START           0:NORMAL 1:OFFSET                     (drums: set per key)       01,01/0B
+33    170    b0-6   HI MULTISAMPLE / DRUMKIT(MSB) 16-bit 000..176 : 0..374            OSC MODE=DRUM: drum kit no. 01,00/0A
+34    171           HI MULTISAMPLE / DRUMKIT(LSB)                                      (0..11, or 0..23 w/ Flash)
+35    172           LOWER LEVEL $                00..7F : 0..127                                                  01,05/0F
+36    173           HIGHER LEVEL                 00..7F : 0..127                                                  01,02/0C
+37    174           BOTTOM VEL OF HI MS          01..7F : 1..127                       velocity split point      01,14/15
+38    175    b0-4   TRANSPOSE                    F4..0C : -12..+12 semitones (5-bit signed field)                 01,08/12
+38    175    b6-7   OCTAVE                       00..03 : 32',16',8',4'                                           01,07/11
+39-40 176-177       TUNE (16-bit signed, MSB first) FB50..04B0 : -1200..+1200 cents                               01,09/13
+41    178           DELAY START                  00..60, FF (DELAY list; FF = start at note-off)                  01,06/10
+-- OSC PITCH MOD
+42    179           BY PITCH SLOPE               F6..14 : -1.0..+2.0 (signed/10; 0A=+1.0 normal) center C4    02,00
+43    180           INT BY OSC EG                8D..73 : -12.00..+12.00 (PITCH-INT table)                        02,08
+44    181           INT BY OSC LFO               8D..73 : -12.00..+12.00                                          02,0C
+45    182           INT BY RIBBON(X)             F4..0C : -12..+12 semitones  (CC#16)                             02,01
+-- OSC PITCH MOD BY JOYSTICK X
+46    183           INT BY J.S(+X) #             C4..0C : -60..+12  (Pitch Bend up)                               02,02
+47    184           INT BY J.S(-X) #             C4..0C : -60..+12  (Pitch Bend down)                             02,04
+48    185    b0-3   STEP OF J.S(+X) #            0..F (STEP list)                                                 02,03
+48    185    b4-7   STEP OF J.S(-X) #            0..F                                                             02,05
+-- OSC PITCH MOD BY ALTERNATE MOD
+49    186           A.M SOURCE                   00..16 (AMS)                                                     02,06
+50    187           INT BY A.M                   8D..73 : -12.00..+12.00                                          02,07
+-- INTENSITY MOD OF OSC EG -> PITCH
+51    188           MOD INT BY VELOCITY          9D..63 : -99..99                                                 02,09
+52    189           A.M SOURCE                   00..16 (AMS)                                                     02,0A
+53    190           INT BY A.M                   8D..73 : -12.00..+12.00                                          02,0B
+-- OSC LFO
+54    191    b0-4   WAVEFORM                     0..12h : 0..18 (LFO WAVE list)                                   03,00
+54    191    b5-6   START MODE                   0:ON 1:OFF 2:BOTH                                                03,03
+54    191    b7     KEY SYNC                     0:OFF 1:ON                                                       03,04
+55    192           OFFSET                       9D..63 : -99..99   (no effect while DELAY)                       03,02
+56    193           FREQUENCY                    00..63 : 0..99                                                   03,01
+57    194           DELAY                        00..63 : 0..99                                                   03,05
+58    195           FADE                         9D..63 : -99..99   (<0 fade out, >0 fade in)                     03,06
+-- OSC LFO FREQUENCY MOD
+59    196           INT BY KBD TRK               9D..63 : -99..99  (linear, center C4)                            03,07
+60    197           INT BY J.S(+Y)               00..63 : 0..99   (CC#01)                                         03,08
+61    198           A.M SOURCE                   00..16 (AMS)                                                     03,09
+62    199           INT BY A.M                   9D..63 : -99..99                                                 03,0A
+-- INTENSITY MOD OF OSC LFO -> PITCH
+63    200           MOD INT BY J.S(+Y)           00..63 : 0..99                                                   02,0D
+64    201           MOD INT BY A.T               00..63 : 0..99                                                   02,0E
+65    202           A.M SOURCE                   00..16 (AMS)                                                     02,0F
+66    203           INT BY A.M                   8D..73 : -12.00..+12.00                                          02,10
+-- FILTER (1 for OSC1 / 2 for OSC2)
+67    204    b0-1   FILTER-A TYPE                0..3 : LPF HPF BPF BRF                                           07,01
+67    204    b2-3   FILTER-B TYPE                0..3                                                             07,06
+67    204    b4-5   FILTER ROUTING               0:PARALLEL 1:SERIAL 2:SINGLE 3:THROUGH                           07,00
+-- FILTER EG (up: linear, down: exponential)
+68    205           START LEVEL                  9D..63 : -99..99                                                 0B,00
+69    206           ATTACK TIME                  00..63 : 0..99                                                   0B,01
+70    207           ATTACK LEVEL                 9D..63 : -99..99                                                 0B,02
+71    208           DECAY TIME                   00..63 : 0..99                                                   0B,03
+72    209           BREAK POINT LEVEL            9D..63 : -99..99                                                 0B,04
+73    210           SLOPE TIME                   00..63 : 0..99                                                   0B,05
+74    211           SUSTAIN LEVEL                9D..63 : -99..99                                                 0B,06
+75    212           RELEASE TIME                 00..63 : 0..99                                                   0B,07
+76    213           RELEASE LEVEL                9D..63 : -99..99                                                 0B,08
+-- FILTER EG TIME (4 points) MOD BY KEYBOARD TRACK (linear, center C4)
+77    214           ATTACK TIME                  9D..63 : -99..99                                                 0B,09
+78    215           DECAY TIME                   9D..63 : -99..99                                                 0B,0A
+79    216           SLOPE TIME                   9D..63 : -99..99                                                 0B,0B
+80    217           RELEASE TIME                 9D..63 : -99..99                                                 0B,0C
+-- FILTER EG TIME (4 points) MOD BY VELOCITY
+81    218           ATTACK TIME                  9D..63 : -99..99                                                 0B,0D
+82    219           DECAY TIME                   9D..63 : -99..99                                                 0B,0E
+83    220           SLOPE TIME                   9D..63 : -99..99                                                 0B,0F
+84    221           RELEASE TIME                 9D..63 : -99..99                                                 0B,10
+-- FILTER EG TIME MOD (whole EG)
+85    222           A.M SOURCE                   00..16 (AMS)                                                     0B,11
+86    223           INT BY A.M                   9D..63 : -99..99                                                 0B,12
+-- FILTER EG LEVEL (3 points) MOD BY VELOCITY
+87    224           START LEVEL                  9D..63 : -99..99                                                 0B,13
+88    225           ATTACK LEVEL                 9D..63 : -99..99                                                 0B,14
+89    226           BREAK POINT LEVEL            9D..63 : -99..99                                                 0B,15
+-- INTENSITY MOD OF FILTER EG -> FILTER A & B CUTOFF BY A.M
+90    227           A.M SOURCE                   00..16 (AMS)                                                     08,14
+91    228           INT BY A.M                   9D..63 : -99..99                                                 08,15
+-- FILTER LFO
+92    229    b0-4   WAVEFORM                     0..12h (LFO WAVE list)                                           0C,00
+92    229    b5-6   START MODE                   0:ON 1:OFF 2:BOTH                                                0C,03
+92    229    b7     KEY SYNC                     0:OFF 1:ON                                                       0C,04
+93    230           OFFSET                       9D..63 : -99..99                                                 0C,02
+94    231           FREQUENCY                    00..63 : 0..99                                                   0C,01
+95    232           DELAY                        00..63 : 0..99                                                   0C,05
+96    233           FADE                         9D..63 : -99..99                                                 0C,06
+-- FILTER LFO FREQUENCY MOD
+97    234           A.M SOURCE                   00..16 (AMS)                                                     0C,07
+98    235           INT BY A.M                   9D..63 : -99..99                                                 0C,08
+-- INTENSITY MOD OF FILTER LFO -> FILTER A & B CUTOFF
+99    236           MOD INT BY J.S(-Y)           00..63 : 0..99   (CC#02)                                         08,16
+100   237           MOD INT BY A.T               00..63 : 0..99                                                   08,17
+101   238           A.M SOURCE                   00..16 (AMS)                                                     08,1A
+102   239           INT BY A.M                   9D..63 : -99..99                                                 08,1B
+-- FILTER-A  (FILTER-B = same 15 bytes at +15, sub ID after '/')
+103   240           CUTOFF FREQ VALUE            00..63 : 0..99                                                   07,02/07
+104   241           INPUT GAIN                   00..63 : 0..99                                                   07,03/08
+105   242           RESONANCE LEVEL              00..1F : 0..31                                                   07,04/09
+106   243           RESO LEVEL MOD BY VEL        9D..63 : -99..99                                                 07,05/0A
+-- FILTER-A CUTOFF MOD
+107   244           INT BY FILTER EG             9D..63 : -99..99                                                 08,12/13
+108   245           EG INT MOD BY VEL            9D..63 : -99..99                                                 08,10/11
+109   246           INT BY FILTER LFO            9D..63 : -99..99                                                 08,18/19
+110   247           INT BY J.S(X)                9D..63 : -99..99  (pitch bend)                                   08,04/0C
+111   248           INT BY A.T                   00..63 : 0..99                                                   08,05/0D
+-- FILTER-A CUTOFF MOD BY KBD TRACK ("figured": ramp below LOW KEY / above HIGH KEY, linear between)
+112   249           LOW KEY                      00..7F : C-1..G9                                                 08,00/08
+113   250           HIGH KEY                     00..7F : C-1..G9                                                 08,01/09
+114   251           LOWER RAMP                   9D..63 : -99..99                                                 08,02/0A
+115   252           HIGHER RAMP                  9D..63 : -99..99                                                 08,03/0B
+-- FILTER-A CUTOFF FREQ MOD (A.M)
+116   253           A.M SOURCE                   00..16 (AMS)                                                     08,06/0E
+117   254           INT BY A.M                   9D..63 : -99..99                                                 08,07/0F
+-- FILTER-B
+118-132 255-269     FILTER-B: same as FILTER-A (103..117), sub IDs = right side of '/'
+-- AMPLIFIER
+133   270           OUTPUT LEVEL                 00..7F : 0..127                                                  0F,00
+-- AMP AMPLITUDE MOD BY KEYBOARD TRACK (figured)
+134   271           LOW KEY                      00..7F : C-1..G9                                                 0F,01
+135   272           HIGH KEY                     00..7F : C-1..G9                                                 0F,02
+136   273           LOWER RAMP                   9D..63 : -99..99                                                 0F,03
+137   274           HIGHER RAMP                  9D..63 : -99..99                                                 0F,04
+-- AMP AMPLITUDE MOD
+138   275           INT BY VELOCITY              9D..63 : -99..99                                                 0F,05
+139   276           INT BY A.T (aftertouch)      9D..63 : -99..99   (TRI scan: "INT BY A.T"; TRR text typo "A.M") 0F,06
+140   277           A.M SOURCE                   00..16 (AMS)                                                     0F,07
+141   278           INT BY A.M                   9D..63 : -99..99                                                 0F,08
+-- AMP EG (up: linear, down: exponential)   NOTE: levels are UNSIGNED 0..99 here
+142   279           START LEVEL                  00..63 : 0..99                                                   10,00
+143   280           ATTACK TIME                  00..63 : 0..99                                                   10,01
+144   281           ATTACK LEVEL                 00..63 : 0..99                                                   10,02
+145   282           DECAY TIME                   00..63 : 0..99                                                   10,03
+146   283           BREAK POINT LEVEL            00..63 : 0..99                                                   10,04
+147   284           SLOPE TIME                   00..63 : 0..99                                                   10,05
+148   285           SUSTAIN LEVEL                00..63 : 0..99                                                   10,06
+149   286           RELEASE TIME                 00..63 : 0..99                                                   10,07
+-- AMP EG TIME (4 points) MOD BY KEYBOARD TRACK (linear, center C4)
+150   287           ATTACK TIME                  9D..63 : -99..99                                                 10,08
+151   288           DECAY TIME                   9D..63 : -99..99                                                 10,09
+152   289           SLOPE TIME                   9D..63 : -99..99                                                 10,0A
+153   290           RELEASE TIME                 9D..63 : -99..99                                                 10,0B
+-- AMP EG TIME (4 points) MOD BY VELOCITY
+154   291           ATTACK TIME                  9D..63 : -99..99                                                 10,0C
+155   292           DECAY TIME                   9D..63 : -99..99                                                 10,0D
+156   293           SLOPE TIME                   9D..63 : -99..99                                                 10,0E
+157   294           RELEASE TIME                 9D..63 : -99..99                                                 10,0F
+-- AMP EG TIME MOD BY A.M (whole EG)
+158   295           A.M SOURCE                   00..16 (AMS)                                                     10,10
+159   296           INT BY A.M                   9D..63 : -99..99                                                 10,11
+-- AMP EG LEVEL (3 points) MOD BY VELOCITY
+160   297           START LEVEL                  9D..63 : -99..99                                                 10,12
+161   298           ATTACK LEVEL                 9D..63 : -99..99                                                 10,13
+162   299           BREAK POINT LEVEL            9D..63 : -99..99                                                 10,14
+-- OSC BLOCK PANPOT & PAN MOD
+163   300           L:R PAN $#                   FF=OFF, 00..7F : L00..R127 (0x40 center)  AM acts around it     0F,0B
+164   301           A.M SOURCE                   00..16 (AMS)                                                     0F,0C
+165   302           INT BY A.M                   9D..63 : -99..99                                                 0F,0D
+-- OSC BLOCK SEND (to master effects)
+166   303           SEND 1 LEVEL $#              00..7F : 0..127                                                  0F,09
+167   304           SEND 2 LEVEL $#              00..7F : 0..127                                                  0F,0A
+=== end of oscillator blocks ===
+
+-- INSERT EFFECTS  $#   (doc: "FX1..4 (22 bytes x 4)", PARA 13,00 .. 17,??)
+305-326  IFX1 block (22 bytes)      } layout: see 06_effects.txt
+327-348  IFX2 block                 } (bytes 0-15 effect params, 16 = b7 cascade, b6 on, b0-5 type,
+349-370  IFX3 block                 }  17 = size 0..3 (=0,1,2,4), 18 pan, 19 width, 20 send1, 21 send2)
+371-392  IFX4 block (always empty in all sample data; programs use 3 insert FX, total size <= 4)
+-- MASTER EFFECTS  #   (doc: bytes 393..432, 40 bytes, PARA 18,00 .. 1A,??)
+393-432  MASTER FX block (40 bytes) - layout: see 06_effects.txt
+
+TOTAL = 433 bytes.
+
+ENUMERATION LISTS (footnotes; TRI numbering differs from TRR by +1 after *5 because TRI inserts the SW list)
+---------------------------------------------------------------------------------------------------------
+SCALE TYPE (19 b4-7): 0 Equal Temperament, 1 Pure Major, 2 Pure Minor, 3 Arabic, 4 Pythagoras,
+  5 Werckmeister, 6 Kirnberger, 7 Slendro, 8 Pelog, 9 1-Octave User Scale (RAM), 10 Stretch,
+  11 All-Range User Scale (RAM)            (range given as 0..C)
+RANDOM INTENSITY (20), random pitch range in semitones: 0: 0, 1: +-1/64, 2: +-1/32, 3: +-1/16, 4: +-1/8,
+  5: +-1/4, 6: +-1/2, 7: +-1
+SW ASSIGN (21; also combination byte 19)      value : function (MIDI out)
+  0 J.S(X) Lock (P.Bend hold)   1 J.S(+Y) Lock (CC#01 hold)   2 J.S(-Y) Lock (CC#02 hold)
+  3 Ribbon Cont(X) Lock (CC#16 hold)   4 Ribbon Cont(Z) Lock (CC#17 hold)   5 A.T Lock (A.Touch hold)
+  6 JS & Ribbon Lock (each control lock)   7 Octave Down (note no. -1 oct)   8 Octave Up (+1 oct)
+  9 Portamento Off (CC#65 off/on)   10 Modulation CC#80 (SW1) / CC#81 (SW2)
+  (range in table is 0..8; 9,10 listed in the note)
+AMS - ALTERNATE MODULATION SOURCE (range 00..16h = 0..22; 23..26 only from OSC2)
+  0 OFF  1 OSC EG  2 Filter EG (same OSC)  3 Amp EG (same OSC)  4 OSC LFO (same OSC)  5 Filter LFO (same OSC)
+  6 Velocity  7 Note No.  8 Poly After  9 After Touch  10 Joystick X (Pitch Bend)  11 Joystick +Y (CC#01)
+  12 Joystick -Y (CC#02)  13 Ribbon X (CC#16)  14 Ribbon Z (CC#17)  15 Assignable Pedal (CC#04)
+  16 Value Slider (CC#18)  17 MIDI CC#19  18 Assignable Panel SW1 (CC#80)  19 Assignable Panel SW2 (CC#81)
+  20 Assignable Pedal SW (CC#82)  21 MIDI CC#83  22 Tempo (MIDI clock count)
+  23 Filter 1 EG  24 Amp 1 EG  25 OSC 1 LFO  26 Filter 1 LFO   (23-26 only selectable in OSC2)
+MULTISAMPLE: lower/higher multisample is chosen by velocity (BOTTOM VEL OF HI MS).
+  Observed in PCG data (not in doc): value 0x1000|n (MSB byte 0x10) appears for many user programs;
+  most likely = RAM/Flash (PBS-TRI sample option) multisample n. Treat 0x0000-0x0176 as ROM.
+DELAY START (41): 00..19h: 0..50 ms (2 ms step); 1A..28h: 60..200 ms (10 ms); 29..38h: 250..1000 ms (50 ms);
+  39..60h: 1100..5000 ms (100 ms); FF: start at NOTE OFF
+PITCH SLOPE (42): F6 = -1.0 (-12 semitones/oct), 00 = 0.0 (flat), 0A = +1.0 (normal), 14 = +2.0 (24 st/oct)
+  -> value = signed byte / 10.
+PITCH INT "-12.00..12.00" (43,44,50,53,66), signed byte:
+  8D..C3 : -12.00 .. -1.20  (0.20 step)      C4..CD : -1.00 .. -0.55 (0.05 step)
+  CE..32 : -0.50 .. +0.50  (0.01 step)       33..3C : +0.55 .. +1.00 (0.05 step)
+  3D..73 : +1.20 .. +12.00 (0.20 step)
+J.S(X) INTENSITY (46,47): C4 = -60 (-5 oct), 00 = off, 0C = +12 (+1 oct)  (semitones)
+STEP (48): 0 continuous, 1 = 1/8 semitone, 2 = 1/4, 3 = 1/2, 4 = 1, ... F = 12
+LFO WAVE (54, 92): 0 Triangle 0deg, 1 Tri 90, 2 Tri 180, 3 Tri 270, 4 Saw Up 0, 5 Saw Up 180, 6 Saw Down 0,
+  7 Saw Down 180, 8 Rectangle 0, 9 Rect 180, 10 Sine 0, 11 Sine 180, 12 Guitar,
+  13 Random1 (time fixed, level random), 14 Random2 (time random, level fixed), 15 Random3 (both random),
+  16 Random4 (=13 with ramp), 17 Random5 (=14 with ramp), 18 Random6 (=15 with ramp)
+LFO START MODE: ON = start at note-on (normal); OFF = start at note-off; BOTH = start at note-on, stop at note-off
+LFO FADE: <0 fade out (ON mode at note-on / OFF mode at note-off / BOTH: out at on, in at off);
+          >0 fade in (normal)
+FILTER TYPE: 0 Low Pass, 1 High Pass, 2 Band Pass, 3 Band Reject
+FILTER ROUTING: 0 Parallel, 1 Serial, 2 Single, 3 Through
+KEYBOARD TRACK (figured): between LOW KEY and HIGH KEY a straight line; below LOW / above HIGH a ramp set by
+  LOWER/HIGHER RAMP.
+PAN (163): when panned by A.M it acts around its initial setting.  FF = OFF (no output to L/R bus).
+
+TABLE 5/6 of TRI (Program Play mode "performance edit" params, PARA 00,00..00,07; not stored in memory):
+  OCTAVE FD..03 (-3..+3), CUTOFF F6..0A (-10..+10), FILTER EG INT, AMP LEVEL, ATTACK TIME, RELEASE TIME,
+  INSERT FX BALANCE, MASTER FX BALANCE (all F6..0A).

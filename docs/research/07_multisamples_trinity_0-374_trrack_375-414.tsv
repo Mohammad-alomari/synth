@@ -1,0 +1,424 @@
+# Korg Trinity / TR-Rack multisample list (ROM index as stored in program bytes 31-34 / 168-171)
+# Source: TR-Rack Ctrlr editor panel by Tom Harper, https://github.com/FRDTom/TR-Rack-Editor
+#   ("Tr Rack Editor.bpanelz", zlib-compressed; Lua function loadOscNames). Names were hand-typed/OCRed by the
+#   panel author from Korg's TR-Rack Voice Name List -> expect typos; spelling fixes in col 4 are ours (flagged).
+# Indices 0-374 (0x000-0x176) = Trinity ROM (375 multisamples, same on Trinity/plus/pro/proX/V3).
+# Indices 375-414 = TR-Rack-only additions (8MB extra ROM) -- NOT present on a Trinity keyboard.
+# Validated: user programs decode to matching instruments (0 A.Piano, 104 Clarinet, 113 Alto Sax, 125 Trombone,
+#   138 Bandoneon, 142/144 Voice, 149/150 Strings, 152 Violin, 159 Nylon Guitar, 186 A.Bass 2, 238 Syn Bass-TB ...).
+# Columns: index<TAB>hex<TAB>name_as_in_panel<TAB>name_cleaned<TAB>note
+0	000	A.Piano	A.Piano	
+1	001	A.Piano-ff. Atk	A.Piano-ff. Atk	
+2	002	E.Grand Piano E.P-FM 1	E.Grand Piano	panel text "E.Grand Piano E.P-FM 1" (dup of #3 appended)
+3	003	E.P-FM 1	E.P-FM 1	
+4	004	E.P.-FM 1 LP	E.P.-FM 1 LP	
+5	005	E.P.-FM 2	E.P.-FM 2	
+6	006	E.P.-FM 3	E.P.-FM 3	
+7	007	E.P.-Dyno Soft	E.P.-Dyno Soft	
+8	008	E.P.-Dyno Sft LP	E.P.-Dyno Sft LP	
+9	009	E.P.-Dyno Medium	E.P.-Dyno Medium	
+10	00A	E.P. Dyno Med LP	E.P. Dyno Med LP	
+11	00B	E.P. Dyno Hard	E.P. Dyno Hard	
+12	00C	E.P.-Stage Soft	E.P.-Stage Soft	
+13	00D	E.P-Sta Soft LP	E.P-Sta Soft LP	
+14	00E	E.P.-Stage Hard	E.P.-Stage Hard	
+15	00F	E.P-Sta Hard LP	E.P-Sta Hard LP	
+16	010	E.P. Wurly	E.P. Wurly	
+17	011	E.P.-Wurly LP	E.P.-Wurly LP	
+18	012	E.P. Pad 1	E.P. Pad 1	
+19	013	E.P. Pad 1 LP	E.P. Pad 1 LP	
+20	014	E.P. Pad 2	E.P. Pad 2	
+21	015	E.P. Pad 3	E.P. Pad 3	
+22	016	E.P. Pad 3 LP	E.P. Pad 3 LP	
+23	017	Clavinet	Clavinet	
+24	018	Harpsichord-Sngl	Harpsichord-Sngl	
+25	019	Harpsichord-Dbl	Harpsichord-Dbl	
+26	01A	Harpsi-Keyoff	Harpsi-Keyoff	
+27	01B	E.Organ Perc 1	E.Organ Perc 1	
+28	01C	E.Organ Perc 2	E.Organ Perc 2	
+29	01D	E.Organ Perc 3	E.Organ Perc 3	
+30	01E	E.Organ-2 Perc	E.Organ-2 Perc	
+31	01F	E.Organ-Jazz 1	E.Organ-Jazz 1	
+32	020	E.Organ-Jazz 2	E.Organ-Jazz 2	
+33	021	E.Organ-Jazz 3	E.Organ-Jazz 3	
+34	022	E.Organ-Vox	E.Organ-Vox	
+35	023	E.Organ-Soft	E.Organ-Soft	
+36	024	E.Organ-Medium	E.Organ-Medium	
+37	025	E.Organ-Full	E.Organ-Full	
+38	026	E.Organ Dist	E.Organ Dist	
+39	027	E.Organ-BX 3	E.Organ-BX 3	
+40	028	Positive 1	Positive 1	
+41	029	Positive 2	Positive 2	
+42	02A	Pipe-Mixture 1	Pipe-Mixture 1	
+43	02B	Pipe-Mixture 2	Pipe-Mixture 2	
+44	02C	Pipe-Reed	Pipe-Reed	
+45	02D	Pipe Tuentiana	Pipe Tuentiana	
+46	02E	Pipe-Full	Pipe-Full	
+47	02F	e Kalimba	Kalimba	stray "e"
+48	030	Kalimba Mute	Kalimba Mute	
+49	031	Music Box	Music Box	
+50	032	Music Box LP	Music Box LP	
+51	033	Marimba	Marimba	
+52	034	Marimba LP	Marimba LP	
+53	035	Xylophone	Xylophone	
+54	036	Xylophone LP	Xylophone LP	
+55	037	vibraphones	Vibraphones	
+56	038	Vibraphone LP	Vibraphone LP	
+57	039	celesta	Celesta	
+58	03A	Celesta LP	Celesta LP	
+59	03B	chime	Chime	
+60	03C	Glockenspiel LP	Glockenspiel LP	
+61	03D	Tubular Bell	Tubular Bell	
+62	03E	FM Tubular	FM Tubular	
+63	03F	Slit Drum	Slit Drum	
+64	040	Slit Drum LP	Slit Drum LP	
+65	041	balaphones	Balaphones	
+66	042	Balaphone LP	Balaphone LP	
+67	043	Guntan	Guntan	
+68	044	Guntan LP	Guntan LP	
+69	045	Bottle Pop	Bottle Pop	
+70	046	Bottle Pop LP	Bottle Pop LP	
+71	047	FM Pluck	FM Pluck	
+72	048	FM Pluck LP	FM Pluck LP	
+73	049	Steel Drum	Steel Drum	
+74	04A	Steel Drum LP	Steel Drum LP	
+75	04B	gamelan 1	Gamelan 1	
+76	04C	Gamelan 1	Gamelan 1 LP?	panel: "Gamelan 1" -- likely "Gamelan 1 LP"
+77	04D	LP Gamelan 2	Gamelan 2?	panel: "LP Gamelan 2"
+78	04E	Finger Cymbal	Finger Cymbal	
+79	04F	Finger Cymbal LP	Finger Cymbal LP	
+80	050	Tibetan Bell	Tibetan Bell	
+81	051	Tibetan Bell LP	Tibetan Bell LP	
+82	052	FM Bell	FM Bell	
+83	053	Thai Bell	Thai Bell	
+84	054	Thai Boll LP	Thai Bell LP	panel typo "Boll"
+85	055	pot covers	Pot covers	
+86	056	Pot Cover LP	Pot Cover LP	
+87	057	FM Solar	FM Solar	
+88	058	FM Chiff	FM Chiff	
+89	059	Glass Bell	Glass Bell	
+90	05A	FM Glass Bell	FM Glass Bell	
+91	05B	Ensemble Bell 1	Ensemble Bell 1	
+92	05C	Ens. Bell 1 LP	Ens. Bell 1 LP	
+93	05D	Ensemble Bell 2	Ensemble Bell 2	
+94	05E	Flute	Flute	
+95	05F	piccolo	Piccolo	
+96	060	Tin Flute	Tin Flute	
+97	061	Tin Flute LP	Tin Flute LP	
+98	062	Pan Flute	Pan Flute	
+99	063	shakuhachi	Shakuhachi	
+100	064	Bottle	Bottle	
+101	065	Bottleizer	Bottleizer	
+102	066	Recorder	Recorder	
+103	067	ocarina	Ocarina	
+104	068	Clarinet	Clarinet	
+105	069	Bass Clarinet	Bass Clarinet	
+106	06A	Oboe	Oboe	
+107	06B	English Horn	English Horn	
+108	06C	Bassoon	Bassoon	
+109	06D	Baritone Sax	Baritone Sax	
+110	06E	Tenor Sax-Soft	Tenor Sax-Soft	
+111	06F	Tenor Sax-Medium	Tenor Sax-Medium	
+112	070	Tenor Sax-Hard	Tenor Sax-Hard	
+113	071	Alto Sax Soft	Alto Sax Soft	
+114	072	Alto Sax-Hard	Alto Sax-Hard	
+115	073	Soprano Sax-Soft	Soprano Sax-Soft	
+116	074	Soprano Sax-Hard	Soprano Sax-Hard	
+117	075	Sax Grow!	Sax Grow!	
+118	076	Saxophone ensemble	Saxophone ensemble	
+119	077	Sax Ensemble LP	Sax Ensemble LP	
+120	078	French Hom	French Horn	panel typo "Hom"
+121	079	Wing Hom	Wing Horn?	panel "Wing Hom" (typo Hom->Horn)
+122	07A	tuba	Tuba	
+123	07B	Trombone-Soft	Trombone-Soft	
+124	07C	Trombone-Medium	Trombone-Medium	
+125	07D	Trombone-Hard	Trombone-Hard	
+126	07E	Trombone-Muted	Trombone-Muted	
+127	07F	Trumpet-Soft	Trumpet-Soft	
+128	080	Trumpet-Medium	Trumpet-Medium	
+129	081	Trumpet-Hard	Trumpet-Hard	
+130	082	Trumpet-Muted	Trumpet-Muted	
+131	083	Piccolo Trumpet	Piccolo Trumpet	
+132	084	Brass Ensemble1	Brass Ensemble1	
+133	085	Brass Ensemble2	Brass Ensemble2	
+134	086	Brass Ens.-Fall	Brass Ens.-Fall	
+135	087	Brass-Pad	Brass-Pad	
+136	088	musette	Musette	
+137	089	Musette LP	Musette LP	
+138	08A	Bandoneon	Bandoneon	
+139	08B	Accordion	Accordion	
+140	08C	Harmonica	Harmonica	
+141	08D	Bag Pipe	Bag Pipe	
+142	08E	Voice-Choir	Voice-Choir	
+143	08F	Voice-Pop Ooh	Voice-Pop Ooh	
+144	090	Voice-Pop Ah	Voice-Pop Ah	
+145	091	Voice-Doo	Voice-Doo	
+146	092	Voice-Doo LP	Voice-Doo LP	
+147	093	Voice Wave 1	Voice Wave 1	
+148	094	Voice Wave 2	Voice Wave 2	
+149	095	String Ens. 1	String Ens. 1	
+150	096	Strings Ens. 2	Strings Ens. 2	
+151	097	Pizzicato Ens.	Pizzicato Ens.	
+152	098	Violin	Violin	
+153	099	Viola	Viola	
+154	09A	Cello&Contrabass	Cello&Contrabass	
+155	09B	String Quartet 1	String Quartet 1	
+156	09C	String Quartet 2	String Quartet 2	
+157	09D	pizzicato	Pizzicato	
+158	09E	kokyu	Kokyu	
+159	09F	Nylon Guitar	Nylon Guitar	
+160	0A0	A.Guitar-Finger	A.Guitar-Finger	
+161	0A1	A.Guitar-Pick	A.Guitar-Pick	
+162	0A2	12 String Guitar	12 String Guitar	
+163	0A3	A.Gtr-Harmonics	A.Gtr-Harmonics	
+164	0A4	ParkerGtr-Piezo	ParkerGtr-Piezo	
+165	0A5	Clean Gtr 1-Stra	Clean Gtr 1-Stra	
+166	0A6	Clean Gtr 2-Stra	Clean Gtr 2-Stra	
+167	0A7	Clean Gtr 3-Tele	Clean Gtr 3-Tele	
+168	0A8	Clean Gtr 4-Prkr	Clean Gtr 4-Prkr	
+169	0A9	Clean Gtr-Mute 1	Clean Gtr-Mute 1	
+170	0AA	Clean Gtr-Mute 2	Clean Gtr-Mute 2	
+171	0AB	Funky Gtr 1-Stra	Funky Gtr 1-Stra	
+172	0AC	Funky Gtr 2-Stra	Funky Gtr 2-Stra	
+173	0AD	Funky Gtr 3-Prkr	Funky Gtr 3-Prkr	
+174	0AE	Jazz Guitar 1	Jazz Guitar 1	
+175	0AF	Jazz Guitar 2	Jazz Guitar 2	
+176	0B0	Pedal Steel Gtr.	Pedal Steel Gtr.	
+177	0B1	E.Gir-Harmonics	E.Gtr-Harmonics	panel typo "E.Gir"
+178	0B2	Distorted Guitar	Distorted Guitar	
+179	0B3	Dist.Gtr-Harmo	Dist.Gtr-Harmo	
+180	0B4	Dist.Gtr-Mute	Dist.Gtr-Mute	
+181	0B5	Dist.Gtr-Mute LP	Dist.Gtr-Mute LP	
+182	0B6	Power Chord	Power Chord	
+183	0B7	Fret Noise	Fret Noise	
+184	0B8	Amp Noise	Amp Noise	
+185	0B9	A.Bass 1	A.Bass 1	
+186	0BA	A.Bass 2	A.Bass 2	
+187	0BB	A.Bass 2 LP	A.Bass 2 LP	
+188	0BC	Finger Bass 1	Finger Bass 1	
+189	0BD	Finger Bass 1 LP	Finger Bass 1 LP	
+190	0BE	Finger Bass 2	Finger Bass 2	
+191	0BF	Finger Bass 2 LP	Finger Bass 2 LP	
+192	0C0	Pick Bass 1	Pick Bass 1	
+193	0C1	Pick Bass 1 LP	Pick Bass 1 LP	
+194	0C2	Pick Bass 2	Pick Bass 2	
+195	0C3	Pick Bass 2 LP	Pick Bass 2 LP	
+196	0C4	Pick Bass-Mute	Pick Bass-Mute	
+197	0C5	Pick Bass-MuteLP	Pick Bass-MuteLP	
+198	0C6	SlapBass-Thumb 1	SlapBass-Thumb 1	
+199	0C7	SlapBass Thum1LP	SlapBass Thum1LP	
+200	0C8	SlapBass-Thumb 2	SlapBass-Thumb 2	
+201	0C9	SlapBass Thum2LP	SlapBass Thum2LP	
+202	0CA	SlapBass pull	SlapBass pull	
+203	0CB	SlapBass mute	SlapBass mute	
+204	0CC	SlapBass Mute LP	SlapBass Mute LP	
+205	0CD	Fretless Bass	Fretless Bass	
+206	0CE	Bass Harmonics	Bass Harmonics	
+207	0CF	Bass Harmono LP	Bass Harmonic LP?	panel "Bass Harmono LP"
+208	0D0	Sitar	Sitar	
+209	0D1	Sitar&Tambura	Sitar&Tambura	
+210	0D2	santur	Santur	
+211	0D3	Santur LP	Santur LP	
+212	0D4	Mandolin	Mandolin	
+213	0D5	Mandolin LP	Mandolin LP	
+214	0D6	Mandolin-Tremolo	Mandolin-Tremolo	
+215	0D7	bouzouki	Bouzouki	
+216	0D8	Bouzouki LP	Bouzouki LP	
+217	0D9	Banjo	Banjo	
+218	0DA	Banjo LP	Banjo LP	
+219	0DB	Shamisen	Shamisen	
+220	0DC	koto	Koto	
+221	0DD	Harp	Harp	
+222	0DE	Harp LP	Harp LP	
+223	0DF	Harp-Harmonics	Harp-Harmonics	
+224	0E0	Harp-Harmo LP	Harp-Harmo LP	
+225	0E1	Harp glissando	Harp glissando	
+226	0E2	Ukulele	Ukulele	
+227	0E3	Ukulele LP	Ukulele LP	
+228	0E4	Syn Bass-Oct 1	Syn Bass-Oct 1	
+229	0E5	Syn Bass-Oct 2	Syn Bass-Oct 2	
+230	0E6	Syn Bass-Reso 1	Syn Bass-Reso 1	
+231	0E7	Syn Bass-Reso 2	Syn Bass-Reso 2	
+232	0E8	Syn Bass-FM 1	Syn Bass-FM 1	
+233	0E9	Syn Bass-FM 1 LP	Syn Bass-FM 1 LP	
+234	0EA	Syn Bass-FM 2	Syn Bass-FM 2	
+235	0EB	Syn Bass-FM 2 LP	Syn Bass-FM 2 LP	
+236	0EC	Syn Bass-FM 3	Syn Bass-FM 3	
+237	0ED	Syn Bass-FM 3 LP	Syn Bass-FM 3 LP	
+238	0EE	Syn Bass-TB	Syn Bass-TB	
+239	0EF	Syn Bass-Stack	Syn Bass-Stack	
+240	0F0	Sync Wave 1	Sync Wave 1	
+241	0F1	Sync Wave 2	Sync Wave 2	
+242	0F2	Sync Wave 3	Sync Wave 3	
+243	0F3	Sync Wave 4	Sync Wave 4	
+244	0F4	Detuned-Super	Detuned-Super	
+245	0F5	Detuned-Saw	Detuned-Saw	
+246	0F6	Detuned-PWM	Detuned-PWM	
+247	0F7	Analog Strings 1	Analog Strings 1	
+248	0F8	Analog Strings 2	Analog Strings 2	
+249	0F9	Syn-Ethnic	Syn-Ethnic	
+250	0FA	Syn-Ethnic LP	Syn-Ethnic LP	
+251	0FB	Syn-Clavitar	Syn-Clavitar	
+252	0FC	syn pop	Syn pop	
+253	0FD	Syn-Vocalscape	Syn-Vocalscape	
+254	0FE	Syn-Air Pad	Syn-Air Pad	
+255	0FF	Syn-Air	Syn-Air	
+256	100	Syn-Flute Pad	Syn-Flute Pad	
+257	101	Syn-Air Vortex	Syn-Air Vortex	
+258	102	Syn-Ghostly	Syn-Ghostly	
+259	103	Syn-Sweep 1	Syn-Sweep 1	
+260	104	Syn-Sweep 2	Syn-Sweep 2	
+261	105	Syn-Sweep 3	Syn-Sweep 3	
+262	106	Syn-Sweep 3 LP	Syn-Sweep 3 LP	
+263	107	Syn-Magic Bell	Syn-Magic Bell	
+264	108	Syn-Clicker	Syn-Clicker	
+265	109	Noise	Noise	
+266	10A	Noise Spectrum 1	Noise Spectrum 1	
+267	10B	Noise Spectrum 2	Noise Spectrum 2	
+268	10C	Saw	Saw	
+269	10D	Saw-mg3c	Saw-MG3?	panel "Saw-mg3c"
+270	10E	Saw-mg	Saw-mMG?	panel "Saw-mg"
+271	10F	Saw-Chroma	Saw-Chroma	
+272	110	Pulse-2%	Pulse-2%	
+273	111	Pulse-5%	Pulse-5%	
+274	112	Pulse-8%	Pulse-8%	
+275	113	Pulse-16%	Pulse-16%	
+276	114	Pulse-33%	Pulse-33%	
+277	115	Pulse-40%	Pulse-40%	
+278	116	Square	Square	
+279	117	Square-mMG	Square-mMG	
+280	118	Square-MG3	Square-MG3	
+281	119	Square-JP	Square-JP	
+282	11A	Square-OB	Square-OB	
+283	11B	Triangle	Triangle	
+284	11C	Triangle-MG3	Triangle-MG3	
+285	11D	Ramp	Ramp	
+286	11E	Ramp-mMG	Ramp-mMG	
+287	11F	Parabolic	Parabolic	
+288	120	sine	Sine	
+289	121	Sine-01/W	Sine-01/W	
+290	122	Sine-JP	Sine-JP	
+291	123	DWGS Syn Sine 1	DWGS Syn Sine 1	
+292	124	DWGS Syn Sine 2	DWGS Syn Sine 2	
+293	125	DWGS-E.P. 1	DWGS-E.P. 1	
+294	126	DWGS-E.P. 2	DWGS-E.P. 2	
+295	127	DWGS-E.P. 3	DWGS-E.P. 3	
+296	128	DWGS-E.P.4	DWGS-E.P.4	
+297	129	DWGS-E.P. 5	DWGS-E.P. 5	
+298	12A	DWGS-Organ 1	DWGS-Organ 1	
+299	12B	DWGS-Organ 2	DWGS-Organ 2	
+300	12C	DWGS-Organ 3	DWGS-Organ 3	
+301	12D	DWGS-Organ 4	DWGS-Organ 4	
+302	12E	DWGS-Organ 5	DWGS-Organ 5	
+303	12F	DWGS-Accordion	DWGS-Accordion	
+304	130	DWGS-Guitar 1	DWGS-Guitar 1	
+305	131	DWGS-Guitar 2	DWGS-Guitar 2	
+306	132	DWGS-Bell 1	DWGS-Bell 1	
+307	133	DWGS-Bell 2	DWGS-Bell 2	
+308	134	DWGS-Bell 3	DWGS-Bell 3	
+309	135	DWGS-Bell 4	DWGS-Bell 4	
+310	136	DWGS-Clav 1	DWGS-Clav 1	
+311	137	DWGS-Clav 2	DWGS-Clav 2	
+312	138	DWGS-Clav 3	DWGS-Clav 3	
+313	139	DWGS Digi 1	DWGS Digi 1	
+314	13A	DWGS Digi 2	DWGS Digi 2	
+315	13B	DWGS Digi 3	DWGS Digi 3	
+316	13C	DWGS-Wire 1	DWGS-Wire 1	
+317	13D	DWGS-Wire 2	DWGS-Wire 2	
+318	13E	DWGS-Sync 1	DWGS-Sync 1	
+319	13F	DWGS-Sync 2	DWGS-Sync 2	
+320	140	DWGS-Sync 3	DWGS-Sync 3	
+321	141	Rubbed Glass	Rubbed Glass	
+322	142	Space Lore	Space Lore	
+323	143	Telephone Ring	Telephone Ring	
+324	144	Cyber Drum	Cyber Drum	
+325	145	Xylo Spectrum	Xylo Spectrum	
+326	146	Xylophone tremo.	Xylophone tremo.	
+327	147	Cricket Spectrum	Cricket Spectrum	
+328	148	Swish Terra	Swish Terra	
+329	149	Orchestra Hit	Orchestra Hit	
+330	14A	Band Hit	Band Hit	
+331	14B	Pizz Hit	Pizz Hit	
+332	14C	Timpani	Timpani	
+333	14D	Crash 1	Crash 1	
+334	14E	Crash 2	Crash 2	
+335	14F	Cymbal Reverse	Cymbal Reverse	
+336	150	Orch. Cymbal	Orch. Cymbal	
+337	151	Ride-Jazz	Ride-Jazz	
+338	152	Ride-Edge 1	Ride-Edge 1	
+339	153	Ride-Edge 2	Ride-Edge 2	
+340	154	H.Hat-Closed	H.Hat-Closed	
+341	155	88-HHat Open	88-HHat Open	
+342	156	88-Cowbell	88-Cowbell	
+343	157	88-Tom	88-Tom	
+344	158	88-Conga	88-Conga	
+345	159	88-Crash	88-Crash	
+346	15A	Tom	Tom	
+347	15B	Tom-Brush	Tom-Brush	
+348	15C	Tom-Processed	Tom-Processed	
+349	15D	Real E Tom	Real E Tom	
+350	15E	Zap 1	Zap 1	
+351	15F	Zap 2	Zap 2	
+352	160	DJ-Old Record	DJ-Old Record	
+353	161	Flexatone	Flexatone	
+354	162	Tambourine	Tambourine	
+355	163	Agogo Bell	Agogo Bell	
+356	164	Cowbell	Cowbell	
+357	165	Triangle-Roll	Triangle-Roll	
+358	166	SleighBell-Roll	SleighBell-Roll	
+359	167	Marc Tree	Marc Tree	
+360	168	Bell Tree	Bell Tree	
+361	169	Rainstick	Rainstick	
+362	16A	Anklung-One Shot	Anklung-One Shot	
+363	16B	Anklung Roll	Anklung Roll	
+364	16C	TempleBlocks	TempleBlocks	
+365	16D	Taiko	Taiko	
+366	16E	Djembe Open	Djembe Open	
+367	16F	Djembe mute	Djembe mute	
+368	170	Chinese Gong	Chinese Gong	
+369	171	Stadium	Stadium	
+370	172	Applause	Applause	
+371	173	GunShot	GunShot	
+372	174	Industry	Industry	
+373	175	Birds 1	Birds 1	
+374	176	Birds 2	Birds 2	
+375	177	L2 Stereo Piano	L2 Stereo Piano	  [TR-Rack only]
+376	178	R2 Stereo Plano	R2 Stereo Piano	panel typo "Plano"  [TR-Rack only]
+377	179	M1 Piano	M1 Piano	  [TR-Rack only]
+378	17A	M1 perc. organ	M1 perc. organ	  [TR-Rack only]
+379	17B	Sharp Brass	Sharp Brass	  [TR-Rack only]
+380	17C	Brass Fall	Brass Fall	  [TR-Rack only]
+381	17D	M1 Tenor Sax	M1 Tenor Sax	  [TR-Rack only]
+382	17E	W alto sax	W alto sax	  [TR-Rack only]
+383	17F	M1 Trumpet	M1 Trumpet	  [TR-Rack only]
+384	180	1-01W trombone	1-01W trombone	  [TR-Rack only]
+385	181	2-01W trombone	2-01W trombone	  [TR-Rack only]
+386	182	Deep Bass	Deep Bass	  [TR-Rack only]
+387	183	M1 E.Bass	M1 E.Bass	  [TR-Rack only]
+388	184	M1 Fretless	M1 Fretless	  [TR-Rack only]
+389	185	Vogue Bass	Vogue Bass	  [TR-Rack only]
+390	186	Bright Syn. Bass	Bright Syn. Bass	  [TR-Rack only]
+391	187	Knock Bass	Knock Bass	  [TR-Rack only]
+392	188	Drum Bass	Drum Bass	  [TR-Rack only]
+393	189	Mr.8 Sync Lead	Mr.8 Sync Lead	  [TR-Rack only]
+394	18A	M1 Synmalet	M1 SynMallet	panel "Synmalet"  [TR-Rack only]
+395	18B	M1 poles	M1 Pole?	panel "M1 poles"  [TR-Rack only]
+396	18C	Ambi Brass Hit	Ambi Brass Hit	  [TR-Rack only]
+397	18D	Funky Guitar Hit	Funky Guitar Hit	  [TR-Rack only]
+398	18E	Pop Guitar Hit	Pop Guitar Hit	  [TR-Rack only]
+399	18F	ReggaeGuitar Hit	ReggaeGuitar Hit	  [TR-Rack only]
+400	190	1a Vox-Wah Gtr	1a Vox-Wah Gtr	  [TR-Rack only]
+401	191	1b Vox-Wah Gtr	1b Vox-Wah Gtr	  [TR-Rack only]
+402	192	Old Brass Hit	Old Brass Hit	  [TR-Rack only]
+403	193	Band Hit 2	Band Hit 2	  [TR-Rack only]
+404	194	Dissonant Hit	Dissonant Hit	  [TR-Rack only]
+405	195	Power Pop Hit	Power Pop Hit	  [TR-Rack only]
+406	196	Glass Orch Hit	Glass Orch Hit	  [TR-Rack only]
+407	197	Unison Orch Hit	Unison Orch Hit	  [TR-Rack only]
+408	198	th Choir Hit	Th Choir Hit	  [TR-Rack only]
+409	199	Intense Hit	Intense Hit	  [TR-Rack only]
+410	19A	Bamboo Water	Bamboo Water	  [TR-Rack only]
+411	19B	Elevator-Noise	Elevator-Noise	  [TR-Rack only]
+412	19C	DSP-Noise	DSP-Noise	  [TR-Rack only]
+413	19D	1 White Noise	1 White Noise	  [TR-Rack only]
+414	19E	2 White Noise	2 White Noise	  [TR-Rack only]

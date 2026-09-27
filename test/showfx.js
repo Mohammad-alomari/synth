@@ -1,0 +1,13 @@
+const H = require('./harness.js'); const X = H.load(H.ORDER);
+const want = process.argv.slice(2);
+X.MOSS_PCG_BUILTIN.forEach(bk => { const rs = bk.rs || 521, by = Uint8Array.from(Buffer.from(bk.m, 'base64')), n = by.length / rs;
+  for (let i = 0; i < n; i++) { const id = (bk.fmt === 'triton' ? 'F' : bk.name.slice(0, 4)) + i; if (!want.includes(id)) continue;
+    const P = X.korgDecodeMoss(by.subarray(i * rs, (i + 1) * rs), bk.scale, bk.fmt);
+    console.log('==', id, P.name, 'level', P.out.level, 'pan', P.out.pan);
+    const f = P.fx, r2 = o => JSON.stringify(Object.fromEntries(Object.entries(o).map(([k, v]) => [k, typeof v === 'number' ? +v.toFixed(2) : v])));
+    f.ins.forEach((s, k) => console.log('  IFX' + (k + 1), s.on ? 'on ' : 'off', s.type, X.TFX.byId(s.type).name, r2(s.p)));
+    console.log('  pan/width/sends', f.ifxPan, f.ifxWidth, f.ifxSend1, f.ifxSend2, 'prog sends', f.send1, f.send2, 'eq', f.eqLo, f.eqHi);
+    console.log('  M1', f.m1.on, f.m1.type, X.TFX.byId(f.m1.type).name, 'ret', f.m1.ret, 'casc', f.m1.cascade, r2(f.m1.p));
+    console.log('  M2', f.m2.on, f.m2.type, X.TFX.byId(f.m2.type).name, 'ret', f.m2.ret, r2(f.m2.p));
+    if (P.korgInfo.notes.length) console.log('  notes:', P.korgInfo.notes.join('; '));
+  } });
