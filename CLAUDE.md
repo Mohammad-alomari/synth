@@ -111,15 +111,16 @@ UI: MOSS pages show "Trinity number · model estimate" (e.g. "40 · 250 ms"); pa
 5. CURRENT STATE AND OPEN ITEMS
 ==============================================================================
 Done: MOSS models + effects; PCM engine; 111 stand-in packs; combinations; PCG import of
-Bank M + PCM banks + combinations; Korg-number display; tests; IndexedDB storage; synth memory; Record button (WAV).
+Bank M + PCM banks + combinations; Korg-number display; tests; IndexedDB storage; synth memory; Record button (WAV);
+combination timbre Delay start (byte 243; key-off timbres released after 0.25 s, estimate) and MIDI filters
+(byte 247 b1 damper, b2 aftertouch, b3 CC = rxDamper/rxAT/rxCC; b0 program change kept as rxPC, unused).
 Checks passed: all 2,560 PCM programs render (no NaN); 1,408 combinations render (no NaN, 1 silent by data);
 MOSS sound identical to Version 11 (regress.js); browser tests in AudioWorklet and ScriptProcessor modes; phone width.
 
 Open / ideas (not built):
 1. MOSS: reed/brass "jump pitch bend" (overblowing) played as smooth bend; byte 147 (stepped bend?) unclear.
    Owner wants a REMINDER about this one later - do not start it unasked.
-2. Combination: timbre Delay start and per-timbre MIDI filters not modelled (explained to the owner, pending his choice).
-   Per-timbre (program) scale not modelled.
+2. Combination: per-timbre (program) scale not modelled.
 3. Bank S (Solo-TRI board) not modelled; timbres pointing to S are silent.
 4. RAM/Flash samples (0x1000|n) guessed by program name (PCM_RAMGUESS) - the audio only lived in the user's synth.
 5. Timbre ifx rule inferred; calibration constants are estimates.
@@ -145,7 +146,7 @@ Run:     python3 -m http.server 8765   then open http://localhost:8765/index.htm
          MIDI and samples). Web MIDI: Chrome, Edge, Firefox (not Safari).
 Tests: sh test/run_all.sh (~1 min, exit 0 = pass; FULL=1 for every program/combination, ~10 min).
   CI: .github/workflows/test.yml runs build.py + run_all.sh on every push / PR.
-  Checks: fxunit, fuzz, fxfix (effects), voicefix (notes), progs (MOSS programs, every 8th), combis (every 16th,
+  Checks: fxunit, fuzz, fxfix (effects), voicefix (notes), combifix (timbre delay, MIDI filters), progs (MOSS programs, every 8th), combis (every 16th,
   needs ffmpeg), browser_test.py (Playwright; starts its own server; sound in both audio modes, all pages, fx edit,
   phone width, IndexedDB storage, synth memory, error messages).
   test/harness.js loads sources in a vm; test/pcmpacks.js decodes samples/ with ffmpeg; test/mkpcg.js writes a PCG

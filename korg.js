@@ -636,6 +636,7 @@ function korgDecodeCombi(r, userScale) {
       bend: s(r[b + 4]) === -25 ? null : s(r[b + 4]), transpose: s(r[b + 5]), detune: s(r[b + 6]), delay: KORG_PCM.delayMs(r[b + 7]),
       pan: r[b + 8] === 255 ? -1 : r[b + 8] === 128 ? 'prog' : r[b + 8] & 127, send1: r[b + 9] === 128 ? 'prog' : r[b + 9] & 127, send2: r[b + 10] === 128 ? 'prog' : r[b + 10] & 127,
       scaleProg: (fl >> 4) & 1, hideOsc2: (fl >> 5) & 1, forcePoly: (fl >> 6) & 1,
+      rxPC: fl & 1, rxDamper: (fl >> 1) & 1, rxAT: (fl >> 2) & 1, rxCC: (fl >> 3) & 1, // MIDI filters: 1 = the timbre receives it
       keyTop: r[b + 12] & 127, keyBot: r[b + 13] & 127, keySlopeTop: KORG_PCM.KEY_SLOPE[r[b + 14] & 15], keySlopeBot: KORG_PCM.KEY_SLOPE[r[b + 14] >> 4],
       velTop: Math.max(1, r[b + 15] & 127), velBot: Math.max(1, r[b + 16] & 127), velSlopeTop: (r[b + 17] & 15) * 8, velSlopeBot: (r[b + 17] >> 4) * 8, ifx: r[b + 18] });
   }

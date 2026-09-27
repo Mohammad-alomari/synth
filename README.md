@@ -5,7 +5,7 @@ A playable model of the Korg Trinity V3 that reads Trinity (and Triton) PCG file
 - **MOSS programs (Bank M)**: the DSP-MOSS-TRI board's 13 oscillator models (Standard, Comb, VPM, Resonance, Ring, Cross, Sync, Organ, E.Piano, Brass, Reed, Plucked, Bowed), filters, EGs, LFOs, modulation and the Trinity effects.
 - **PCM programs (Banks A–D)**: Single and Double mode with the program's own filters, envelopes, LFOs and effects. Korg's sample ROM is not available, so each multisample is played by an openly licensed stand-in recording (General MIDI, MIT licence) or a built-in waveform.
 - **Drum kits** are not supported: Drum-mode programs are left out, and combination timbres that use one stay silent.
-- **Combinations**: 8 timbres with key/velocity zones, transpose, detune, bend range, level, pan, sends, the combination's insert-effect chains and master effects.
+- **Combinations**: 8 timbres with key/velocity zones, transpose, detune, bend range, level, pan, sends, delay start, MIDI filters (damper, aftertouch, controllers), the combination's insert-effect chains and master effects.
 - **Record**: the Record button saves what you play (after the effects) as a stereo WAV file.
 
 ## Files
@@ -63,6 +63,7 @@ Needs Node 18+, python3, ffmpeg (for `combis.js`) and, for the browser test, `pi
 | `python3 build.py` | The page builds from the sources. |
 | `node test/fxunit.js`, `node test/fuzz.js`, `node test/fxfix.js` | Every effect: no NaN, bounded output with random parameters, fixed bugs stay fixed. |
 | `node test/voicefix.js` | Note handling: sustain, Hold, voice stealing, portamento, MIDI sync. |
+| `node test/combifix.js` | Combinations: timbre delay start and MIDI filters. |
 | `node test/progs.js` | Renders built-in MOSS programs (every 8th; `FULL=1` all): NaN, levels, CPU. |
 | `node test/combis.js` | Plays built-in combinations (every 16th; `FULL=1` all). |
 | `python3 test/browser_test.py` | The built page in Chromium: sound in both audio modes, every page, effects editing, phone width, imported-PCG storage, synth memory, error messages. |

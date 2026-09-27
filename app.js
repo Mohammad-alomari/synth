@@ -40,6 +40,7 @@ if (saved && saved.patch) { try { patch = loadAny(saved.patch); prog = saved.pro
 // a stored program: MOSS programs are merged onto the default patch; Trinity PCM programs are kept as they are
 function loadAny(p) {
   if (p && p.kind === 'combi' && !Array.isArray(p.timbres)) throw new Error('combination without timbres');
+  if (p && p.kind === 'combi') for (const t of p.timbres) for (const f of ['rxDamper', 'rxAT', 'rxCC']) if (t && t[f] === undefined) t[f] = 1;
   if (p && p.kind === 'pcm' && !Array.isArray(p.o)) throw new Error('PCM program without oscillators');
   return p && (p.kind === 'pcm' || p.kind === 'combi') ? clone(p) : mossLoad(p);
 }
@@ -959,6 +960,7 @@ function combiPageTimbre() {
   if (t.bend !== null && t.bend !== undefined) c.push(S(b + 'bend', 'Pitch bend range', -24, 24, { fmt: K.semis }));
   if (typeof t.send1 === 'number') c.push(S(b + 'send1', 'Send 1', 0, 127, { fmt: K.n }));
   if (typeof t.send2 === 'number') c.push(S(b + 'send2', 'Send 2', 0, 127, { fmt: K.n }));
+  c.push(S(b + 'delay', 'Delay start', -1, 5000, { fmt: K.delay, step: 2 }));
   c.push(TOG(b + 'hideOsc2', 'Hide OSC 2 (Double programs)'), TOG(b + 'forcePoly', 'Force poly (Mono programs)'));
   const notes = [];
   if (t.pan === 'prog') notes.push('pan: the program’s'); if (t.bend === null || t.bend === undefined) notes.push('bend range: the program’s');
@@ -969,6 +971,8 @@ function combiPageTimbre() {
     S(b + 'velBot', 'Lowest velocity', 1, 127, { fmt: K.n }), S(b + 'velTop', 'Highest velocity', 1, 127, { fmt: K.n }),
     S(b + 'velSlopeBot', 'Fade in above lowest velocity', 0, 120, { fmt: K.n }), S(b + 'velSlopeTop', 'Fade out below highest velocity', 0, 120, { fmt: K.n })],
     help: 'The timbre plays only inside its zones; the fades soften it toward each edge.' });
+  secs.push({ title: 'MIDI filters', controls: [TOG(b + 'rxDamper', 'Receives the damper (sustain) pedal'), TOG(b + 'rxAT', 'Receives aftertouch'), TOG(b + 'rxCC', 'Receives control changes (joystick Y, knobs, other pedals)')],
+    help: 'Switched off, this timbre ignores that message while the other timbres still get it. Pitch bend always reaches every timbre. The Trinity\u2019s program-change filter is kept in the data but this page does not change programs by MIDI.' });
   return secs;
 }
 function renderCombiRouting(host) {
