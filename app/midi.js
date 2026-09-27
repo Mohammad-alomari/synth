@@ -3,7 +3,7 @@
 // ---------------- MIDI ----------------
 // Next / previous program from buttons on a MIDI controller: learned on the Keyboard page (a note, a controller or a
 // program change); program change messages can also step through the list or pick a number in the current bank.
-let midiLearn = null, lastPc = null, lastStepT = 0;
+let midiLearn = null, lastPc = null, lastStepT = 0, midiOn = false, midiNames = [];
 const bindName = b => !b ? 'not set' : (b.t === 'cc' ? 'Controller ' + b.n : b.t === 'note' ? 'Note ' + F.note(b.n) : 'Program change ' + (b.n + 1)) + ', channel ' + (b.ch + 1);
 // a learned button is debounced (some controllers send a burst when pressed); program changes step every time
 function midiStep(dir, debounce) { if (debounce) { const t = performance.now(); if (t - lastStepT < 80) return; lastStepT = t; } stepProgram(dir); }
@@ -36,6 +36,7 @@ function midiProgramButtons(st, ch, d1, d2) {
 function onMidi(e) {
   const d = e.data; if (!d || d.length < 1) return;
   const st = d[0] & 0xf0, ch = d[0] & 15, d1 = d[1], d2 = d[2];
+  mmMonitor(st, d1, d2);
   if (midiProgramButtons(st, ch, d1, d2)) return;
   if (st === 0xB0 && (d1 === 80 || d1 === 81)) swShow(d1 - 80, d2 >= 64);
   if (st === 0xB0 && d1 === 64) sustainShow(d2 >= 64);
@@ -50,7 +51,7 @@ $('#midibtn').addEventListener('click', async () => {
   if (!navigator.requestMIDIAccess) { status('Web MIDI is not available in this browser. Chrome, Edge and Opera support it; Safari does not.'); return; }
   try {
     const acc = await navigator.requestMIDIAccess();
-    const hook = () => { let n = 0; acc.inputs.forEach(inp => { inp.onmidimessage = onMidi; if (inp.state === 'connected') n++; }); if (!n) releaseInputs('m:'); $('#mled').classList.toggle('on', n > 0); status(n ? 'MIDI: ' + n + ' input' + (n > 1 ? 's' : '') + ' connected' : 'MIDI is on, but no input devices were found.'); };
+    const hook = () => { let n = 0; midiNames = []; acc.inputs.forEach(inp => { inp.onmidimessage = onMidi; if (inp.state === 'connected') { n++; midiNames.push(inp.name || 'MIDI input'); } }); if (!n) releaseInputs('m:'); $('#mled').classList.toggle('on', n > 0); midiOn = true; mmDevice(); status(n ? 'MIDI: ' + n + ' input' + (n > 1 ? 's' : '') + ' connected' : 'MIDI is on, but no input devices were found.'); };
     hook(); acc.onstatechange = hook;
   } catch (err) { status('MIDI access was blocked here. Open the page in its own browser tab and allow MIDI when asked.'); }
 });

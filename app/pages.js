@@ -750,10 +750,7 @@ function renderMods(host) {
 function renderMemory(host) {
   const row = el('div', 'btnrow');
   const b = (label, fn) => { const x = el('button', 'hw', label); x.type = 'button'; x.addEventListener('click', fn); row.appendChild(x); return x; };
-  b(prog.bank === 'us' ? 'Save to User ' + String(prog.idx + 1).padStart(2, '0') : 'Save to User bank', () => {
-    if (prog.bank === 'us' && userBank[prog.idx]) userBank[prog.idx] = clone(patch); else { userBank.push(clone(patch)); prog = { bank: 'us', idx: userBank.length - 1 }; }
-    commitUser('Saved to User ' + String(prog.idx + 1).padStart(2, '0'));
-  });
+  b(prog.bank === 'us' ? 'Save to User ' + String(prog.idx + 1).padStart(2, '0') : 'Save to User bank', saveToUser);
   if (prog.bank === 'us') b('Save as new', () => { userBank.push(clone(patch)); prog = { bank: 'us', idx: userBank.length - 1 }; commitUser('Saved to User ' + String(prog.idx + 1).padStart(2, '0')); });
   if (prog.bank === 'us' && userBank[prog.idx]) b('Delete from User bank', () => { userBank.splice(prog.idx, 1); prog = { bank: 'st', idx: 0 }; commitUser('Deleted'); loadProgram('st', 0); });
   b('Export or import', () => { $('#dlgtxt').value = JSON.stringify(patch); $('#dlg').showModal(); });
@@ -791,6 +788,11 @@ function renderImportInfo(host) {
   const lines = [(k.source ? k.source + '. ' : '') + 'OSC 1: ' + (names[k.osc1] || k.osc1) + (k.osc2 ? ', OSC 2: ' + (names[k.osc2] || k.osc2) : ' (double-size model)') + '.'];
   (k.notes || []).forEach(n => lines.push(n + '.'));
   lines.forEach(t => host.appendChild(el('p', 'help', t)));
+}
+// saves over the current user program, or adds a new one to the User bank
+function saveToUser() {
+  if (prog.bank === 'us' && userBank[prog.idx]) userBank[prog.idx] = clone(patch); else { userBank.push(clone(patch)); prog = { bank: 'us', idx: userBank.length - 1 }; }
+  commitUser('Saved to User ' + String(prog.idx + 1).padStart(2, '0'));
 }
 function commitUser(msg) {
   if (!store.set(LS_USER, userBank)) { toast('Could not save: browser storage is unavailable'); return; }

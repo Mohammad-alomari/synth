@@ -380,6 +380,6 @@ $('#power').addEventListener('click', async () => {
 // Any finished tap, click or key press may start or resume audio (WebKit ignores the start of a touch)
 const gestureUnlock = () => { if (userPaused) return; if (!ctx || !graphReady || ctx.state !== 'running') startAudio(); };
 ['pointerup', 'touchend', 'click', 'keydown'].forEach(t => window.addEventListener(t, gestureUnlock, true));
-function status(t) { $('#status').textContent = t || ''; }
+function status(t) { $('#status').textContent = t || ''; $('#mmstatus').textContent = t || ''; }
 let toastT = 0;
 function toast(t) { const e = $('#toast'); e.textContent = t; e.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => e.classList.remove('show'), 1800); }

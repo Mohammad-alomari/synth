@@ -255,8 +255,12 @@ body.play .dock {
   padding: calc(4px + env(safe-area-inset-top, 0px)) calc(6px + env(safe-area-inset-right, 0px)) calc(4px + env(safe-area-inset-bottom, 0px)) calc(6px + env(safe-area-inset-left, 0px));
 }
 body.play .playbar { display: flex; grid-column: 1 / -1; align-items: center; gap: 4px; min-width: 0; }
-.playbar .pb-name { flex: 1; min-width: 0; font-family: var(--f-lcd); font-size: 20px; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: var(--lcd); color: var(--lcd-ink); border-radius: 4px; padding: 4px 6px; }
+/* the name opens the program list; big ‹ › buttons either side */
+.playbar .pb-name { flex: 1; min-width: 0; min-height: 42px; display: flex; align-items: center; gap: 6px; font-family: var(--f-lcd); font-size: 22px; line-height: 1; background: var(--lcd); color: var(--lcd-ink); border: 1px solid var(--lcd-dim); border-radius: 4px; padding: 4px 8px; cursor: pointer; text-align: left; }
+.playbar .pb-txt { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.playbar .pb-caret { flex: none; font-size: 16px; }
 .playbar .hw { min-height: 30px; padding: 2px 10px; }
+.playbar #pbprev, .playbar #pbnext { min-width: 58px; min-height: 42px; justify-content: center; padding: 0 8px; font-size: 30px; line-height: 1; }
 .playbar .rot { display: none; font-size: 13px; color: var(--muted); }
 .playbar select { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 2px 3px; min-height: 30px; font-family: var(--f-ui); font-size: 14px; max-width: 120px; }
 .playbar select:disabled { opacity: 0.5; }
@@ -274,7 +278,7 @@ body.play #kb { flex: 1; height: auto; min-height: 0; }
 body.play .toast { bottom: auto; top: calc(60px + env(safe-area-inset-top, 0px)); }
 @media (orientation: portrait) {
   /* held upright: row 1 = < name >, row 2 = scale, Sustain, Keys, Exit; the turn hint goes last */
-  body.play .playbar { flex-wrap: wrap; } body.play .playbar .pb-name { flex-basis: calc(100% - 80px); }
+  body.play .playbar { flex-wrap: wrap; } body.play .playbar .pb-name { flex-basis: calc(100% - 132px); }
   body.play .playbar #pbscale { flex: 1 1 0; } body.play .playbar .rot { display: inline; flex-basis: 100%; order: 1; font-size: 12px; line-height: 1.2; }
   /* held upright: the controllers sit in a row above the keys, which keep the full width */
   body.play .dock { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr); }
@@ -305,6 +309,79 @@ dialog { border: 1px solid var(--line); border-radius: 8px; background: var(--pa
 dialog textarea { width: 100%; min-height: 220px; background: var(--panel); border: 1px solid var(--line); border-radius: 4px; font-family: ui-monospace, monospace; font-size: 12px; }
 .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--dock-h) + 16px + env(safe-area-inset-bottom, 0px)); background: var(--ink); color: var(--panel-3); padding: 8px 14px; border-radius: 6px; font-family: var(--f-ui); font-size: 16px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 20; }
 .toast.show { opacity: 1; }
+/* program browser (play mode list and MIDI mode Browse): one bank at a time; the bank button lists every bank */
+.pbr { display: flex; flex-direction: column; gap: 6px; min-height: 0; }
+.pbr[hidden] { display: none; }
+.pbr-bar { display: flex; gap: 6px; }
+.pbr-bar input { flex: 1; min-width: 0; background: var(--panel-3); color: var(--ink); border: 1px solid var(--line); border-radius: 4px; padding: 6px 8px; font-size: 16px; -webkit-user-select: text; user-select: text; }
+.pbr-bar .hw { min-height: 38px; font-size: 14px; padding: 3px 10px; }
+.pbr .hw[aria-pressed="true"] { color: var(--led); border-color: var(--led); box-shadow: inset 0 0 0 1px var(--led); }
+.pbr-bank { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; text-align: left; background: var(--panel-2); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; cursor: pointer; font-family: var(--f-ui); }
+.pbr-bank .bn { flex: 1; min-width: 0; font-weight: 600; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pbr-bank .bx { flex: none; font-weight: 600; font-size: 14px; color: var(--accent); border: 1px solid var(--accent); border-radius: 4px; padding: 3px 8px; }
+.pbr-list { position: relative; flex: 1; min-height: 0; overflow-y: auto; border: 1px solid var(--line); border-radius: 6px; background: var(--panel-3); overscroll-behavior: contain; touch-action: pan-y; }
+.pbr-list .g { position: sticky; top: 0; z-index: 1; background: var(--panel-2); font-family: var(--f-ui); font-weight: 600; font-size: 13px; color: var(--muted); padding: 3px 8px; }
+.pbr-list button { display: flex; width: 100%; gap: 8px; align-items: center; text-align: left; background: transparent; color: var(--ink); border: 0; border-bottom: 1px solid var(--panel); padding: 10px 8px; font-family: var(--f-ui); font-size: 16px; cursor: pointer; }
+.pbr-list button[aria-selected="true"] { background: var(--lcd); color: var(--lcd-ink); font-weight: 600; }
+.pbr-list button .st { margin-left: auto; color: var(--led); }
+.pbr-list button .n { margin-left: auto; color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
+.pbr-list .empty { padding: 10px; color: var(--muted); }
+/* play mode: the list covers the screen */
+.pbl { position: fixed; inset: 0; z-index: 30; background: var(--panel); display: flex; flex-direction: column; gap: 6px;
+  padding: calc(6px + env(safe-area-inset-top, 0px)) calc(8px + env(safe-area-inset-right, 0px)) calc(8px + env(safe-area-inset-bottom, 0px)) calc(8px + env(safe-area-inset-left, 0px)); }
+.pbl[hidden] { display: none; }
+.pbl-head { display: flex; align-items: center; gap: 8px; }
+.pbl-title { flex: 1; font-family: var(--f-ui); font-weight: 700; font-size: 18px; }
+.pbl-head .hw { min-height: 38px; padding: 3px 14px; }
+.pbl-body { flex: 1; }
+/* MIDI mode: no on-screen keys; big program name and program change, scale, a MIDI monitor and a few sound controls */
+.mm { display: none; }
+body.midi { padding-bottom: 0; }
+body.midi .wrap, body.midi .dock { display: none; }
+body.midi .toast { bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
+body.midi .mm { display: flex; flex-direction: column; gap: 8px; max-width: 900px; margin: 0 auto; min-height: 100vh; min-height: 100dvh;
+  padding: calc(6px + env(safe-area-inset-top, 0px)) calc(10px + env(safe-area-inset-right, 0px)) calc(10px + env(safe-area-inset-bottom, 0px)) calc(10px + env(safe-area-inset-left, 0px)); }
+.mm .sp { flex: 1; }
+.mm .hw[aria-pressed="true"] { color: var(--led); border-color: var(--led); box-shadow: inset 0 0 0 1px var(--led); }
+.mm-top { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.mm-top .hw { min-height: 32px; padding: 3px 10px; font-size: 14px; }
+.mm-dev { font-family: var(--f-ui); font-weight: 600; font-size: 14px; color: var(--muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#mmled.on { background: #3fbf5f; box-shadow: none; } #mmled.on.hit { background: #b8ffc8; box-shadow: 0 0 6px #7dff9c; }
+.mm-lcd { display: flex; align-items: stretch; gap: 6px; background: var(--lcd); color: var(--lcd-ink); border-radius: 6px; padding: 8px 10px; }
+.mm-namebtn { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; background: transparent; border: 0; color: inherit; padding: 0; cursor: pointer; text-align: left; }
+.mm-num { font-family: var(--f-lcd); font-size: 22px; line-height: 1; }
+.mm-name { font-family: var(--f-lcd); font-size: clamp(34px, 9vw, 64px); line-height: 0.95; max-width: 100%; overflow-wrap: anywhere; }
+.mm-from { font-family: var(--f-lcd); font-size: 18px; line-height: 1.1; color: var(--lcd-dim); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mm-fav { flex: none; align-self: flex-start; background: transparent; border: 1px solid var(--lcd-ink); color: var(--lcd-ink); border-radius: 4px; width: 44px; height: 44px; font-size: 26px; line-height: 1; cursor: pointer; }
+.mm-fav[aria-pressed="true"] { background: var(--lcd-ink); color: var(--lcd); }
+.mm-nav { display: grid; grid-template-columns: 1fr auto 1fr; gap: 6px; }
+.mm-nav .hw { min-height: 64px; justify-content: center; font-size: 22px; }
+#mmbrowse { font-size: 16px; padding: 4px 14px; }
+#mmbrowse[aria-expanded="true"] { color: var(--accent); border-color: var(--accent); }
+.mm-browse .pbr-list { max-height: 50vh; }
+.mm-perf { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; }
+.mm-grp { display: inline-flex; align-items: center; gap: 3px; }
+.mm-grp .sl, .mm-meter .sl { font-family: var(--f-ui); font-weight: 600; font-size: 13px; color: var(--muted); margin-right: 3px; }
+.mm-perf .hw { min-height: 38px; padding: 3px 11px; font-size: 16px; }
+.mm-perf .hw.val { min-width: 42px; justify-content: center; font-variant-numeric: tabular-nums; }
+.mm-perf .hw.val.nz { color: var(--led); border-color: var(--led); }
+.mm-perf select { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 5px 4px; min-height: 38px; font-family: var(--f-ui); font-size: 15px; max-width: 150px; }
+.mm-perf select:disabled { opacity: 0.5; }
+.mm-mon { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; font-family: var(--f-ui); font-size: 14px; border-top: 1px dotted var(--line); padding-top: 6px; }
+.mm-note { font-weight: 600; min-width: 130px; font-variant-numeric: tabular-nums; }
+.mm-meter { display: inline-flex; align-items: center; }
+.mm-meter output { font-weight: 600; font-variant-numeric: tabular-nums; min-width: 2ch; }
+.mm-meter .bar { position: relative; width: 70px; height: 10px; border: 1px solid var(--line); border-radius: 5px; background: var(--panel-3); overflow: hidden; }
+.mm-meter .bar i { position: absolute; top: 0; bottom: 0; left: 0; width: 0; background: var(--accent); }
+.mm-meter .bar.bi::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: var(--line); }
+.mm-status { font-size: 13px; color: var(--muted); }
+.mm-status:empty { display: none; }
+.mm-edit { border-top: 1px dotted var(--line); padding-top: 6px; }
+.mm-ehead { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
+.mm-ehead h3 { font-family: var(--f-ui); font-weight: 600; font-size: 18px; margin: 0; }
+.mm-ehead .hw { min-height: 32px; padding: 3px 10px; font-size: 14px; }
+.mm-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px 18px; }
+.mm-grid input[type=range] { height: 30px; }
 @media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
 @media (min-width: 900px) {
   .lcd { grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); align-items: center; gap: 16px; }
@@ -322,6 +399,7 @@ dialog textarea { width: 100%; min-height: 220px; background: var(--panel); bord
     <button class="hw" id="recbtn" type="button" aria-pressed="false" title="Record what you play to a WAV file"><span class="led rec" id="rled"></span><span id="rtxt">Record</span></button>
     <button class="hw" id="installbtn" type="button" hidden title="Add the synth to your home screen; it then opens full screen and works offline">Install app</button>
     <button class="hw" id="playbtn" type="button" title="Full-screen keyboard; turn a phone sideways">Play mode</button>
+    <button class="hw" id="midimodebtn" type="button" title="Play from a MIDI keyboard: big program name, program change, scale and sound controls, no on-screen keys">MIDI mode</button>
     <span class="status" id="status" aria-live="polite"></span>
   </header>
 
@@ -356,10 +434,10 @@ dialog textarea { width: 100%; min-height: 220px; background: var(--panel); bord
 <div class="dock" id="dock">
   <div class="playbar" id="playbar">
     <button class="hw" type="button" id="pbprev" aria-label="Previous program">&lsaquo;</button>
-    <span class="pb-name" id="pbname"></span>
+    <button class="pb-name" type="button" id="pbnamebtn" aria-haspopup="dialog" aria-label="Choose a program" title="Choose a program"><span class="pb-txt" id="pbname"></span><span class="pb-caret" aria-hidden="true">&#9662;</span></button>
     <button class="hw" type="button" id="pbnext" aria-label="Next program">&rsaquo;</button>
-    <select id="pbscale" aria-label="Scale"></select>
-    <select id="pbkey" aria-label="Scale key"></select>
+    <select class="qscale" id="pbscale" aria-label="Scale"></select>
+    <select class="qkey" id="pbkey" aria-label="Scale key"></select>
     <button class="hw" type="button" id="pbsus" aria-pressed="false" title="Damper pedal (CC64)">Sustain</button>
     <span class="rot">Turn the phone sideways for more keys</span>
     <button class="hw" type="button" id="pbkeys">Keys</button>
@@ -386,6 +464,57 @@ dialog textarea { width: 100%; min-height: 220px; background: var(--panel); bord
     <div class="swrow" id="swrow"><button class="hw sw" type="button" id="sw1" aria-pressed="false" title="Panel switch 1 (CC80)">SW1</button><button class="hw sw" type="button" id="sw2" aria-pressed="false" title="Panel switch 2 (CC81)">SW2</button></div>
   </div>
   <div class="kbwrap"><div class="vbar" id="xbar" role="application" aria-label="Pitch stick: up bends up (+X), down bends down (−X)"><span class="lb">+X</span><span class="knob"></span><span class="lb">&minus;X</span></div><div class="vbar" id="ybar" role="application" aria-label="Modulation stick: up sends modulation 1 (+Y), down sends modulation 2 (−Y)"><span class="lb">+Y</span><span class="knob"></span><span class="lb">&minus;Y</span></div><div id="kb" aria-label="Keyboard"></div></div>
+</div>
+
+<!-- play mode: the program list, opened from the name in the play bar -->
+<div class="pbl" id="pbl" role="dialog" aria-modal="true" aria-label="Choose a program" hidden>
+  <div class="pbl-head"><span class="pbl-title">Programs</span><button class="hw" type="button" id="pblclose">Close</button></div>
+  <div class="pbr pbl-body" id="pblbody"></div>
+</div>
+
+<!-- MIDI mode: a MIDI keyboard plays; the screen shows the program, program change, scale and a few sound controls -->
+<div class="mm" id="mm" role="region" aria-label="MIDI mode">
+  <div class="mm-top">
+    <span class="led" id="mmled"></span><span class="mm-dev" id="mmdev">MIDI is off</span>
+    <button class="hw" type="button" id="mmconnect">Connect MIDI</button>
+    <span class="sp"></span>
+    <button class="hw" type="button" id="mmrec" aria-pressed="false" title="Record what you play to a WAV file"><span class="led rec" id="mmrled"></span><span id="mmrtxt">Record</span></button>
+    <button class="hw" type="button" id="mmpanic" title="Stop every sounding note">Panic</button>
+    <button class="hw" type="button" id="mmexit">Exit</button>
+  </div>
+  <div class="mm-lcd">
+    <button type="button" class="mm-namebtn" id="mmnamebtn" aria-label="Browse programs">
+      <span class="mm-num" id="mmnum"></span>
+      <span class="mm-name" id="mmname"></span>
+      <span class="mm-from" id="mmfrom"></span>
+    </button>
+    <button type="button" class="mm-fav" id="mmfav" aria-pressed="false" aria-label="Favourite" title="Add to favourites">&#9734;</button>
+  </div>
+  <div class="mm-nav">
+    <button class="hw" type="button" id="mmprev" aria-label="Previous program">&lsaquo; Prev</button>
+    <button class="hw" type="button" id="mmbrowse" aria-expanded="false">Browse</button>
+    <button class="hw" type="button" id="mmnext" aria-label="Next program">Next &rsaquo;</button>
+  </div>
+  <div class="pbr mm-browse" id="mmbrowsebox" hidden></div>
+  <div class="mm-perf">
+    <label class="mm-grp"><span class="sl">Scale</span><select class="qscale" id="mmscale" aria-label="Scale"></select><select class="qkey" id="mmkey" aria-label="Scale key"></select></label>
+    <div class="mm-grp" role="group" aria-label="Octave"><span class="sl">Oct</span><button class="hw" type="button" id="mmoctdn" aria-label="Octave down">&minus;</button><button class="hw val" type="button" id="mmoctv" title="Tap to reset">0</button><button class="hw" type="button" id="mmoctup" aria-label="Octave up">+</button></div>
+    <div class="mm-grp" role="group" aria-label="Transpose"><span class="sl">Trans</span><button class="hw" type="button" id="mmtrdn" aria-label="Transpose down">&minus;</button><button class="hw val" type="button" id="mmtrv" title="Tap to reset">0</button><button class="hw" type="button" id="mmtrup" aria-label="Transpose up">+</button></div>
+    <button class="hw" type="button" id="mmsus" aria-pressed="false" title="Damper pedal (CC64)">Sustain</button>
+  </div>
+  <div class="mm-mon" aria-label="MIDI input">
+    <span class="mm-note" id="mmnote">Play a key</span>
+    <span class="mm-meter"><span class="sl">Bend</span><span class="bar bi"><i id="mmbend"></i></span></span>
+    <span class="mm-meter"><span class="sl">Mod</span><span class="bar"><i id="mmmod"></i></span></span>
+    <span class="mm-meter"><span class="sl">Voices</span><output id="mmvoices">0</output></span>
+  </div>
+  <div class="mm-status" id="mmstatus" aria-live="polite"></div>
+  <section class="mm-edit" aria-label="Sound">
+    <div class="mm-ehead"><h3>Sound</h3><span class="sp"></span>
+      <button class="hw" type="button" id="mmrevert">Revert</button><button class="hw" type="button" id="mmsave">Save</button><button class="hw" type="button" id="mmeditor">Full editor</button></div>
+    <div class="grid mm-grid" id="mmgrid"></div>
+    <p class="help" id="mmhelp"></p>
+  </section>
 </div>
 
 <dialog id="dlg">

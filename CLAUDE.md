@@ -37,7 +37,7 @@ build.py       parts = PATCHES: fxcat.js patches.js | ENGINE: engine.js pcm.js c
 app/           UI, split by section (was app.js): core.js (storage, PCG banks, synth memory, audio start-up, sample
                loader), pages.js (all editor pages), program.js (program list + search, LCD, flow, scope), scale.js,
                keyboard.js (notes, on-screen keys, Keyboard page, joystick/ribbon/SW, play mode, wake lock, Sustain),
-               record.js (AudioWorklet recorder, ScriptProcessor fallback), midi.js, boot.js (last; service worker).
+               record.js (AudioWorklet recorder, ScriptProcessor fallback), midi.js, midimode.js (MIDI mode), boot.js (last; service worker).
                The files are fragments of one scope: top-level names are shared, file order matters.
 manifest.webmanifest, sw.js, icons/  installable app (PWA). sw.js: network-first for the page, cache-first for
                samples/*.mp3. Netlify copies them next to index.html. tools/make_icons.py draws the icons.
@@ -74,7 +74,7 @@ Conventions / gotchas
   transferable buffer). Worklet posts {t:'st', v: voiceStates, need:[pack names]}.
 - Program ids in the UI: st:N starter, us:N user, pm:N MOSS bank, pc:N PCM (bank*128+i), cb:N combination.
 - Stored in browser localStorage: moss-user-programs, moss-current, moss-page, moss-perf, moss-kb (Keyboard page settings
-  + learned MIDI next/prev buttons). Imported PCGs live in IndexedDB
+  + learned MIDI next/prev buttons), moss-favs (favourite programs: list group + "|" + program text). Imported PCGs live in IndexedDB
   'trinity-web-synth', store 'files': {id, kind 'moss'|'tri', name, scale, fmt, rs, bytes} (raw bytes; restored
   asynchronously after start-up by restoreImported(); old localStorage keys moss-pcg / moss-tri are migrated).
   Max 8 imported files.
@@ -132,6 +132,13 @@ SW1/SW2 lit by incoming CC80/81. Controls (kbs.ctl, Keyboard page 'Controls'): s
 (#xbar, bend), vertical Y stick (#ybar, +Y CC1 / -Y CC2), ribbon, SW buttons; sticks sit left of the keys and spring back; old playCtl migrated. Play bar: Sustain (CC64, shows the MIDI pedal), scale switch
 (Equal / Arabic / maqams via loadMaqam / your scale; choosing turns program scales off), screen wake lock.
 Program search (program.js progEntries/progList): filters the menu and the ‹ › steps. Fonts bundled; PWA.
+MIDI mode (app/midimode.js, body.midi, header button "MIDI mode"): no keys/editor; big program name, Prev/Next, Browse (search +
+favourites; favOnly limits ‹ › too, reset on exit), scale/key, Oct/Trans, Sustain, Record, Panic, MIDI monitor (device, note,
+bend, mod, voices), quick edit (mmMacros: MOSS/PCM Level, Cutoff, Resonance, Filter EG, Attack, Release moving both filters/oscillators
+by the same delta; combis: level per playing timbre), Revert / Save (saveToUser) / Full editor. Arrow keys step, Esc exits.
+Program browser (program.js progBrowser; used by MIDI mode Browse and the play-mode list #pbl, opened by tapping the play-bar
+name): one bank (list group) at a time, starting with the playing program's; the bank button lists all banks; a search or the
+favourites filter lists matches from every bank. Play bar ‹ › are 58x42 px.
 Checks passed: all 2,560 PCM programs render (no NaN); 1,408 combinations render (no NaN, 1 silent by data);
 MOSS sound identical to Version 11 (regress.js); browser tests in AudioWorklet and ScriptProcessor modes; phone width.
 

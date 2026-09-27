@@ -5,9 +5,8 @@
 const REC_MAX_S = 600; // 10 minutes (about 115 MB while recording)
 let rec = null; // { tap, sink, L: Int16Array[], R: Int16Array[], n, t, flush, flushing }
 function recUI() {
-  const on = !!rec; $('#rled').classList.toggle('on', on); $('#recbtn').setAttribute('aria-pressed', String(on));
-  const s = on ? Math.floor(rec.n / ctx.sampleRate) : 0;
-  $('#rtxt').textContent = on ? 'Stop ' + Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0') : 'Record';
+  const on = !!rec, s = on ? Math.floor(rec.n / ctx.sampleRate) : 0, txt = on ? 'Stop ' + Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0') : 'Record';
+  for (const [b, l, t] of [['#recbtn', '#rled', '#rtxt'], ['#mmrec', '#mmrled', '#mmrtxt']]) { $(l).classList.toggle('on', on); $(b).setAttribute('aria-pressed', String(on)); $(t).textContent = txt; }
 }
 // The tap runs in an AudioWorklet (off the main thread, so a busy page cannot drop audio); it converts to 16 bits and
 // hands over 4096-frame chunks. Compatibility mode (no worklet) keeps the older ScriptProcessor tap.

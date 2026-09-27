@@ -7,7 +7,7 @@ args = [a for a in sys.argv[1:] if not a.startswith('--')]
 public = '--public' in sys.argv
 out = args[0] if args else 'index.html'
 # the user interface, in this order (later files use what earlier ones declare; boot.js starts the page)
-APP_FILES = ['core.js', 'pages.js', 'program.js', 'scale.js', 'keyboard.js', 'record.js', 'midi.js', 'boot.js']
+APP_FILES = ['core.js', 'pages.js', 'program.js', 'scale.js', 'keyboard.js', 'record.js', 'midi.js', 'midimode.js', 'boot.js']
 
 def source(f):
     code = open(f, encoding='utf-8').read()
