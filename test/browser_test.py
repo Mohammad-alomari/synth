@@ -1,8 +1,9 @@
 # Browser test of the built page (Chromium via Playwright). Starts its own http server; exit code 0 = all passed.
 # Usage: python3 test/browser_test.py            (run python3 build.py first; needs node for test/mkpcg.js)
-# Covers: sound of MOSS / PCM / drum / combination programs in both audio modes, every page renders, effects editing,
-# phone width, imported-PCG storage (IndexedDB, reload, migration, removal), synth memory, error messages.
-import asyncio, base64, functools, http.server, os, subprocess, sys, tempfile, threading
+# Covers: sound of MOSS / PCM / combination programs in both audio modes, drum programs left out, every page renders, effects editing,
+# phone width, recording, imported-PCG storage (IndexedDB, reload, migration, removal), synth memory, error messages,
+# and the public (Netlify) build.
+import asyncio, base64, functools, http.server, os, struct, subprocess, sys, tempfile, threading
 from playwright.async_api import async_playwright
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TMP = tempfile.mkdtemp()
@@ -10,10 +11,10 @@ fails = []
 def ok(name, cond, extra=''):
     print(('PASS ' if cond else 'FAIL ') + name + ('  ' + str(extra) if extra != '' else ''), flush=True)
     if not cond: fails.append(name)
-def serve():
+def serve(root=ROOT):
     class Quiet(http.server.SimpleHTTPRequestHandler):
         def log_message(self, *a): pass
-    h = functools.partial(Quiet, directory=ROOT)
+    h = functools.partial(Quiet, directory=root)
     srv = http.server.ThreadingHTTPServer(('127.0.0.1', 0), h)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     return 'http://127.0.0.1:%d/index.html' % srv.server_address[1]
@@ -64,15 +65,16 @@ async def sound_and_pages(b, url):
     pc = await pg.evaluate("__t.find(/^pc:\\d+ A\\d+ (?!Initl)/)")
     pk = await pg.evaluate("(v) => __t.play('pc', +v.split(':')[1], [48, 60, 64], 1500)", pc)
     ok('PCM program %s plays (stand-in samples)' % pc, pk > 0.005, round(pk, 3))
-    dr = await pg.evaluate("__t.find(/Mega-Mix/)")  # a TRINI-1-KJ drum program (other files' kits hold odd data)
-    pk = await pg.evaluate("(v) => __t.play('pc', +v.split(':')[1], [36, 38, 42], 1500)", dr) if dr else 0
-    ok('drum program %s plays' % dr, pk > 0.005, round(pk, 3))
+    ok('drum programs are not in the program list', await pg.evaluate("__t.find(/Mega-Mix/)") is None)  # a TRINI-1-KJ drum program
     pk = await pg.evaluate("__t.play('cb', 0, [48, 60, 64], 1500)")
     ok('combination cb:0 plays', pk > 0.005, round(pk, 3))
-    for v in ['st:17', pc, dr, 'cb:0']:
+    for v in ['st:17', pc, 'cb:0']:
         await pg.evaluate('(v) => __t.load(v)', v)
         n, empty = await pg.evaluate('__t.pages()')
         ok('%s: all %d pages render' % (v, n), n > 0 and not empty, empty)
+    await pg.evaluate("window.__moss.loadProgram('cb', 0); window.__moss.selectPage('timbre')")
+    txt = await pg.evaluate("document.querySelector('#page').textContent")
+    ok('combination Timbre page shows Delay start and the MIDI filters', 'Delay start' in txt and 'MIDI filters' in txt and 'Receives the damper' in txt)
     await pg.evaluate("window.__moss.loadProgram('st', 14); window.__moss.selectPage('fx')")
     n0 = await pg.evaluate('window.__moss.getPatch().fx.ins.length')
     await pg.evaluate("document.querySelector('#page .fxchip.add').click()")
@@ -82,6 +84,17 @@ async def sound_and_pages(b, url):
         await pg.evaluate("([v, p]) => { __t.load(v); window.__moss.selectPage(p); }", [v, page]); await pg.wait_for_timeout(150)
         ov = await pg.evaluate('document.documentElement.scrollWidth - document.documentElement.clientWidth')
         ok('phone width, %s %s page: no sideways scrolling' % (v, page), ov <= 0, ov)
+    # record to WAV: a note played while recording ends up in the downloaded file
+    await pg.set_viewport_size({'width': 1200, 'height': 900})
+    await pg.evaluate("window.__moss.loadProgram('st', 0)")
+    await pg.click('#recbtn')
+    await pg.evaluate("async () => { window.__moss.noteOn(60, 110); await __t.sleep(700); window.__moss.noteOff(60); await __t.sleep(200); }")
+    async with pg.expect_download() as dl:
+        await pg.click('#recbtn')
+    path = await (await dl.value).path(); data = open(path, 'rb').read()
+    sr, n = struct.unpack('<I', data[24:28])[0], (len(data) - 44) // 4
+    pk = max(abs(x) for x in struct.unpack('<%dh' % (n * 2), data[44:44 + n * 4])) / 32768 if n else 0
+    ok('record: a stereo 16-bit WAV of about a second with the note in it', data[:4] == b'RIFF' and data[8:12] == b'WAVE' and 0.5 < n / sr < 3 and pk > 0.005, [n / sr if n else 0, round(pk, 3)])
     ok('no errors (AudioWorklet mode)', not pg.errs, pg.errs[:5])
     await pg.close()
     pg = await open_page(b, url, script_mode=True)
@@ -109,8 +122,8 @@ async def storage_and_memory(b, url):
     await pg.evaluate("__t.load(__t.firstIn('Combinations A from Full'))")
     ok("memory: a file's own banks come first", all(t[2] == '' for t in await pg.evaluate('__t.timbres()')))
     await pg.evaluate('([b, n]) => __t.import(b, n)', [pcm, 'PcmOnly.PCG'])
-    dr = await pg.evaluate("() => { for (const g of document.querySelectorAll('#prog optgroup')) if (g.label.includes('(PCM) from PcmOnly')) for (const o of g.querySelectorAll('option')) { __t.load(o.value); const P = window.__moss.getPatch(); if (P.mode === 'drum') return [!!P.kitData, P.korgInfo.kitFrom || '']; } return null; }")
-    ok('memory: drum programs of a file without kits use the kits in memory', dr == [True, 'Full'], dr)
+    n = await pg.evaluate("() => [...document.querySelectorAll('#prog optgroup')].filter(g => g.label.includes('(PCM) from PcmOnly')).reduce((a, g) => a + g.children.length, 0)")
+    ok('drum programs of an imported file are left out', 0 < n < 256, n)  # TRINI-1-KJ has 8 drum programs in banks A-B
     n = await pg.evaluate("() => { let n = 0; for (const g of document.querySelectorAll('#prog optgroup')) if (/^Combinations . from (Hadi2024|TRINI-1-KJ)$/.test(g.label)) for (const o of g.querySelectorAll('option')) { __t.load(o.value); n += __t.timbres().filter(t => t[2]).length; } return n; }")
     ok('built-in files only use their own banks', n == 0, n)
     # storage: everything is still there after a reload
@@ -139,6 +152,29 @@ async def storage_and_memory(b, url):
     ok('no page errors (storage and memory)', not pg.errs, pg.errs[:5])
     await ctx.close()
 
+async def public_page(b):
+    # the Netlify page: built with --public (no owner files); importing a PCG still works
+    d = tempfile.mkdtemp(); os.symlink(os.path.join(ROOT, 'samples'), os.path.join(d, 'samples'))
+    subprocess.run([sys.executable, os.path.join(ROOT, 'build.py'), os.path.join(d, 'index.html'), '--public'], cwd=ROOT, check=True, capture_output=True)
+    url = serve(d)
+    ctx = await b.new_context(); pg = await ctx.new_page(); pg.errs = []
+    pg.on('pageerror', lambda e: pg.errs.append(str(e)))
+    await pg.add_init_script(JS); await pg.goto(url); await pg.wait_for_timeout(500)
+    await pg.click('#power'); await pg.wait_for_timeout(800)
+    groups = await pg.evaluate("[...document.querySelectorAll('#prog optgroup')].map(g => g.label)")
+    ok('public page: none of the owner\'s files are listed', not any(n in ' '.join(groups) for n in ['Hadi2024', 'KJ4TRINI', 'TRIN', 'from ', 'Korg factory']), groups)
+    ok('public page: starter program plays', await pg.evaluate("__t.play('st', 0, [60])") > 0.005)
+    st = await pg.evaluate('([b, n]) => __t.import(b, n)', [pcg('Hadi2024', 'Pub.pcg'), 'Mine.PCG'])
+    ok('public page: importing a PCG works', 'Imported from Mine' in st, st)
+    v = await pg.evaluate("__t.firstIn('(PCM) from Mine')")
+    pk = await pg.evaluate("(v) => __t.play('pc', +v.split(':')[1], [48, 60, 64], 1500)", v) if v else 0
+    ok('public page: an imported PCM program plays', pk > 0.005, round(pk, 3))
+    v = await pg.evaluate("__t.firstIn('Combinations A from Mine')")
+    pk = await pg.evaluate("(v) => __t.play('cb', +v.split(':')[1], [48, 60, 64], 1500)", v) if v else 0
+    ok('public page: an imported combination plays', pk > 0.005, round(pk, 3))
+    ok('no page errors (public page)', not pg.errs, pg.errs[:5])
+    await ctx.close()
+
 async def main():
     if not os.path.exists(os.path.join(ROOT, 'index.html')): sys.exit('index.html missing: run python3 build.py')
     url = serve()
@@ -146,6 +182,7 @@ async def main():
         b = await p.chromium.launch(args=['--autoplay-policy=no-user-gesture-required'])
         await sound_and_pages(b, url)
         await storage_and_memory(b, url)
+        await public_page(b)
         await b.close()
     print('ALL PASSED' if not fails else '%d FAILED: %s' % (len(fails), '; '.join(fails)))
     sys.exit(1 if fails else 0)

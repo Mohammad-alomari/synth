@@ -1,5 +1,5 @@
-# Netlify: builds the page from the sources on every push and publishes only what the page needs
-# (index.html + samples/), not the sources, tests or docs.
+# Netlify: builds the PUBLIC page (without the owner's own PCG files) on every push and publishes only what the
+# page needs (index.html + samples/), not the sources, tests or docs.
 [build]
-  command = "rm -rf dist && mkdir dist && python3 build.py dist/index.html && cp -r samples dist/"
+  command = "rm -rf dist && mkdir dist && python3 build.py dist/index.html --public && cp -r samples dist/"
   publish = "dist"

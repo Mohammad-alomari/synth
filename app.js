@@ -40,6 +40,7 @@ if (saved && saved.patch) { try { patch = loadAny(saved.patch); prog = saved.pro
 // a stored program: MOSS programs are merged onto the default patch; Trinity PCM programs are kept as they are
 function loadAny(p) {
   if (p && p.kind === 'combi' && !Array.isArray(p.timbres)) throw new Error('combination without timbres');
+  if (p && p.kind === 'combi') for (const t of p.timbres) for (const f of ['rxDamper', 'rxAT', 'rxCC']) if (t && t[f] === undefined) t[f] = 1;
   if (p && p.kind === 'pcm' && !Array.isArray(p.o)) throw new Error('PCM program without oscillators');
   return p && (p.kind === 'pcm' || p.kind === 'combi') ? clone(p) : mossLoad(p);
 }
@@ -68,17 +69,18 @@ function pcgPatch(idx) {
   P.korgInfo.source = b.name + ', Bank ' + bankLetter(b) + ' ' + String(i).padStart(3, '0');
   return P;
 }
-// ---------------- Trinity PCM programs, drum kits and combinations (built-in files + imported PCGs) ----------------
-// A set is one PCG file: its PCM banks (A-D, 128 x 433 bytes), its drum kits and its combination banks.
+// ---------------- Trinity PCM programs and combinations (built-in files + imported PCGs) ----------------
+// A set is one PCG file: its PCM banks (A-D, 128 x 433 bytes) and its combination banks. Drum kits are not supported:
+// Drum-mode programs are left out of the lists, and timbres that use one stay silent.
 const LS_TRI = 'moss-tri';
 const triSets = [], pcmBanks = [], combiBanks = []; // flat lists of { set, letter, bytes, names }; ids 'pc:' / 'cb:' + (index * 128 + number)
 const pad3 = n => String(n).padStart(3, '0');
-function addTriSet(name, scale, pcm, kitBytes, combis, builtin, hasS) {
-  const set = { name, scale: scale || new Array(12).fill(0), kitBytes, kits: null, combis: combis || [], builtin, hasS: !!hasS, dbId: null };
+function addTriSet(name, scale, pcm, combis, builtin, hasS) {
+  const set = { name, scale: scale || new Array(12).fill(0), combis: combis || [], builtin, hasS: !!hasS, dbId: null };
   triSets.push(set);
   for (const b of pcm) {
-    const names = []; for (let i = 0; i < 128; i++) names.push(korgName(b.bytes.subarray(i * 433, i * 433 + 16)) || 'Untitled');
-    pcmBanks.push({ set, letter: b.letter, bytes: b.bytes, names });
+    const names = [], drum = []; for (let i = 0; i < 128; i++) { names.push(korgName(b.bytes.subarray(i * 433, i * 433 + 16)) || 'Untitled'); drum.push((b.bytes[i * 433 + 17] & 3) === 2); }
+    pcmBanks.push({ set, letter: b.letter, bytes: b.bytes, names, drum });
   }
   for (const b of set.combis) {
     const names = []; for (let i = 0; i < 128; i++) names.push(korgName(b.bytes.subarray(i * 388, i * 388 + 16)) || 'Untitled');
@@ -86,21 +88,19 @@ function addTriSet(name, scale, pcm, kitBytes, combis, builtin, hasS) {
   }
   return set;
 }
-function kitsOf(set) { if (!set.kits) { set.kits = []; const B = set.kitBytes || new Uint8Array(0); for (let o = 0; o + 1426 <= B.length; o += 1426) set.kits.push(korgDecodeKit(B.subarray(o, o + 1426))); } return set.kits; }
 function triFromFile(name, bytes, builtin) { // a whole Trinity PCG -> set
-  const S = korgTrinitySections(bytes); if (!S.ok || (!S.pcm.length && !S.kits.length && !S.combis.length && !S.bankM.length)) return null;
+  const S = korgTrinitySections(bytes); if (!S.ok || (!S.pcm.length && !S.combis.length && !S.bankM.length)) return null;
   const cat = recs => { const rs = recs[0].length, u = new Uint8Array(recs.length * rs); recs.forEach((r, i) => u.set(r, i * rs)); return u; };
-  const kitBytes = S.kits.length ? cat(S.kits) : null;
-  return addTriSet(name, S.userScale, S.pcm.map(b => ({ letter: b.bank, bytes: cat(b.recs) })), kitBytes, S.combis.map(b => ({ letter: b.bank, bytes: cat(b.recs) })), builtin, S.bankS.length > 0);
+  return addTriSet(name, S.userScale, S.pcm.map(b => ({ letter: b.bank, bytes: cat(b.recs) })), S.combis.map(b => ({ letter: b.bank, bytes: cat(b.recs) })), builtin, S.bankS.length > 0);
 }
-(typeof TRI_BUILTIN !== 'undefined' ? TRI_BUILTIN : []).forEach(t => addTriSet(t.name, t.scale, t.pcm.map(b => ({ letter: b.bank, bytes: b64dec(b.m) })), t.kits ? b64dec(t.kits) : null, t.combis.map(b => ({ letter: b.bank, bytes: b64dec(b.m) })), true, !!t.s));
+(typeof TRI_BUILTIN !== 'undefined' ? TRI_BUILTIN : []).forEach(t => addTriSet(t.name, t.scale, t.pcm.map(b => ({ letter: b.bank, bytes: b64dec(b.m) })), t.combis.map(b => ({ letter: b.bank, bytes: b64dec(b.m) })), true, !!t.s));
 // ---- synth memory ----
 // Like loading PCG files into a real Trinity: an imported file brings the banks it contains; whatever it lacks
-// (PCM banks A-D, drum kits, Bank M) comes from what was loaded before it: earlier imports (newest first), then the
-// built-in files in their list order (Hadi2024 first: it has every bank, so one file fills everything in). Built-in files keep to their own data, as before. A file with a Bank S (Solo-TRI) never takes a
+// (PCM banks A-D, Bank M) comes from what was loaded before it: earlier imports (newest first), then the
+// built-in files in their list order (the first one has every bank, so one file fills everything in). Built-in files keep to their own data, as before. A file with a Bank S (Solo-TRI) never takes a
 // Bank M from memory: in that synth, bank 4 is the Solo-TRI bank (not modelled, silent).
 const mossOf = s => pcgBanks.find(x => x.name === s.name && x.fmt !== 'triton' && !!x.builtin === !!s.builtin) || null;
-function setHas(s, what) { return what === 'kits' ? !!(s.kitBytes && s.kitBytes.length) : what === 'M' ? !!mossOf(s) : pcmBanks.some(b => b.set === s && b.letter === what); }
+function setHas(s, what) { return what === 'M' ? !!mossOf(s) : pcmBanks.some(b => b.set === s && b.letter === what); }
 function memoryFor(set, what) {
   if (setHas(set, what)) return set;
   if (set.builtin || (what === 'M' && set.hasS)) return null;
@@ -110,9 +110,8 @@ function memoryFor(set, what) {
 }
 function pcmPatch(idx) {
   const b = pcmBanks[Math.floor(idx / 128)], i = idx % 128;
-  if (!b) return null;
+  if (!b || b.drum[i]) return null; // Drum-mode programs (drum kits) are not supported
   const P = korgDecodePcm(b.bytes.subarray(i * 433, (i + 1) * 433), b.set.scale);
-  if (P.mode === 'drum') { const ks = memoryFor(b.set, 'kits'); P.kitData = ks ? kitsOf(ks)[P.kit] || null : null; if (ks && ks !== b.set) P.korgInfo.kitFrom = ks.name; }
   P.korgInfo.source = b.set.name + ', Bank ' + b.letter + ' ' + String(i).padStart(3, '0');
   return P;
 }
@@ -120,8 +119,8 @@ function pcmPatch(idx) {
 // (MOSS, Trinity V3); a Solo-TRI Bank S is not modelled, so such a timbre stays silent
 function timbreProgram(set, t) {
   t.p = null; t.pId = ''; t.pLabel = ('ABCD'[t.bank] || (t.bank === 4 ? 'M' : '?')) + pad3(t.prog);
-  t.from = '';
-  if (t.bank <= 3) { const L = 'ABCD'[t.bank], src = memoryFor(set, L), bi = src ? pcmBanks.findIndex(x => x.set === src && x.letter === L) : -1; if (bi >= 0) { t.p = pcmPatch(bi * 128 + t.prog); t.pId = 'pc:' + (bi * 128 + t.prog); if (src !== set) t.from = src.name; } }
+  t.from = ''; t.drum = false;
+  if (t.bank <= 3) { const L = 'ABCD'[t.bank], src = memoryFor(set, L), bi = src ? pcmBanks.findIndex(x => x.set === src && x.letter === L) : -1; if (bi >= 0 && pcmBanks[bi].drum[t.prog]) t.drum = true; else if (bi >= 0) { t.p = pcmPatch(bi * 128 + t.prog); t.pId = 'pc:' + (bi * 128 + t.prog); if (src !== set) t.from = src.name; } }
   else if (t.bank === 4) { const src = memoryFor(set, 'M'), mb = src && mossOf(src), mi = mb ? pcgBanks.indexOf(mb) : -1; if (mi >= 0) { t.p = pcgPatch(mi * 128 + t.prog); t.pId = 'pm:' + (mi * 128 + t.prog); if (src !== set) t.from = src.name; } else if (set.hasS || set.builtin) t.pLabel = 'S' + pad3(t.prog); }
   if (t.p) delete t.p.korg; // the raw bytes are not needed inside a combination
   t.pName = t.p ? t.p.name : '';
@@ -141,7 +140,7 @@ if (!edited) { try { const P = prog.bank === 'pm' ? pcgPatch(prog.idx) : prog.ba
 function restoreRecord(r) {
   try {
     if (r.kind === 'moss') addPcgBank(r.name, r.scale, r.bytes, false, r.fmt, r.rs).dbId = r.id;
-    else { const set = triFromFile(r.name, r.bytes, false); if (!set) throw new Error('no PCM programs or kits found'); set.dbId = r.id; }
+    else { const set = triFromFile(r.name, r.bytes, false); if (!set) throw new Error('nothing this synth can play'); set.dbId = r.id; }
     return true;
   } catch (e) { console.error('Stored bank "' + r.name + '" could not be restored', e); return false; }
 }
@@ -189,14 +188,13 @@ async function importPcgInner(file) {
     catch (e) { console.error('Could not store bank', e); notKept = true; }
     got.push(r.bankM.length + (r.fmt === 'triton' ? ' MOSS (bank F)' : ' Bank M') + ' programs'); first = ['pm', (pcgBanks.length - 1) * 128];
   }
-  if (r.fmt !== 'triton' && (r.pcmPrograms || r.drumKits || r.combis || r.bankM.length)) {
+  if (r.fmt !== 'triton' && (r.pcmPrograms || r.combis || r.bankM.length)) {
     const before = pcmBanks.length, set = triFromFile(name, bytes, false);
     if (set) {
       try { set.dbId = await idb.add({ kind: 'tri', name, bytes }); }
       catch (e) { console.error('Could not store PCM banks', e); notKept = true; }
       const nb = pcmBanks.length - before;
       if (nb) { got.push(nb * 128 + ' PCM programs (banks ' + pcmBanks.slice(before).map(b => b.letter).join('') + ')'); if (!first) first = ['pc', before * 128]; }
-      if (set.kitBytes) got.push(Math.floor(set.kitBytes.length / 1426) + ' drum kits');
       if (set.combis.length) { got.push(set.combis.length * 128 + ' combinations'); if (!first) first = ['cb', (combiBanks.length - set.combis.length) * 128]; }
     }
   }
@@ -252,7 +250,7 @@ class MossProc extends AudioWorkletProcessor {
 registerProcessor('moss', MossProc);`;
 }
 // ---------------- stand-in samples for Trinity PCM programs ----------------
-// samples/packs.json lists the packs (one MP3 per General MIDI instrument or drum kit, mono 32 kHz); each is decoded
+// samples/packs.json lists the packs (one MP3 per General MIDI instrument or drum set, mono 32 kHz); each is decoded
 // here when a program first needs it and handed to the engine as zones (see PcmStore in pcm.js).
 let packsReq = null, engineUp = false; const packState = {};
 function packIndex() {
@@ -288,7 +286,6 @@ async function loadPack(name) {
 function packsFor(P) {
   const out = new Set(), M = PCM_STANDIN;
   if (!P || P.kind !== 'pcm') return out;
-  if (P.mode === 'drum') { const K = P.kitData; out.add('kit_std'); if (K) for (const k of K.keys) for (const d of [k.hi, k.lo]) { const e = d >= 0 && M.ds[d]; if (e && e.p) out.add(e.p); } return out; }
   for (const O of P.o) for (let id of [O.msHi, O.msLo]) { if (id >= 0x1000) id = P.ramMap ? P.ramMap[id & 0xfff] || 0 : 0; const e = M.ms[id]; if (e && e.p) out.add(e.p); }
   return out;
 }
@@ -801,12 +798,12 @@ const K = {
 };
 const pcmAms = i => KORG_PCM.AMS.map((a, k) => [a, KORG_PCM.AMS_NAME[k]]).slice(0, i === 1 ? 27 : 23);
 const MS_OPTS = () => PCM_MS_NAMES.map((n, i) => [i, String(i).padStart(3, '0') + ' ' + n]);
-const standinName = id => { const e = PCM_STANDIN.ms[id]; if (!e) return 'placeholder'; if (e.syn) return 'built-in ' + e.syn + ' wave'; if (/^kit/.test(e.p)) return e.p.replace('kit_', '') + ' kit, key ' + e.k; return 'General MIDI ' + (parseInt(e.p.slice(2), 10) + 1) + (e.r ? ' (shifted ' + e.r + ' st)' : ''); };
+const standinName = id => { const e = PCM_STANDIN.ms[id]; if (!e) return 'placeholder'; if (e.syn) return 'built-in ' + e.syn + ' wave'; if (/^kit/.test(e.p)) return 'General MIDI ' + e.p.replace('kit_', '') + ' drum set, key ' + e.k; return 'General MIDI ' + (parseInt(e.p.slice(2), 10) + 1) + (e.r ? ' (shifted ' + e.r + ' st)' : ''); };
 function pcmPageProgram() {
   const P = patch, secs = [
     { title: 'Program', controls: [
       { k: 'txt', path: 'name', label: 'Name' },
-      SEL('mode', 'Oscillator mode', [['single', 'Single'], ['double', 'Double'], ['drum', 'Drums']], { rerender: true }),
+      SEL('mode', 'Oscillator mode', [['single', 'Single'], ['double', 'Double']], { rerender: true }),
       SEL('voice.mode', 'Key assign', [['poly', 'Poly'], ['monoSingle', 'Mono, legato'], ['monoMulti', 'Mono']]),
       SEL('voice.priority', 'Key priority (mono)', [['last', 'Last'], ['low', 'Low'], ['high', 'High']]),
       TOG('voice.hold', 'Hold'), TOG('voice.piano', 'Poly assign: Piano'),
@@ -816,41 +813,15 @@ function pcmPageProgram() {
       S('peg.decT', 'Decay time', 0, 99, { fmt: K.time }), S('peg.relT', 'Release time', 0, 99, { fmt: K.time }), S('peg.relL', 'Release level', -99, 99, { fmt: K.sgn }),
       S('peg.velT', 'Time by velocity', -99, 99, { fmt: K.sgn }), SEL('peg.tSrc', 'Time A.M. source', pcmAms(0)), S('peg.tInt', 'Time A.M. intensity', -99, 99, { fmt: K.sgn })],
       help: 'Each oscillator sets how far this EG bends its pitch (OSC pages, EG intensity).' }];
-  if (P.mode === 'drum') secs.push({ title: 'Drum kit', custom: renderKitPick });
   secs.push({ title: 'Program memory', custom: renderMemory });
   secs.push({ title: 'Imported from Trinity', custom: renderImportInfo });
   return secs;
 }
-function renderKitPick(host) {
-  const src = prog.bank === 'pc' ? pcmBanks[Math.floor(prog.idx / 128)] : null, kits = src ? kitsOf(src.set) : [];
-  const row = el('div', 'grid'), w = el('label', 'ctl'), s = el('select');
-  w.append(el('span', 'nm', 'Kit'), el('span'), s);
-  if (kits.length) kits.forEach((k, i) => { const o = el('option', null, String(i).padStart(2, '0') + ' ' + k.name); o.value = i; s.appendChild(o); });
-  else { const o = el('option', null, patch.kitData ? patch.kitData.name : 'No kit'); o.value = patch.kit; s.appendChild(o); s.disabled = true; }
-  s.value = String(patch.kit);
-  s.addEventListener('change', () => { patch.kit = Number(s.value); patch.kitData = kits[patch.kit] || null; edited = true; lcd(); saveCurrent(); pcmPrepare(patch); send({ t: 'patch', p: clone(patch) }); });
-  row.appendChild(w); host.appendChild(row);
-  host.appendChild(el('p', 'help', 'Drum kits come from the same PCG file as the program. Each key plays one of Korg’s drum samples; the program’s filters and amp EG shape it. Korg’s samples are not available, so each one is played by the General MIDI drum sound that matches where Korg’s factory kits place it (an estimate: the real sample may differ).'));
-  const K = patch.kitData; if (!K) return;
-  const wrap = el('div', 'kitwrap'), t = el('table', 'kit'), hd = el('tr');
-  ['Key', 'Drum sample', 'Stand-in', 'Level', 'Tune', 'Pan'].forEach(x => hd.appendChild(el('th', null, x))); t.appendChild(hd);
-  const sd = d => { if (d >= 0x1000) return 'RAM ' + (d & 0xfff); const e = PCM_STANDIN.ds[d]; return e ? (GM_DRUMS[e.k - 27] || 'key ' + e.k) + (e.p !== 'kit_std' ? ' (' + e.p.slice(4) + ')' : '') : 'conga'; };
-  K.keys.forEach((q, j) => {
-    if (q.hi <= 0 && q.lo <= 0) return;
-    const tr = el('tr'), two = q.lo >= 0 && q.lo !== q.hi && q.velSplit > 1;
-    [F.note(21 + j), '#' + (q.hi >= 0x1000 ? 'RAM' + (q.hi & 0xfff) : q.hi) + (two ? ' / #' + q.lo : ''), sd(q.hi) + (two && sd(q.lo) !== sd(q.hi) ? ' / ' + sd(q.lo) : ''), sgn(q.hiLvl), q.hiTune ? sgn(q.hiTune) : '0', q.pan > 127 ? 'off' : F.pan(q.pan)]
-      .forEach(x => tr.appendChild(el('td', null, String(x))));
-    t.appendChild(tr);
-  });
-  wrap.appendChild(t); host.appendChild(wrap);
-}
-// General MIDI / GS drum names for keys 27..87 (the stand-in drum sounds)
-const GM_DRUMS = ['High Q', 'Slap', 'Scratch push', 'Scratch pull', 'Sticks', 'Square click', 'Metronome click', 'Metronome bell', 'Kick 2', 'Kick 1', 'Side stick', 'Snare 1', 'Hand clap', 'Snare 2', 'Low floor tom', 'Closed hi-hat', 'High floor tom', 'Pedal hi-hat', 'Low tom', 'Open hi-hat', 'Low-mid tom', 'High-mid tom', 'Crash 1', 'High tom', 'Ride 1', 'China cymbal', 'Ride bell', 'Tambourine', 'Splash', 'Cowbell', 'Crash 2', 'Vibraslap', 'Ride 2', 'High bongo', 'Low bongo', 'Mute high conga', 'Open high conga', 'Low conga', 'High timbale', 'Low timbale', 'High agogo', 'Low agogo', 'Cabasa', 'Maracas', 'Short whistle', 'Long whistle', 'Short guiro', 'Long guiro', 'Claves', 'High wood block', 'Low wood block', 'Mute cuica', 'Open cuica', 'Mute triangle', 'Open triangle', 'Shaker', 'Jingle bell', 'Bell tree', 'Castanets', 'Mute surdo', 'Open surdo'];
 function pcmPageOsc(i) {
-  const P = patch, b = 'o.' + i + '.', O = P.o[i], drum = P.mode === 'drum';
+  const P = patch, b = 'o.' + i + '.', O = P.o[i];
   if (i === 1 && P.mode !== 'double') return [{ title: 'Oscillator 2', note: 'Used only in Double mode', controls: [] }];
   const secs = [];
-  if (!drum) secs.push({ title: 'Multisample', controls: [SEL(b + 'msHi', 'High multisample', MS_OPTS(), { num: true, rerender: true }), S(b + 'lvlHi', 'High level', 0, 127, { fmt: K.n }), TOG(b + 'offHi', 'High: offset start'),
+  secs.push({ title: 'Multisample', controls: [SEL(b + 'msHi', 'High multisample', MS_OPTS(), { num: true, rerender: true }), S(b + 'lvlHi', 'High level', 0, 127, { fmt: K.n }), TOG(b + 'offHi', 'High: offset start'),
     SEL(b + 'msLo', 'Low multisample', MS_OPTS(), { num: true, rerender: true }), S(b + 'lvlLo', 'Low level', 0, 127, { fmt: K.n }), TOG(b + 'offLo', 'Low: offset start'),
     S(b + 'velSplit', 'High from velocity', 1, 127, { fmt: K.n })],
     help: 'Stand-ins: high → ' + standinName(O.msHi) + '; low → ' + standinName(O.msLo) + '. Korg’s own samples are not available.' });
@@ -925,8 +896,8 @@ const tPlays = t => !!t && !!t.p && (t.status === 'int' || t.status === 'both') 
 const tLabel = (t, k) => 'T' + (k + 1) + ' ' + (t.pLabel || '') + (t.pName ? ' ' + t.pName : '');
 const zoneTxt = t => (t.keyBot > 0 || t.keyTop < 127 ? F.note(t.keyBot) + '–' + F.note(t.keyTop) : 'all keys');
 function combiStatus() {
-  const C = patch, on = C.timbres.filter(tPlays), miss = C.timbres.filter(t => t.status !== 'off' && !t.p);
-  return 'Combination: ' + on.length + (on.length === 1 ? ' timbre plays' : ' timbres play') + ' from the keyboard' + (miss.length ? '; ' + miss.length + ' use a program not in memory (silent)' : '') + (C.timbres.some(t => t.from) ? '; some programs come from other loaded files (see the Timbres table)' : '') + '. PCM timbres play stand-in samples.';
+  const C = patch, on = C.timbres.filter(tPlays), miss = C.timbres.filter(t => t.status !== 'off' && !t.p && !t.drum), drums = C.timbres.filter(t => t.status !== 'off' && t.drum);
+  return 'Combination: ' + on.length + (on.length === 1 ? ' timbre plays' : ' timbres play') + ' from the keyboard' + (miss.length ? '; ' + miss.length + ' use a program not in memory (silent)' : '') + (drums.length ? '; ' + drums.length + ' use a drum program (not supported, silent)' : '') + (C.timbres.some(t => t.from) ? '; some programs come from other loaded files (see the Timbres table)' : '') + '. PCM timbres play stand-in samples.';
 }
 function renderTimbreTable(host) {
   const wrap = el('div', 'kitwrap'), t = el('table', 'kit'), hd = el('tr');
@@ -934,7 +905,7 @@ function renderTimbreTable(host) {
   patch.timbres.forEach((tb, k) => {
     const tr = el('tr', 'trow' + (k === curTimbre ? ' sel' : '') + (tPlays(tb) ? '' : ' dim'));
     const fx = tb.chain >= 0 ? 'chain ' + (tb.chain + 1) : tb.status === 'off' ? '' : 'none';
-    ['T' + (k + 1), (tb.pLabel || '') + ' ' + (tb.pName || (tb.status !== 'off' ? '(not in memory)' : '')) + (tb.from ? ' \u00b7 from ' + tb.from : ''), TSTAT[tb.status] || tb.status, tb.ch === 16 ? 'Global' : 'Ch ' + (tb.ch + 1),
+    ['T' + (k + 1), (tb.pLabel || '') + ' ' + (tb.pName || (tb.drum ? '(drum program, not supported)' : tb.status !== 'off' ? '(not in memory)' : '')) + (tb.from ? ' \u00b7 from ' + tb.from : ''), TSTAT[tb.status] || tb.status, tb.ch === 16 ? 'Global' : 'Ch ' + (tb.ch + 1),
       tb.level, tb.pan === 'prog' ? 'Program' : tb.pan < 0 ? 'Off' : F.pan(tb.pan), sgn(tb.transpose), zoneTxt(tb), tb.velBot + '–' + tb.velTop, fx].forEach(x => tr.appendChild(el('td', null, String(x))));
     tr.tabIndex = 0; tr.title = 'Edit timbre ' + (k + 1);
     const go = () => { curTimbre = k; selectPage('timbre'); };
@@ -962,7 +933,7 @@ function renderTimbreProgram(host) {
   if (!set) { const o = el('option', null, t.pLabel + ' ' + (t.pName || '')); s.appendChild(o); s.disabled = true; }
   else {
     const fromTxt = src => src !== set ? ' (from ' + src.name + ')' : '';
-    for (const L of 'ABCD') { const src = memoryFor(set, L), b = src && pcmBanks.find(x => x.set === src && x.letter === L); if (!b) continue; const g = el('optgroup'); g.label = 'Bank ' + L + fromTxt(src); b.names.forEach((n, i) => { const o = el('option', null, L + pad3(i) + ' ' + n); o.value = 'ABCD'.indexOf(L) + ':' + i; g.appendChild(o); }); s.appendChild(g); }
+    for (const L of 'ABCD') { const src = memoryFor(set, L), b = src && pcmBanks.find(x => x.set === src && x.letter === L); if (!b) continue; const g = el('optgroup'); g.label = 'Bank ' + L + fromTxt(src); b.names.forEach((n, i) => { if (b.drum[i]) return; const o = el('option', null, L + pad3(i) + ' ' + n); o.value = 'ABCD'.indexOf(L) + ':' + i; g.appendChild(o); }); s.appendChild(g); }
     const msrc = memoryFor(set, 'M'), mb = msrc && mossOf(msrc);
     if (mb) { const g = el('optgroup'); g.label = 'Bank M (MOSS)' + fromTxt(msrc); mb.names.forEach((n, i) => { const o = el('option', null, 'M' + pad3(i) + ' ' + n); o.value = '4:' + i; g.appendChild(o); }); s.appendChild(g); }
     s.value = t.bank + ':' + t.prog;
@@ -989,6 +960,7 @@ function combiPageTimbre() {
   if (t.bend !== null && t.bend !== undefined) c.push(S(b + 'bend', 'Pitch bend range', -24, 24, { fmt: K.semis }));
   if (typeof t.send1 === 'number') c.push(S(b + 'send1', 'Send 1', 0, 127, { fmt: K.n }));
   if (typeof t.send2 === 'number') c.push(S(b + 'send2', 'Send 2', 0, 127, { fmt: K.n }));
+  c.push(S(b + 'delay', 'Delay start', -1, 5000, { fmt: K.delay, step: 2 }));
   c.push(TOG(b + 'hideOsc2', 'Hide OSC 2 (Double programs)'), TOG(b + 'forcePoly', 'Force poly (Mono programs)'));
   const notes = [];
   if (t.pan === 'prog') notes.push('pan: the program’s'); if (t.bend === null || t.bend === undefined) notes.push('bend range: the program’s');
@@ -999,6 +971,8 @@ function combiPageTimbre() {
     S(b + 'velBot', 'Lowest velocity', 1, 127, { fmt: K.n }), S(b + 'velTop', 'Highest velocity', 1, 127, { fmt: K.n }),
     S(b + 'velSlopeBot', 'Fade in above lowest velocity', 0, 120, { fmt: K.n }), S(b + 'velSlopeTop', 'Fade out below highest velocity', 0, 120, { fmt: K.n })],
     help: 'The timbre plays only inside its zones; the fades soften it toward each edge.' });
+  secs.push({ title: 'MIDI filters', controls: [TOG(b + 'rxDamper', 'Receives the damper (sustain) pedal'), TOG(b + 'rxAT', 'Receives aftertouch'), TOG(b + 'rxCC', 'Receives control changes (joystick Y, knobs, other pedals)')],
+    help: 'Switched off, this timbre ignores that message while the other timbres still get it. Pitch bend always reaches every timbre. The Trinity\u2019s program-change filter is kept in the data but this page does not change programs by MIDI.' });
   return secs;
 }
 function renderCombiRouting(host) {
@@ -1046,7 +1020,7 @@ function renderFlowCombi(svg) {
     const g = add('g', { class: 'blk' + (curPage === 'timbre' && curTimbre === k ? ' sel' : '') + (live ? '' : ' dim'), tabindex: 0, role: 'button', 'aria-label': 'Edit timbre ' + (k + 1) });
     add('rect', { x, y, width: w, height: h, rx: 2 }, g);
     add('text', { x: x + 5, y: y + 13, class: 't' }, g).textContent = 'T' + (k + 1) + ' ' + (t.status === 'off' ? 'OFF' : (t.pLabel || ''));
-    add('text', { x: x + 5, y: y + 27 }, g).textContent = (t.pName || (t.status === 'off' ? '' : 'NOT IN MEMORY')).toUpperCase().slice(0, 18);
+    add('text', { x: x + 5, y: y + 27 }, g).textContent = (t.pName || (t.status === 'off' ? '' : t.drum ? 'DRUMS (SILENT)' : 'NOT IN MEMORY')).toUpperCase().slice(0, 18);
     const go = () => { curTimbre = k; selectPage('timbre'); }; g.addEventListener('click', go); g.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
   });
   const g = add('g', { class: 'blk' + (curPage === 'fx' ? ' sel' : ''), tabindex: 0, role: 'button', 'aria-label': 'Edit effects' });
@@ -1169,14 +1143,14 @@ function renderMemory(host) {
   if (cb && !cb.builtin) b('Remove this Trinity bank', () => {
     pcgBanks.splice(pcgBanks.indexOf(cb), 1); forget(cb);
     // a file that held only this Bank M also leaves the memory
-    const ms = triSets.find(s => !s.builtin && s.name === cb.name && !s.combis.length && !s.kitBytes && !pcmBanks.some(b => b.set === s)); if (ms) { removeTriSet(ms); forget(ms); }
+    const ms = triSets.find(s => !s.builtin && s.name === cb.name && !s.combis.length && !pcmBanks.some(b => b.set === s)); if (ms) { removeTriSet(ms); forget(ms); }
     loadProgram('st', 0); toast('Removed ' + cb.name);
   });
   const ts = prog.bank === 'pc' ? (pcmBanks[Math.floor(prog.idx / 128)] || {}).set : prog.bank === 'cb' ? (combiBanks[Math.floor(prog.idx / 128)] || {}).set : null;
   if (ts && !ts.builtin) b('Remove these PCM banks and combinations', () => { removeTriSet(ts); forget(ts); loadProgram('st', 0); toast('Removed ' + ts.name); });
   b('Revert', () => loadProgram(prog.bank, prog.idx));
   host.appendChild(row);
-  host.appendChild(el('p', 'help', 'User programs and imported banks live in this browser only. Use Export to keep a copy elsewhere. Importing reads a Trinity PCG file\u2019s Bank M (MOSS) programs, its PCM programs (banks A\u2013D) with their drum kits, its combinations, and its user scale. Korg\u2019s free Trinity preload data can be imported the same way. Like the real synth\u2019s memory, an imported file that lacks some banks or drum kits uses the ones loaded before it (earlier imports first, then the built-in files); the Timbres table shows where each program comes from.'));
+  host.appendChild(el('p', 'help', 'User programs and imported banks live in this browser only. Use Export to keep a copy elsewhere. Importing reads a Trinity PCG file\u2019s Bank M (MOSS) programs, its PCM programs (banks A\u2013D; Drum-mode programs are not supported), its combinations, and its user scale. Korg\u2019s free Trinity preload data can be imported the same way. Like the real synth\u2019s memory, an imported file that lacks some banks uses the ones loaded before it (earlier imports first, then the built-in files); the Timbres table shows where each program comes from.'));
 }
 function renderImportInfo(host) {
   if (patch.kind === 'combi') {
@@ -1187,8 +1161,8 @@ function renderImportInfo(host) {
     return;
   }
   if (patch.kind === 'pcm') {
-    const k = patch.korgInfo || {}, lines = [(k.source ? k.source + '. ' : '') + 'Trinity PCM program, ' + { single: 'Single', double: 'Double', drum: 'Drums' }[patch.mode] + ' mode.'];
-    if (patch.mode !== 'drum') patch.o.slice(0, patch.mode === 'double' ? 2 : 1).forEach((O, i) => lines.push('OSC ' + (i + 1) + ': ' + (PCM_MS_NAMES[O.msHi] || 'RAM sample') + ' \u2192 stand-in: ' + standinName(O.msHi < 0x1000 ? O.msHi : (patch.ramMap || {})[O.msHi & 0xfff] || 0) + '.'));
+    const k = patch.korgInfo || {}, lines = [(k.source ? k.source + '. ' : '') + 'Trinity PCM program, ' + { single: 'Single', double: 'Double' }[patch.mode] + ' mode.'];
+    patch.o.slice(0, patch.mode === 'double' ? 2 : 1).forEach((O, i) => lines.push('OSC ' + (i + 1) + ': ' + (PCM_MS_NAMES[O.msHi] || 'RAM sample') + ' \u2192 stand-in: ' + standinName(O.msHi < 0x1000 ? O.msHi : (patch.ramMap || {})[O.msHi & 0xfff] || 0) + '.'));
     lines.push('Korg\u2019s sample ROM is not available, so openly licensed General MIDI recordings (MuseScore\u2019s MS General, MIT licence) and built-in waveforms stand in for the multisamples. The program\u2019s own filters, envelopes, LFOs and effects are applied to them.');
     (k.notes || []).forEach(n => lines.push(n + '.'));
     lines.forEach(t => host.appendChild(el('p', 'help', t)));
@@ -1242,7 +1216,7 @@ function fillProgSelect() {
   });
   pcmBanks.forEach((b, bi) => {
     const g = el('optgroup'); g.label = 'Bank ' + b.letter + ' (PCM) from ' + b.set.name;
-    for (let i = 0; i < 128; i++) { const o = el('option', null, b.letter + String(i).padStart(3, '0') + ' ' + b.names[i]); o.value = 'pc:' + (bi * 128 + i); g.appendChild(o); }
+    for (let i = 0; i < 128; i++) { if (b.drum[i]) continue; const o = el('option', null, b.letter + String(i).padStart(3, '0') + ' ' + b.names[i]); o.value = 'pc:' + (bi * 128 + i); g.appendChild(o); }
     s.appendChild(g);
   });
   combiBanks.forEach((b, bi) => {
@@ -1278,7 +1252,7 @@ function loadProgram(bank, idx) {
 function stepProgram(dir) {
   const list = MOSS_PRESETS.map((_, i) => ['st', i]).concat(userBank.map((_, i) => ['us', i]));
   pcgBanks.forEach((b, bi) => { for (let i = 0; i < b.n; i++) list.push(['pm', bi * 128 + i]); });
-  pcmBanks.forEach((b, bi) => { for (let i = 0; i < 128; i++) list.push(['pc', bi * 128 + i]); });
+  pcmBanks.forEach((b, bi) => { for (let i = 0; i < 128; i++) if (!b.drum[i]) list.push(['pc', bi * 128 + i]); });
   combiBanks.forEach((b, bi) => { for (let i = 0; i < 128; i++) list.push(['cb', bi * 128 + i]); });
   let k = list.findIndex(x => x[0] === prog.bank && x[1] === prog.idx); if (k < 0) k = 0;
   k = (k + dir + list.length) % list.length; loadProgram(list[k][0], list[k][1]);
@@ -1332,10 +1306,10 @@ function renderFlow() {
 }
 
 function renderFlowPcm(svg) {
-  const P = patch, dbl = P.mode === 'double', drum = P.mode === 'drum';
+  const P = patch, dbl = P.mode === 'double';
   const add = (tag, attrs, parent) => { const e = document.createElementNS(SVGNS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); (parent || svg).appendChild(e); return e; };
   const wires = add('g', {}), short = (n, k) => (n || '').toUpperCase().slice(0, k);
-  const msn = O => drum ? 'DRUM KIT' : short(PCM_MS_NAMES[O.msHi < 375 ? O.msHi : 0], 13);
+  const msn = O => short(PCM_MS_NAMES[O.msHi < 375 ? O.msHi : 0], 13);
   const B = {
     o0: { x: 2, y: 18, w: 112, h: 40, t: 'OSC 1', s: msn(P.o[0]), page: 'osc0' }, o1: { x: 2, y: 92, w: 112, h: 40, t: 'OSC 2', s: dbl ? msn(P.o[1]) : 'UNUSED', page: 'osc1', dim: !dbl },
     f0: { x: 150, y: 18, w: 84, h: 40, t: 'FILTER 1', s: P.o[0].route === 'thru' ? 'THRU' : P.o[0].route.toUpperCase(), page: 'filter0' }, f1: { x: 150, y: 92, w: 84, h: 40, t: 'FILTER 2', s: P.o[1].route === 'thru' ? 'THRU' : P.o[1].route.toUpperCase(), page: 'filter1', dim: !dbl },
@@ -1720,6 +1694,53 @@ const swState = [0, 0];
   b.addEventListener('click', () => { swState[k] = swState[k] ? 0 : 1; b.setAttribute('aria-pressed', String(!!swState[k])); if (!ctx) startAudio(); send({ t: 'cc', c: cc, v: swState[k] ? 127 : 0 }); }); });
 $('#ctltog').addEventListener('click', () => { const c = $('#ctrls'); const open = c.classList.toggle('collapsed') === false; $('#ctltog').setAttribute('aria-expanded', String(open)); setDockH(); });
 function setDockH() { const h = $('#dock').getBoundingClientRect().height; document.documentElement.style.setProperty('--dock-h', Math.ceil(h) + 'px'); }
+
+// ---------------- record to WAV ----------------
+// Taps the final output (after the effects and the limiter) and saves a 16-bit stereo WAV when stopped.
+const REC_MAX_S = 600; // 10 minutes (about 115 MB while recording)
+let rec = null; // { tap, sink, L: Int16Array[], R: Int16Array[], n, t }
+function recUI() {
+  const on = !!rec; $('#rled').classList.toggle('on', on); $('#recbtn').setAttribute('aria-pressed', String(on));
+  const s = on ? Math.floor(rec.n / ctx.sampleRate) : 0;
+  $('#rtxt').textContent = on ? 'Stop ' + Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0') : 'Record';
+}
+function recStart() {
+  const c = ensureContext(); if (!c) return;
+  startAudio();
+  const tap = c.createScriptProcessor(4096, 2, 2), sink = c.createGain(); sink.gain.value = 0;
+  const r = rec = { tap, sink, L: [], R: [], n: 0, t: 0 };
+  const i16 = a => { const o = new Int16Array(a.length); for (let i = 0; i < a.length; i++) { const v = Math.max(-1, Math.min(1, a[i])); o[i] = v < 0 ? v * 32768 : v * 32767; } return o; };
+  tap.onaudioprocess = e => {
+    if (rec !== r) return;
+    const b = e.inputBuffer, L = b.getChannelData(0), R = b.numberOfChannels > 1 ? b.getChannelData(1) : L;
+    r.L.push(i16(L)); r.R.push(i16(R)); r.n += L.length;
+    if (r.n >= REC_MAX_S * c.sampleRate) { recStop(); status('Recording stopped at the 10-minute limit and saved.'); }
+    else if (performance.now() - r.t > 250) { r.t = performance.now(); recUI(); }
+  };
+  analyser.connect(tap); tap.connect(sink); sink.connect(c.destination);
+  recUI(); status('Recording\u2026 press Stop to save a WAV file.');
+}
+function recStop() {
+  const r = rec; if (!r) return; rec = null;
+  try { analyser.disconnect(r.tap); r.tap.disconnect(); r.sink.disconnect(); } catch (e) { console.debug('recorder already disconnected', e); }
+  recUI();
+  if (!r.n) { status('Nothing was recorded.'); return; }
+  const blob = wavBlob(r.L, r.R, r.n, ctx.sampleRate), d = new Date(), p2 = x => String(x).padStart(2, '0');
+  const a = el('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'trinity-' + d.getFullYear() + p2(d.getMonth() + 1) + p2(d.getDate()) + '-' + p2(d.getHours()) + p2(d.getMinutes()) + p2(d.getSeconds()) + '.wav';
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+  status('Saved ' + a.download + ' (' + (r.n / ctx.sampleRate).toFixed(1) + ' s).');
+}
+// 16-bit PCM stereo WAV from interleaving the recorded chunks
+function wavBlob(Ls, Rs, n, sr) {
+  const buf = new ArrayBuffer(44 + n * 4), v = new DataView(buf), str = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  str(0, 'RIFF'); v.setUint32(4, 36 + n * 4, true); str(8, 'WAVE'); str(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 2, true);
+  v.setUint32(24, sr, true); v.setUint32(28, sr * 4, true); v.setUint16(32, 4, true); v.setUint16(34, 16, true); str(36, 'data'); v.setUint32(40, n * 4, true);
+  const out = new Int16Array(buf, 44); let k = 0;
+  for (let c = 0; c < Ls.length; c++) { const L = Ls[c], R = Rs[c]; for (let i = 0; i < L.length; i++) { out[k++] = L[i]; out[k++] = R[i]; } }
+  return new Blob([buf], { type: 'audio/wav' });
+}
+$('#recbtn').addEventListener('click', () => { if (rec) recStop(); else recStart(); });
 
 // ---------------- MIDI ----------------
 function onMidi(e) {

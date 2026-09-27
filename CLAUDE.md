@@ -7,9 +7,10 @@ TRINITY WEB SYNTH - PROJECT CONTEXT FOR CLAUDE CODE
 A browser model of the Korg Trinity V3 (with the DSP-MOSS-TRI board). One self-contained page
 (index.html) built from plain JS files. It imports Korg .PCG files and plays:
   - MOSS programs (Bank M): 13 oscillator models, filters, EGs, LFOs, mod matrix, Trinity effects.
-  - PCM ("ACCESS") programs (Banks A-D): Single/Double/Drum mode, own filters/EGs/LFOs/effects.
+  - PCM ("ACCESS") programs (Banks A-D): Single/Double mode, own filters/EGs/LFOs/effects.
     Korg's sample ROM is NOT available -> stand-in recordings (General MIDI, MIT licence) or built-in waves.
-  - Drum kits (per-key drum samples -> General MIDI drum stand-ins).
+  - Drum kits / Drum-mode programs: REMOVED on purpose (owner's decision). Drum programs are left out of the
+    lists; combination timbres that use one are silent ("drum program, not supported"). PCG kit sections are skipped.
   - Combinations (8 timbres, zones, mix, insert chains, master effects).
 
 Owner: Mohammad Alomari (GitHub: Mohammad-alomari). Plays Arabic music (mijwiz, zurna, rababa, oud,
@@ -20,32 +21,34 @@ big new features.
 
 Live published page (claude.ai artifact, private): https://claude.ai/artifact/NfWhX8WGhgjyWaUww83WsU
 (last published: Version 15). GitHub: private repo Mohammad-alomari/synth (project files at the repo root).
-Keep the repo PRIVATE: pcgdata.js contains Korg's factory
-EXB-MOSS bank; tridata.js contains the user's own files.
+Keep the repo PRIVATE: pcgdata.js and tridata.js contain the user's own files.
+Korg's factory EXB-MOSS bank was removed (licence); the owner imports it himself: https://www.korg.com/us/support/download/software/1/270/3183/
+("EXB-MOSS - MOSS Factory Preload Data", MOSS_EXT.PCG, Triton format -> bank F). The public Netlify site (moss-synth) is built with
+--public, without the owner's files.
 
 ==============================================================================
 2. FILES
 ==============================================================================
-index.html     built page (do not edit; rebuilt by build.py). Loads samples/ at run time.
+index.html     built page (not committed, .gitignore; build with build.py). Loads samples/ at run time.
 ui.html        template: layout + CSS; sources are inserted at %%PATCHES%% %%ENGINE%% %%KORG%% %%PCG%% %%APP%%
 build.py       parts = PATCHES: fxcat.js patches.js | ENGINE: engine.js pcm.js combi.js fxdsp.js |
                KORG: pcmmap.js korg.js | PCG: pcgdata.js tridata.js | APP: app.js
 app.js         UI: pages, keyboard, joystick, MIDI, program list, PCG import, sample loader, audio start-up,
-               PCM pages, combination pages, drum-kit table.
+               PCM pages, combination pages.
 engine.js      MossEngine (host), MossVoice (MOSS models), MD helpers, limiter. Voice pools: 16 MossVoice or
                32 PcmVoice (16 in Double mode). Delegates to MossCombi when patch.kind === 'combi'.
 pcm.js         PCM static helpers + calibration, PcmEG, PcmLFO, PcmStore (stand-in map, packs, built-in
-               waves, 'need' set), PcmVoice (sample playback, SVF filters, drum kits, excl groups).
+               waves, 'need' set), PcmVoice (sample playback, SVF filters).
 combi.js       MossCombi: one "dry" MossEngine per timbre, zones, timbre mix, insert chains, master FX.
 fxcat.js       Trinity effect catalogue (names, params, byte layout). fxdsp.js: effect DSP + FxRack
                (FxRack.master(L,R,n,fx,bus1,bus2) lets combis feed their own send buses).
 patches.js     MOSS patch model, default patch, starter programs (Mijwiz, Rababa Bedouin (Do) etc.).
 korg.js        PCG reader; decoders: korgDecodeMoss (521 B), korgTrinitySections, korgDecodePcm (433 B),
-               korgDecodeKit (1426 B), korgDecodeCombi (388 B), korgDecodeFxBlocks, korgCombiChains.
-pcmmap.js      PCM_STANDIN.ms (multisample 0-374 -> stand-in), PCM_STANDIN.ds (drum sample 0-258 -> GM drum),
+               korgDecodeCombi (388 B), korgDecodeFxBlocks, korgCombiChains.
+pcmmap.js      PCM_STANDIN.ms (multisample 0-374 -> stand-in; percussion multisamples 333-374 use the kit_* packs),
                PCM_RAMGUESS (RAM/Flash samples guessed from program name), PCM_MS_NAMES (Korg names 0-374).
-pcgdata.js     built-in MOSS banks (base64): Korg factory EXB-MOSS (Triton format) + user's 4 Bank M files.
-tridata.js     built-in Trinity data (base64): user's PCM banks, kits, combinations (TRI_BUILTIN).
+pcgdata.js     built-in MOSS banks (base64): the user's 4 Bank M files.
+tridata.js     built-in Trinity data (base64): user's PCM banks and combinations (TRI_BUILTIN).
 samples/       111 MP3 packs (mono 32 kHz 48 kb/s; gmNNN = GM program NNN 0-based; kit_std/elec/808/brush/orch)
                + packs.json {packs:{name:{file,rate,sync,search,heal,s:[[start,len,loopStart,loopEnd,gainDb,
                [[lo,hi,root,tune]]]]}}}. A sync click at the start aligns decode offsets; loop seams healed 64 frames.
@@ -53,7 +56,7 @@ tools/samples/ build_packs.py (+pack.py, extract_sf.py, sf2parse.py...) rebuilds
                MS General SoundFont FluidR3Mono_GM.sf3 (set SF3=path). Needs ffmpeg.
 docs/research/ format notes: 01 PCM program 433, 02 combination 388, 03 drum kit 1426, 04 global,
                05 PCG file format, 06 effects, 07 multisample names 0-414, 08/09 factory program/combi names.
-test/          Node + Playwright tests (see section 6). demos/: two WAV demos.
+test/          Node + Playwright tests (see section 6). demos/: two MP3 demos.
 
 Conventions / gotchas
 - The AudioWorklet source is generated from class.toString() (ENGINE_CLASSES in app.js). Engine code must
@@ -61,7 +64,7 @@ Conventions / gotchas
   ENGINE_CLASSES, build.py, test/harness.js ORDER.
 - build.py strips lines starting with "if (typeof module !== 'undefined')" -> keep each module.exports on ONE line.
 - Messages to the engine: patch, set (path,v), on, off, cc, bend, at, tune, panic, pcmMap, pcmPack (zones,
-  transferable buffer), pcmKits. Worklet posts {t:'st', v: voiceStates, need:[pack names]}.
+  transferable buffer). Worklet posts {t:'st', v: voiceStates, need:[pack names]}.
 - Program ids in the UI: st:N starter, us:N user, pm:N MOSS bank, pc:N PCM (bank*128+i), cb:N combination.
 - Stored in browser localStorage: moss-user-programs, moss-current, moss-page. Imported PCGs live in IndexedDB
   'trinity-web-synth', store 'files': {id, kind 'moss'|'tri', name, scale, fmt, rs, bytes} (raw bytes; restored
@@ -80,11 +83,9 @@ patch are Korg's raw numbers (0-99, -99..+99, LFO freq 0-199). Decode checked ov
 
 PCM program (433 B, Korg TABLE 1): name 0-15; 16 category; 17 osc mode b0-1 (0 single,1 double,2 drum),
 legato, key assign, hold, priority, piano; 18 OSC2 bottom velocity; OSC1 block 31-167, OSC2 = +137 (168-304).
-  Multisample = ((b&0x7F)<<8)|next byte; 0x1000|n = RAM/Flash sample. Drum mode: bytes 33-34 = kit number.
+  Multisample = ((b&0x7F)<<8)|next byte; 0x1000|n = RAM/Flash sample. (Drum mode: not supported.)
   Insert FX 4 x 22 B at 305; master FX 40 B at 393.
-Drum kit (1426 B): name 0-15, then 88 keys (A0..C8) x 16 B at 18+16k: hi sample(2 B, b7=offset), hi tune
-  (s8/2 semitones), hi level (-99..99), hi decay, lo same (5 B), pan (FF=off), send1, send2, excl group,
-  b14: ifx group/assign/filter bypass, b15: bottom velocity of hi.
+Drum kit (1426 B): see docs/research/03 (not used: drum kits were removed).
 Combination (388 B): 16 category; 17 scale; 18 random; 19 panel SW; 20-195 eight insert blocks (22 B);
   196-235 master FX; timbres at 236+19n: prog, bank (0-3 = A-D, 4 = S or M on V3), ch|status (b0-4 ch,
   16 = Global; b5-6 0 int,1 off,2 ext,3 both), level, bend (E7 = PRG), transpose, detune, delay, pan (80 = PRG,
@@ -95,9 +96,6 @@ Insert block (22 B): 0-15 params, 16 type (b0-5 type, b6 on, b7 cascade), 17 siz
 Timbre ifx byte (UNVERIFIED, inferred from user files; Korg doc incomplete): 0 none; 1/2/3 own chain of
   size 1/2/4; 4 own chain up to 8 units; 5..12 share the chain of timbre 1..8. Chains take used blocks in
   order; with 2 chains and both halves used, first = blocks 1-4, second = 5-8. (korgCombiChains)
-Drum sample identities (no Korg list available): inferred from factory kit layouts: Standard/Processed/Jazz
-  kits = GM drum map one octave up (C2 kick... F#3 closed hat); Analog/Club kit = GM map at GM pitch;
-  Percussion and Orchestra&Ethnic kits hold ethnic/orchestral sounds. See PCM_STANDIN.ds.
 
 ==============================================================================
 4. CALIBRATION (estimates - verify against real hardware when possible)
@@ -105,7 +103,6 @@ Drum sample identities (no Korg list available): inferred from factory kit layou
 PCM cutoff: PCM.cutHz(x) = 250 * 2^(x/15.6) Hz, clamped 30 Hz..0.45*sr. Filter EG factor EGK = 2.
 Filter input gain = value/99. Resonance 0..31 mapped onto MOSS resonance curve (x92/31).
 LFO: 0.03 * 1000^(v/99) Hz. EG times: MD.tsec (shared with MOSS). PCM output trim 3.3.
-Drum kit level -99..+99 -> -12..+6 dB. Drum decay -> amp EG decay/slope/release x 2^(d/40).
 Timbre level -> (level/127)^2; whole combination -3 dB. Voice caps in combis: PCM 32/(active timbres), MOSS 6.
 Output: peak limiter (ceiling 0.89, 120 ms release) + soft clip.
 UI: MOSS pages show "Trinity number · model estimate" (e.g. "40 · 250 ms"); pan shown Korg-style L000..C064..R127.
@@ -113,28 +110,29 @@ UI: MOSS pages show "Trinity number · model estimate" (e.g. "40 · 250 ms"); pa
 ==============================================================================
 5. CURRENT STATE AND OPEN ITEMS
 ==============================================================================
-Done: MOSS models + effects; PCM engine; 111 stand-in packs; drum kits; combinations; PCG import of
-Bank M + PCM banks + kits + combinations; Korg-number display; tests.
+Done: MOSS models + effects; PCM engine; 111 stand-in packs; combinations; PCG import of
+Bank M + PCM banks + combinations; Korg-number display; tests; IndexedDB storage; synth memory; Record button (WAV);
+combination timbre Delay start (byte 243; key-off timbres released after 0.25 s, estimate) and MIDI filters
+(byte 247 b1 damper, b2 aftertouch, b3 CC = rxDamper/rxAT/rxCC; b0 program change kept as rxPC, unused).
 Checks passed: all 2,560 PCM programs render (no NaN); 1,408 combinations render (no NaN, 1 silent by data);
 MOSS sound identical to Version 11 (regress.js); browser tests in AudioWorklet and ScriptProcessor modes; phone width.
 
 Open / ideas (not built):
-1. (DONE) Synth-memory model - see "Synth memory" below.
-2. Real Trinity allows only ONE MOSS program per combination at a time (Sound On Sound) - not enforced.
-3. Combination: timbre Delay start, per-timbre MIDI filters, per-timbre (program) scale not modelled.
-4. Bank S (Solo-TRI board) not modelled; timbres pointing to S are silent.
-5. RAM/Flash samples (0x1000|n) guessed by program name (PCM_RAMGUESS) - the audio only lived in the user's synth.
-6. Drum sample -> GM mapping and the timbre ifx rule are inferred; calibration constants are estimates.
-   Korg's Voice Name List PDFs (scans) contain the real drumsample list - could be OCR'd.
-7. MOSS: reed/brass "jump pitch bend" (overblowing) played as smooth bend; byte 147 (stepped bend?) unclear.
-8. Some user kits in files other than TRINI-1-KJ contain odd values (RAM refs / garbage) -> conga fallback.
-9. User's TRINI-1-KJ drum programs point to other kits than their names (e.g. "Standard Kit" -> kit 9
-   Orchestra&Ethnic): that is the file's data, not a bug.
-Synth memory (app.js memoryFor): an IMPORTED file uses its own PCM banks / kits / Bank M first; what it lacks
+1. MOSS: reed/brass "jump pitch bend" (overblowing) played as smooth bend; byte 147 (stepped bend?) unclear.
+   Owner wants a REMINDER about this one later - do not start it unasked.
+2. Combination: per-timbre (program) scale not modelled.
+3. Bank S (Solo-TRI board) not modelled; timbres pointing to S are silent.
+4. RAM/Flash samples (0x1000|n) guessed by program name (PCM_RAMGUESS) - the audio only lived in the user's synth.
+5. Timbre ifx rule inferred; calibration constants are estimates.
+Decisions by the owner (do NOT propose these again):
+- Never limit combinations to one MOSS program (the real Trinity's limit is deliberately not copied).
+- Drum kits are removed and stay removed (no drum-sample list / kit fixes).
+- No "export edits back to PCG" for now.
+Synth memory (app.js memoryFor): an IMPORTED file uses its own PCM banks / Bank M first; what it lacks
 comes from earlier imports (newest first), then the built-in files in list order (Hadi2024 first). Built-in files
 only use their own data (unchanged behaviour). A file with a Bank S (imports: from the PCG; built-ins: "s":1 in
 tridata.js, TRINI-1-KJ) never takes a Bank M: bank 4 = Solo-TRI there (silent). Timbres record t.from (source file
-name, shown in the Timbres table); drum programs record korgInfo.kitFrom. Combination-only and Bank-M-only
+name, shown in the Timbres table). Combination-only and Bank-M-only
 Trinity files are accepted (every Trinity import makes a tri set, so it has a place in the memory order).
 Important fact: a PCG holds parameters only, never audio. Korg's ROM samples are on chips in the synth and
 are not downloadable; the factory preload would also play stand-ins.
@@ -142,12 +140,13 @@ are not downloadable; the factory preload would also play stand-ins.
 ==============================================================================
 6. BUILD, RUN, TEST
 ==============================================================================
-Build:   python3 build.py index.html
+Build:   python3 build.py [out.html] [--public]   (--public: without the owner's files - tridata.js and pcgdata.js.
+         Netlify publishes the --public build; test/check_public.py checks it.)
 Run:     python3 -m http.server 8765   then open http://localhost:8765/index.html (Chrome/Edge; needs http for audio,
          MIDI and samples). Web MIDI: Chrome, Edge, Firefox (not Safari).
 Tests: sh test/run_all.sh (~1 min, exit 0 = pass; FULL=1 for every program/combination, ~10 min).
   CI: .github/workflows/test.yml runs build.py + run_all.sh on every push / PR.
-  Checks: fxunit, fuzz, fxfix (effects), voicefix (notes), progs (MOSS programs, every 8th), combis (every 16th,
+  Checks: fxunit, fuzz, fxfix (effects), voicefix (notes), combifix (timbre delay, MIDI filters), progs (MOSS programs, every 8th), combis (every 16th,
   needs ffmpeg), browser_test.py (Playwright; starts its own server; sound in both audio modes, all pages, fx edit,
   phone width, IndexedDB storage, synth memory, error messages).
   test/harness.js loads sources in a vm; test/pcmpacks.js decodes samples/ with ffmpeg; test/mkpcg.js writes a PCG
@@ -176,6 +175,7 @@ Korg documentation
   Windows https://www.korg.com/us/support/download/software/1/213/3296/
   Mac     https://www.korg.com/us/support/download/software/1/213/3297/
   (No V3 preload with the factory MOSS bank was found online.)
+- EXB-MOSS factory bank (Triton format, MOSS_EXT.PCG): https://www.korg.com/us/support/download/software/1/270/3183/
 Open-source references
 - PCG Tools (Michel Keijzers, C#, Trinity V2/V3 support): https://github.com/DaBlick/PCG-Tools
 - Toluene (JUCE SysEx editor for Trinity/TR-Rack, ParameterIDs.h): https://github.com/dave-billin/Toluene

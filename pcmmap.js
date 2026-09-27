@@ -1,10 +1,11 @@
 // ===== Stand-ins for the Trinity's sample ROM =====
-// Korg's multisamples and drum samples are not available, so each one is played by the closest openly licensed
+// Korg's multisamples are not available, so each one is played by the closest openly licensed
 // recording (General MIDI instruments from MuseScore's FluidR3-based "MS General" SoundFont, MIT licence) or, for
 // the Trinity's synthetic waves (saw, pulse, square, sine, DWGS, noise ...), by a band-limited waveform built here.
 // Entry forms:  { p: pack }  a recorded instrument;  { p: pack, k: key }  one drum sound played as a pitched sample
 // (key 60 = its own pitch);  { syn: name }  a built-in waveform;  r: shift in semitones (the stand-in sounds r lower);
-// g: level trim in dB.  Pack names: gmNNN = General MIDI program NNN (0-based), kit_* = drum kits.
+// g: level trim in dB.  Pack names: gmNNN = General MIDI program NNN (0-based), kit_* = General MIDI drum sets
+// (used by the percussion multisamples 333-374).
 const PCM_STANDIN = (() => {
   const ms = {}, set = (a, b, e) => { for (let i = a; i <= b; i++) ms[i] = e; }, gm = n => ({ p: 'gm' + String(n).padStart(3, '0') });
   const G = (n, extra) => Object.assign(gm(n), extra || {}), D = (k, kit, extra) => Object.assign({ p: kit || 'kit_std', k }, extra || {}), S = (syn, g) => ({ syn, g: g || 0 });
@@ -61,33 +62,7 @@ const PCM_STANDIN = (() => {
   set(358, 358, D(83)); set(359, 360, D(84)); set(361, 361, D(70)); set(362, 363, G(113)); set(364, 364, D(76)); set(365, 365, G(116)); set(366, 366, D(63)); set(367, 367, D(62));
   set(368, 368, G(14, { r: 24 })); set(369, 370, G(126)); set(371, 371, G(127)); set(372, 372, G(125)); set(373, 374, G(123));
   // RAM/Flash samples of user programs (not in the file): guessed from the program name, see PCM_RAMGUESS
-  // ---- drum samples (0..258) -> one General MIDI drum sound each ----
-  // Korg's drum-sample names are not published in machine-readable form, so each sample's sound was worked out from
-  // where Korg's factory kits place it: the Standard, Processed and Jazz kits follow the General MIDI drum map one
-  // octave up (C2 kick ... F#3 closed hi-hat = GM F#2, C5 = GM bongo), the Analog/Club kit follows it at GM pitch,
-  // and the Percussion and Orchestra&Ethnic kits collect the ethnic and orchestral sounds. Entries: "id[-id]:kit:key"
-  // with kit s = standard, e = electronic, 8 = TR-808, b = brush, o = orchestra.
-  const KP = { s: 'kit_std', e: 'kit_elec', 8: 'kit_808', b: 'kit_brush', o: 'kit_orch' }, ds = {};
-  ('0:s:35 1:s:36 2:s:36 3:s:35 4:s:35 5:s:36 6:s:35 7:b:36 8:b:35 9:s:36 10:b:36 11:e:36 12:e:35 13:s:35 14:e:36 15:e:36 16:e:35 17:8:36 18:8:35 19:8:36 ' + // kicks
-    '20:s:38 21:b:38 22:s:40 23:s:38 24:b:40 25:b:38 26:s:38 27:s:38 28:s:40 29:s:40 30:e:38 31:s:40 32:e:40 33:e:38 34:e:40 35:e:38 36:s:38 37:8:40 38:8:38 39:8:40 40:8:38 41:8:40 ' + // snares
-    '42:b:39 43:b:38 44:b:38 45:b:40 46:s:37 47:s:37 48:e:37 49:s:31 ' + // brush snares, side sticks
-    '50:b:45 51:b:43 52:b:41 53:s:48 54:s:45 55:s:41 56:e:48 57:e:45 58:e:41 59:e:45 60:b:48 61:b:48 62:b:47 63:b:43 64:b:41 ' + // toms
-    '65-66:s:42 67-68:s:44 69-70:s:46 71-72:e:42 73-74:e:44 75-76:e:46 ' + // hi-hats (closed, pedal, open)
-    '77:s:57 78:s:49 79:b:49 80:s:52 81:s:55 82:s:49 83:s:51 84:s:59 85:b:51 86:s:53 ' + // cymbals
-    '87:o:36 88:o:57 89:o:59 90:o:45 91:s:42 92:s:44 93:s:46 94:o:48 95:o:41 96:s:55 97:s:31 98:s:39 ' +
-    '99:8:36 100:8:35 101:e:36 102:8:36 103:e:35 104:8:38 105:e:38 106:8:40 107:e:40 108:8:37 109:8:39 ' + // analog kicks, snares, clap
-    '110:8:42 111:8:46 112:e:42 113:e:46 114:8:49 115:8:45 116:8:41 117:8:56 118:8:51 119:s:58 120:8:41 121:8:47 122:8:37 123:8:55 124:8:57 ' +
-    '125-126:8:60 127:8:62 128:8:63 129:8:64 130:8:62 131:8:63 132:8:67 133:8:68 134:8:69 135:8:35 136:8:61 137:8:43 ' +
-    '138-139:s:64 140-141:s:63 142-143:s:62 144:s:63 145:s:64 146-147:s:62 148-149:s:61 150-154:s:60 ' + // congas, bongos
-    '155:s:62 156:s:63 157:s:64 158:s:60 159:s:61 160:s:86 161:s:74 162-163:s:73 164-165:s:70 166:s:86 167:s:87 168:s:65 169-170:s:66 ' +
-    '171:s:67 172:s:68 173:s:69 174:s:76 175:s:77 176:s:78 177-178:s:79 179:s:77 180:s:28 181:s:27 182:s:85 ' + // ethnic percussion
-    '183:s:58 184:s:75 185-186:s:76 187:s:66 188:s:65 189:s:66 190-191:s:65 192:s:67 193:s:68 194-196:s:54 197:s:82 198:s:81 199-200:s:80 ' +
-    '201:s:79 202:s:78 203-204:s:82 205-207:s:69 208-209:s:85 210:s:67 211:s:56 212:8:56 213:s:60 214:s:61 215:s:84 216-217:s:83 218:s:84 ' +
-    '219:s:85 220:s:71 221:s:85 222:s:84 223:s:85 ' +
-    '224:s:29 225:s:30 226:s:27 227:s:32 228:s:28 229:s:33 230:s:34 231:s:29 232:s:30 233:s:27 234:s:32 235:s:29 236:s:30 237:s:27 238:s:32 239:s:30 ' + // effects
-    '240:e:49 241:s:29 242:s:60 243:s:61 244:s:62 245:s:63 246:s:64 247:s:85 248:s:69 249:s:70 250:s:30 251:s:31 252:s:32 253:s:33 254:s:34 255-258:s:27')
-    .split(' ').forEach(t => { const [r, k, n] = t.split(':'), [a, b] = r.split('-').map(Number); for (let i = a; i <= (b || a); i++) ds[i] = { p: KP[k], k: +n }; });
-  return { ms, ds };
+  return { ms };
 })();
 
 // Programs that play RAM/Flash samples (loaded from disk into the Trinity, not saved in the PCG): the stand-in is

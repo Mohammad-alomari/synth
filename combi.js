@@ -4,13 +4,15 @@
 // effect blocks shared out as chains (korgCombiChains in korg.js) and the two master effects with the master EQ.
 // Per timbre: MIDI channel (only GLOBAL and channel 1 answer the keyboard), level, pan (or the program's), sends (or
 // the program's), transpose, detune, bend range, key zone and velocity zone with their fade slopes, Hide OSC 2,
-// Force Poly. Not modelled: Delay start, the per-timbre MIDI filters, a timbre's own scale (all timbres use the
-// combination's scale).
+// Force Poly, Delay start (a timbre's note starts that long after the key; "key off" = when the key is released) and
+// the MIDI filters (damper, aftertouch, control change; program change is not used by this page).
+// Not modelled: a timbre's own scale (all timbres use the combination's scale).
 class MossCombi {
   constructor(host) {
     this.host = host; this.sr = host.sr; this.patch = null;
     this.parts = []; this.racks = []; this.cfx = []; this.master = new FxRack(host.sr);
     this.held = new Map(); // key -> [[timbre, note sent], ...]
+    this.clock = 0; this.pending = []; // delayed timbre notes: { at (sample), key, k, n, v, kk, off }
     this.grow(128);
   }
   grow(n) {
@@ -50,7 +52,14 @@ class MossCombi {
     });
     this.cfx.length = (C.chains || []).length;
   }
-  stop() { for (const e of this.parts) if (e) e.handle({ t: 'panic' }); this.held.clear(); }
+  stop() { for (const e of this.parts) if (e) e.handle({ t: 'panic' }); this.held.clear(); this.pending = []; }
+  // MIDI filters: does timbre t receive this controller message? (older stored combinations have no filter fields)
+  static receives(t, m) {
+    if (!t) return true;
+    if (m.t === 'at') return t.rxAT !== 0;
+    if (m.t === 'cc') return m.c >= 120 || (m.c === 64 ? t.rxDamper !== 0 : t.rxCC !== 0);
+    return true;
+  }
   handle(m) {
     const P = this.patch;
     switch (m.t) {
@@ -63,7 +72,7 @@ class MossCombi {
       case 'on': this.noteOn(m.n, m.v, m.k); break;
       case 'off': this.noteOff(m.n); break;
       case 'panic': this.stop(); break;
-      default: for (const e of this.parts) if (e && e.patch) e.handle(m); // controllers go to every timbre
+      default: { const T = P ? P.timbres : []; this.parts.forEach((e, k) => { if (e && e.patch && MossCombi.receives(T[k], m)) e.handle(m); }); } // controllers, through each timbre's MIDI filters
     }
   }
   // key and velocity zones: 0 outside, 1 inside, fading in over the slope at each edge
@@ -84,15 +93,38 @@ class MossCombi {
       const f = MossCombi.zone(note, t.keyBot, t.keyTop, t.keySlopeBot || 0, t.keySlopeTop || 0) * MossCombi.zone(vel, t.velBot, t.velTop, t.velSlopeBot || 0, t.velSlopeTop || 0);
       const n = note + (t.transpose || 0);
       if (f <= 0 || n < 0 || n > 127) return;
-      e.handle({ t: 'on', n, v: Math.max(1, Math.round(vel * f)), k: key === undefined || key === null ? undefined : key + (t.transpose || 0) });
+      const v = Math.max(1, Math.round(vel * f)), kk = key === undefined || key === null ? undefined : key + (t.transpose || 0), d = t.delay || 0;
+      if (d < 0) { this.pending.push({ at: Infinity, key: note, k, n, v, kk, off: true }); return; } // plays when the key is released
+      if (d > 0) this.pending.push({ at: this.clock + d / 1000 * this.sr, key: note, k, n, v, kk });
+      else e.handle({ t: 'on', n, v, k: kk });
       sent.push(k, n);
     });
     this.held.set(note, sent);
   }
   noteOff(note) {
+    // a delayed note whose key is released before its delay has passed does not sound; key-off timbres start now
+    // and are released after KEYOFF_S (estimate)
+    const kept = [];
+    for (const p of this.pending) {
+      if (p.key !== note || p.rel) kept.push(p);
+      else if (p.off) { p.at = this.clock; p.rel = this.clock + MossCombi.KEYOFF_S * this.sr; kept.push(p); }
+    }
+    this.pending = kept;
     const s = this.held.get(note); if (!s) return;
     for (let i = 0; i < s.length; i += 2) { const e = this.parts[s[i]]; if (e && e.patch) e.handle({ t: 'off', n: s[i + 1] }); }
     this.held.delete(note);
+  }
+  static get KEYOFF_S() { return 0.25; }
+  // starts delayed notes that are due (at block start: within 3 ms)
+  runPending(n) {
+    const now = this.clock + n, kept = [];
+    for (const p of this.pending) {
+      const e = this.parts[p.k];
+      if (p.at < now && !p.on) { if (e && e.patch) e.handle({ t: 'on', n: p.n, v: p.v, k: p.kk }); p.on = true; if (!p.rel) continue; }
+      if (p.rel !== undefined && p.on && p.rel < now) { if (e && e.patch) e.handle({ t: 'off', n: p.n }); continue; }
+      kept.push(p);
+    }
+    this.pending = kept; this.clock = now;
   }
   voiceStates() {
     const a = [];
@@ -104,6 +136,7 @@ class MossCombi {
     outL.fill(0); outR.fill(0);
     const P = this.patch, H = this.host; if (!P) return;
     if (n > this.cap) this.grow(n);
+    if (this.pending.length) this.runPending(n); else this.clock += n;
     const pl = this.pl, pr = this.pr, s1 = this.s1, s2 = this.s2, chains = P.chains || [];
     s1.fill(0, 0, n); s2.fill(0, 0, n);
     const cUsed = []; for (let c = 0; c < chains.length; c++) { cUsed.push(false); this.cL[c].fill(0, 0, n); this.cR[c].fill(0, 0, n); }
