@@ -416,8 +416,13 @@ const K = {
   delay: v => v < 0 ? 'Key off' : v + ' ms', pan: v => v < 0 ? 'Off' : F.pan(v)
 };
 const pcmAms = i => KORG_PCM.AMS.map((a, k) => [a, KORG_PCM.AMS_NAME[k]]).slice(0, i === 1 ? 27 : 23);
-const MS_OPTS = () => PCM_MS_NAMES.map((n, i) => [i, String(i).padStart(3, '0') + ' ' + n]);
+// a RAM multisample (0x1000 | n) of the current program: its name when it is one of the owner's samples (userdata.js)
+const ramName = id => { const v = (patch.ramMap || {})[id & 0xfff]; return typeof v === 'string' && USER_SET && USER_SET.ms[v] ? USER_SET.ms[v].name : 'RAM sample ' + (id & 0xfff); };
+const MS_OPTS = (...cur) => { const o = PCM_MS_NAMES.map((n, i) => [i, String(i).padStart(3, '0') + ' ' + n]); for (const id of cur) if (id >= 0x1000 && !o.some(x => x[0] === id)) o.unshift([id, 'RAM ' + pad3(id & 0xfff) + ' ' + ramName(id)]); return o; };
+// what plays multisample id of the current program (a RAM multisample through the program's ramMap)
+const msPlays = id => standinName(id < 0x1000 ? id : ((patch.ramMap || {})[id & 0xfff] ?? 0));
 const standinName = id => { const e = pcmMap.ms[id]; if (!e) return 'placeholder';
+  if (e.u) return 'your sample “' + e.f + '”';
   if (e.f) return e.s ? 'Korg recording ' + e.f.split('/').pop() + ' (similar)' : 'Korg’s own multisample'; if (e.syn) return 'built-in ' + e.syn + ' wave'; if (/^kit/.test(e.p)) return 'General MIDI ' + e.p.replace('kit_', '') + ' drum set, key ' + e.k; return 'General MIDI ' + (parseInt(e.p.slice(2), 10) + 1) + (e.r ? ' (shifted ' + e.r + ' st)' : ''); };
 function pcmPageProgram() {
   const secs = [
@@ -441,10 +446,10 @@ function pcmPageOsc(i) {
   const P = patch, b = 'o.' + i + '.', O = P.o[i];
   if (i === 1 && P.mode !== 'double') return [{ title: 'Oscillator 2', note: 'Used only in Double mode', controls: [] }];
   const secs = [];
-  secs.push({ title: 'Multisample', controls: [SEL(b + 'msHi', 'High multisample', MS_OPTS(), { num: true, rerender: true }), S(b + 'lvlHi', 'High level', 0, 127, { fmt: K.n }), TOG(b + 'offHi', 'High: offset start'),
-    SEL(b + 'msLo', 'Low multisample', MS_OPTS(), { num: true, rerender: true }), S(b + 'lvlLo', 'Low level', 0, 127, { fmt: K.n }), TOG(b + 'offLo', 'Low: offset start'),
+  secs.push({ title: 'Multisample', controls: [SEL(b + 'msHi', 'High multisample', MS_OPTS(O.msHi, O.msLo), { num: true, rerender: true }), S(b + 'lvlHi', 'High level', 0, 127, { fmt: K.n }), TOG(b + 'offHi', 'High: offset start'),
+    SEL(b + 'msLo', 'Low multisample', MS_OPTS(O.msHi, O.msLo), { num: true, rerender: true }), S(b + 'lvlLo', 'Low level', 0, 127, { fmt: K.n }), TOG(b + 'offLo', 'Low: offset start'),
     S(b + 'velSplit', 'High from velocity', 1, 127, { fmt: K.n })],
-    help: 'Plays: high → ' + standinName(O.msHi) + '; low → ' + standinName(O.msLo) + '.' + (korgPacks ? '' : ' Korg’s own samples are not available.') });
+    help: 'Plays: high → ' + msPlays(O.msHi) + '; low → ' + msPlays(O.msLo) + '.' + (korgPacks ? '' : ' Korg’s own samples are not available.') });
   secs.push({ title: 'Pitch', controls: [S(b + 'octave', 'Octave', -2, 1, { fmt: K.oct }), S(b + 'transpose', 'Transpose', -12, 12, { fmt: K.semis }), S(b + 'tune', 'Tune', -1200, 1200, { fmt: K.cents }),
     S(b + 'delay', 'Delay start', -1, 5000, { fmt: K.delay, step: 2 }), S(b + 'pitch.slope', 'Pitch slope', -1, 2, { fmt: K.slope, step: 0.1 }),
     S(b + 'pitch.egInt', 'Pitch EG intensity', -12, 12, { fmt: K.pint, step: 0.01 }), S(b + 'pitch.egVel', 'EG intensity by velocity', -99, 99, { fmt: K.sgn }),
@@ -809,7 +814,7 @@ function renderImportInfo(host) {
   }
   if (patch.kind === 'pcm') {
     const k = patch.korgInfo || {}, lines = [(k.source ? k.source + '. ' : '') + 'Trinity PCM program, ' + { single: 'Single', double: 'Double' }[patch.mode] + ' mode.'];
-    patch.o.slice(0, patch.mode === 'double' ? 2 : 1).forEach((O, i) => lines.push('OSC ' + (i + 1) + ': ' + (PCM_MS_NAMES[O.msHi] || 'RAM sample') + ' \u2192 stand-in: ' + standinName(O.msHi < 0x1000 ? O.msHi : (patch.ramMap || {})[O.msHi & 0xfff] || 0) + '.'));
+    patch.o.slice(0, patch.mode === 'double' ? 2 : 1).forEach((O, i) => lines.push('OSC ' + (i + 1) + ': ' + (O.msHi < 0x1000 ? PCM_MS_NAMES[O.msHi] : ramName(O.msHi)) + ' → plays: ' + msPlays(O.msHi) + '.'));
     lines.push('Korg\u2019s sample ROM is not available, so openly licensed General MIDI recordings (MuseScore\u2019s MS General, MIT licence) and built-in waveforms stand in for the multisamples. The program\u2019s own filters, envelopes, LFOs and effects are applied to them.');
     (k.notes || []).forEach(n => lines.push(n + '.'));
     lines.forEach(t => host.appendChild(el('p', 'help', t)));

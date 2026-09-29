@@ -180,7 +180,7 @@ function refreshTimbres(C) {
 // a program that can play in a timbre, by list id: a bank program (pm, pc), a starter or a User program (not a combination)
 function patchById(id) {
   const [bk, s] = (id || '').split(':'), n = Number(s);
-  const p = bk === 'pm' ? pcgPatch(n) : bk === 'pc' ? pcmPatch(n) : bk === 'st' ? (MOSS_PRESETS[n] ? mossPreset(n) : null)
+  const p = bk === 'pm' ? pcgPatch(n) : bk === 'pc' ? pcmPatch(n) : bk === 'st' ? starterPatch(n)
     : bk === 'us' && userBank[n] && userBank[n].kind !== 'combi' ? loadAny(userBank[n]) : null;
   if (p) delete p.korg; // the raw bytes are not needed inside a combination
   return p;
@@ -230,8 +230,30 @@ function combiPatch(idx) {
   C.korgInfo.source = b.set.name + ', Combination ' + b.letter + pad3(i);
   return C;
 }
+// ---------------- starter programs from the owner's own samples (userdata.js, private build only) ----------------
+// Programs of a Triton sample disk (tools/user_starters.js) after the MOSS starters: RAM multisample n plays the disk's
+// pack (samples/user/, key u_<file>, see pcmMap), or a Trinity ROM stand-in where that pack is not here.
+const USER_SET = typeof USER_TRITON !== 'undefined' && USER_TRITON ? USER_TRITON : null;
+const userStarters = (() => {
+  if (!USER_SET) return [];
+  const byRam = {}; for (const k in USER_SET.ms) byRam[USER_SET.ms[k].ram] = k;
+  const out = [], src = (at, note) => 'Your samples (' + USER_SET.name + (at ? ', Triton ' + at : '') + ')' + (note ? ': ' + note : '');
+  for (const p of USER_SET.progs) {
+    try { const P = korgDecodeTritonPcm(b64dec(p.m), { scales: USER_SET.scales }, n => byRam[n]); P.name = p.n; P.korgInfo.source = src(p.at, p.note); out.push(P); }
+    catch (e) { console.error('Could not read the starter program ' + p.n, e); }
+  }
+  for (const k of USER_SET.plain || []) { // a multisample no program plays: a plain program for it
+    const P = newPcmProgram(), m = USER_SET.ms[k];
+    P.name = m.name; P.korgInfo.source = src('', 'a plain program for this multisample');
+    P.o[0].msHi = P.o[0].msLo = 0x1000 | m.ram; P.ramMap = { [m.ram]: k }; P.o[0].amp.level = 100; P.o[0].aeg.relT = 30;
+    out.push(P);
+  }
+  return out;
+})();
+// starter program i: MOSS starters first, then the ones from the owner's samples
+function starterPatch(i) { return i < MOSS_PRESETS.length ? mossPreset(i) : userStarters[i - MOSS_PRESETS.length] ? clone(userStarters[i - MOSS_PRESETS.length]) : null; }
 // an unedited program is reloaded from its source, so it picks up anything newer (such as its decoded effects)
-if (!edited) { try { const P = prog.bank === 'pm' ? pcgPatch(prog.idx) : prog.bank === 'pc' ? pcmPatch(prog.idx) : prog.bank === 'cb' ? combiPatch(prog.idx) : prog.bank === 'st' ? mossPreset(prog.idx) : null; if (P) patch = P; } catch (e) { console.warn('Could not reload the current program', e); } }
+if (!edited) { try { const P = prog.bank === 'pm' ? pcgPatch(prog.idx) : prog.bank === 'pc' ? pcmPatch(prog.idx) : prog.bank === 'cb' ? combiPatch(prog.idx) : prog.bank === 'st' ? starterPatch(prog.idx) : null; if (P) patch = P; } catch (e) { console.warn('Could not reload the current program', e); } }
 refreshTimbres(patch);
 // restores a stored bank into the lists; returns false (and logs) when the record cannot be read
 function restoreRecord(r) {
@@ -352,17 +374,22 @@ registerProcessor('moss', MossProc);`;
 // here when a program first needs it and handed to the engine as zones (see PcmStore in pcm.js).
 // samples/korg/packs.json (optional, only in the owner's own copy: Korg's recordings, see PCM_KORG in pcmmap.js) adds
 // packs that replace the stand-ins of the multisamples they cover; pcmMap is the map in use.
-let packsReq = null, engineUp = false, pcmMap = PCM_STANDIN, korgPacks = 0; const packState = {};
+// The owner's own samples (samples/user/, USER_SET) are the RAM multisamples of the starters from userdata.js; until their
+// packs are here, each plays its Trinity ROM stand-in.
+let packsReq = null, engineUp = false, korgPacks = 0, userPacks = 0; const packState = {};
+function baseMap() { const ms = Object.assign({}, PCM_STANDIN.ms); if (USER_SET) for (const k in USER_SET.ms) ms[k] = PCM_STANDIN.ms[USER_SET.ms[k].rom] || PCM_STANDIN.ms[0]; return { ms }; }
+let pcmMap = baseMap();
 function packIndex() {
   if (!packsReq) {
     const gm = fetch('samples/packs.json').then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .catch(e => { status('The stand-in samples could not be loaded (' + (e && e.message || e) + '). PCM programs play a soft placeholder tone.'); return { packs: {} }; });
-    const korg = PCM_KORG_BUILT ? fetch('samples/korg/packs.json').then(r => r.ok ? r.json() : { packs: {} }).catch(() => ({ packs: {} })) : { packs: {} };
-    packsReq = Promise.all([gm, korg]).then(([a, b]) => {
-      const ms = Object.assign({}, PCM_STANDIN.ms);
+    const opt = (on, url) => on ? fetch(url).then(r => r.ok ? r.json() : { packs: {} }).catch(() => ({ packs: {} })) : { packs: {} };
+    packsReq = Promise.all([gm, opt(PCM_KORG_BUILT, 'samples/korg/packs.json'), opt(PCM_USER_BUILT && USER_SET, 'samples/user/packs.json')]).then(([a, b, c]) => {
+      const ms = baseMap().ms;
       for (const n in PCM_KORG.ms) { const e = PCM_KORG.ms[n]; if (b.packs[e.p]) { ms[n] = e; korgPacks++; } }
-      if (korgPacks) { pcmMap = { ms }; if (engineUp) { send({ t: 'pcmMap', map: pcmMap }); pcmPrepare(patch); } }
-      return { packs: Object.assign({}, a.packs, b.packs) };
+      if (USER_SET) for (const k in USER_SET.ms) if (c.packs[k]) { ms[k] = { p: k, u: 1, f: USER_SET.ms[k].name, g: -6 }; userPacks++; } // -6 dB: these recordings are hotter than Korg's (median level of the starters ~ -18 dB, as the MOSS programs)
+      if (korgPacks || userPacks) { pcmMap = { ms }; if (engineUp) { send({ t: 'pcmMap', map: pcmMap }); pcmPrepare(patch); } }
+      return { packs: Object.assign({}, a.packs, b.packs, c.packs) };
     });
   }
   return packsReq;

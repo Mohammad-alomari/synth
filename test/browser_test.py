@@ -362,6 +362,7 @@ async def public_page(b):
     groups = await pg.evaluate("__t.groups()")
     ok('public page: none of the owner\'s files are listed', not any(n in ' '.join(groups) for n in ['Hadi2024', 'KJ4TRINI', 'TRIN', 'from ', 'Korg factory']), groups)
     ok('public page: starter program plays', await pg.evaluate("__t.play('st', 0, [60])") > 0.005)
+    ok("public page: no starters from the owner's samples", await pg.evaluate("__t.find(/Zorna PA80/)") is None)
     st = await pg.evaluate('([b, n]) => __t.import(b, n)', [pcg('Hadi2024', 'Pub.pcg'), 'Mine.PCG'])
     ok('public page: importing a PCG works', 'Imported from Mine' in st, st)
     v = await pg.evaluate("__t.firstIn('(PCM) from Mine')")
@@ -445,6 +446,26 @@ async def new_programs(b, url):
     ok('no page errors (New program)', not pg.errs, pg.errs[:5])
     await pg.close()
 
+async def user_starters(b, url):
+    # starter programs from the owner's Triton sample disk (userdata.js): their own samples when samples/user/ is built here, else stand-ins
+    pg = await open_page(b, url)
+    n = await pg.evaluate("window.__moss.progEntries().filter(e => e.b === 'st').length")
+    v = await pg.evaluate("__t.find(/^st:\d+ \d+ Zorna PA80$/)")
+    ok('starters from your samples are listed after the MOSS starters', n > 60 and v is not None, [n, v])
+    pk = await pg.evaluate("(v) => __t.play('st', +v.split(':')[1], [60, 64], 1500)", v)
+    P = await pg.evaluate("() => { const P = window.__moss.getPatch(); return [P.kind, P.korgInfo.fmt, P.scale.type, JSON.stringify(P.ramMap)]; }")
+    ok('...a Triton starter decodes (PCM, Triton, its maqam user scale) and plays', pk > 0.005 and P[:3] == ['pcm', 'triton', 'user'] and 'u_zorna112' in P[3], [round(pk, 3), P])
+    own = os.path.exists(os.path.join(ROOT, 'samples', 'user', 'packs.json'))
+    info = await pg.evaluate("() => { const i = window.__moss.pcmInfo(); return [i.state.u_zorna112 || '', !!(i.map.ms.u_zorna112 || {}).u, document.querySelector('#status').textContent]; }")
+    ok('...it plays ' + ('your own sample (samples/user/)' if own else 'a stand-in (no samples/user/ here)'), (info[0] == 'ok' and info[1]) if own else (not info[1] and 'stand-ins' in info[2]), info)
+    await pg.evaluate("() => window.__moss.selectPage('osc0')")
+    help_ = await pg.evaluate("document.querySelector('#page').textContent")
+    ok('...the OSC page names the sample', 'ZORNA122' in help_ and ('your sample' in help_ if own else True), help_[:0])
+    n2, empty = await pg.evaluate('__t.pages()')
+    ok('...every page of it shows', not empty, empty)
+    ok('no page errors (starters from your samples)', not pg.errs, pg.errs[:5])
+    await pg.close()
+
 async def main():
     if not os.path.exists(os.path.join(ROOT, 'index.html')): sys.exit('index.html missing: run python3 build.py')
     url = serve()
@@ -454,6 +475,7 @@ async def main():
         await storage_and_memory(b, url)
         await last_program(b, url)
         await new_programs(b, url)
+        await user_starters(b, url)
         await public_page(b)
         await b.close()
     print('ALL PASSED' if not fails else '%d FAILED: %s' % (len(fails), '; '.join(fails)))

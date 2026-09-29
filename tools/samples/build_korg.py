@@ -1,41 +1,53 @@
 #!/usr/bin/env python3
-"""Build samples/korg/ (Korg's own multisamples, used instead of the General MIDI stand-ins) from the owner's copy of
-Korg's PBS-TRI sample libraries (KMP/KSF files). These recordings are Korg's: they stay out of the repository and out of
-the public build (samples/korg/ is in .gitignore).
+"""Build a private folder of sample packs from Korg KMP/KSF multisamples; they stay out of the repository and out of the
+public build (samples/korg/ and samples/user/ are in .gitignore).
 
-The multisamples to build are the ones PCM_KORG in pcmmap.js names. Each one goes
+  default: samples/korg/ from the owner's copy of Korg's PBS-TRI libraries: the multisamples PCM_KORG in pcmmap.js names
+  --all:   every KMP under --lib, e.g. the owner's own sample disks (Triton/Trinity RAM samples) for samples/user/
+
+Each multisample goes
   KMP/KSF --ConvertWithMoss--> SoundFont 2 --extract_sf.py--> WAVs + zones.json --pack.py--> MP3 + map
-and all maps are merged into samples/korg/packs.json (same format as samples/packs.json).
+and all maps are merged into <out>/packs.json (same format as samples/packs.json).
 
 Run it in the tools container (ConvertWithMoss, Python, ffmpeg; nothing is installed on the host):
   docker build -t trinity-korg tools/samples/korg
   docker run --rm --network none -v "<repo>:/w" -v "<...>/SOUNDBANKS:/pbs:ro" -w /w trinity-korg python3 tools/samples/build_korg.py
-Options: KORG_PBS=<folder> (default /pbs), names of packs to rebuild only those (e.g. k_bouzo069).
+  docker run --rm --network none -v "<repo>:/w" -v "<sample disk folder>:/user:ro" -w /w trinity-korg python3 tools/samples/build_korg.py \
+      --all --lib /user --prefix u_ --out samples/user --licence "the owner's own samples"
+Options: --lib <folder> (default $KORG_PBS or /pbs), names of packs to rebuild only those (e.g. k_bouzo069).
 """
-import json, os, re, shutil, subprocess, sys
+import argparse, json, os, re, shutil, subprocess, sys
 from concurrent.futures import ThreadPoolExecutor
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
-PBS = os.environ.get('KORG_PBS', '/pbs')
-OUT = os.path.join(ROOT, 'samples', 'korg')
-WORK = os.path.join(HERE, 'src', 'korg')  # SoundFonts and decoded WAVs (in .gitignore)
-LIC = 'Korg PBS-TRI sample libraries (Korg Inc.); private copy of the owner, not for distribution'
+ap = argparse.ArgumentParser()
+ap.add_argument('only', nargs='*'); ap.add_argument('--all', action='store_true'); ap.add_argument('--lib', default=os.environ.get('KORG_PBS', '/pbs'))
+ap.add_argument('--prefix', default='k_'); ap.add_argument('--out', default='samples/korg')
+ap.add_argument('--licence', default='Korg PBS-TRI sample libraries (Korg Inc.); private copy of the owner, not for distribution')
+A = ap.parse_args()
+PBS, LIC = A.lib, A.licence
+OUT = os.path.join(ROOT, A.out)
+WORK = os.path.join(HERE, 'src', os.path.basename(A.out.rstrip('/')))  # SoundFonts and decoded WAVs (in .gitignore)
 os.makedirs(OUT, exist_ok=True); os.makedirs(WORK, exist_ok=True)
+pack_name = lambda f: A.prefix + re.sub(r'[^a-z0-9_-]', '_', f.split('/')[-1].lower())  # the app uses the same rule
 
-# PCM_KORG: put(`n:FILE ...`, 'LIBRARY' ...)
-src = open(os.path.join(ROOT, 'pcmmap.js'), encoding='utf-8').read()
 files = set()
-for body, lib in re.findall(r"put\(\s*[`']([^`']*)[`']\s*,\s*'([^']+)'", src):
-    for x in body.split():
-        files.add(lib + '/' + x.split(':')[1])
+if A.all:  # every KMP in the library, by its path under --lib
+    for root, _, fs in os.walk(PBS):
+        for x in fs:
+            if x.upper().endswith('.KMP'): files.add(os.path.relpath(os.path.join(root, x[:-4]), PBS).replace(os.sep, '/'))
+else:  # PCM_KORG: put(`n:FILE ...`, 'LIBRARY' ...)
+    src = open(os.path.join(ROOT, 'pcmmap.js'), encoding='utf-8').read()
+    for body, lib in re.findall(r"put\(\s*[`']([^`']*)[`']\s*,\s*'([^']+)'", src):
+        for x in body.split():
+            files.add(lib + '/' + x.split(':')[1])
 jobs = {}
 for f in sorted(files):
-    name = 'k_' + f.split('/')[-1].lower()
+    name = pack_name(f)
     if name in jobs: sys.exit('two files give the pack name ' + name)
     jobs[name] = f
-only = set(sys.argv[1:])
-if only: jobs = {k: v for k, v in jobs.items() if k in only}
+if A.only: jobs = {k: v for k, v in jobs.items() if k in A.only}
 
 
 def run(cmd):
@@ -81,7 +93,9 @@ def build(name, f):
         c, log = run(['python3', os.path.join(HERE, 'extract_sf.py'), os.path.join(sfd, sf2[0]), '0', '0', dec, '--vel', 'all'])
         if c: return name, 'extract failed: ' + log
     # packed at the recordings' own rate (mostly 48 kHz): resampling would move the short loops of single cycles off their period
-    rate = max(z['rate'] for z in json.load(open(os.path.join(dec, 'zones.json')))['zones'])
+    zs = json.load(open(os.path.join(dec, 'zones.json')))['zones']
+    if not zs: return name, 'no key zones in the converted multisample'
+    rate = max(z['rate'] for z in zs)
     c, log = run(['python3', os.path.join(HERE, 'pack.py'), '--sf-zones', os.path.join(dec, 'zones.json'), '--name', name, '--kind', 'auto',
                   '--rate', str(rate), '--maxlen', '8', '--floor', '-60', '--formats', 'mp3_48_fb', '--licence', LIC, '--out', w])
     if c: return name, 'pack failed: ' + log
@@ -104,8 +118,8 @@ for name in sorted(os.listdir(WORK)):
     shutil.copyfile(mp3, os.path.join(OUT, name + '.mp3'))
     smp = [[e['start'], e['length'], -1 if e['loopStart'] is None else e['loopStart'], -1 if e['loopEnd'] is None else e['loopEnd'], e['gainDb'],
             [[z['keyRange'][0], z['keyRange'][1], z['rootKey'], z['tuneCents']] for z in e['zones']]] for e in m['samples']]
-    packs[name] = dict(file='korg/' + name + '.mp3', rate=m['rate'], sync=m['syncFrame'], search=m['syncSearch'], heal=m.get('healFrames', 64), s=smp)
-json.dump(dict(licence=LIC, source='Korg PBS-TRI libraries (KMP/KSF), converted with ConvertWithMoss', packs=packs),
+    packs[name] = dict(file=os.path.basename(OUT.rstrip('/')) + '/' + name + '.mp3', rate=m['rate'], sync=m['syncFrame'], search=m['syncSearch'], heal=m.get('healFrames', 64), s=smp)
+json.dump(dict(licence=LIC, source='Korg KMP/KSF multisamples, converted with ConvertWithMoss', packs=packs),
           open(os.path.join(OUT, 'packs.json'), 'w'), separators=(',', ':'))
 tot = sum(os.path.getsize(os.path.join(OUT, x)) for x in os.listdir(OUT))
-print('korg packs', len(packs), 'of', len(jobs) if not only else '?', 'total bytes', tot)
+print('packs', len(packs), 'of', len(jobs) if not A.only else '?', 'total bytes', tot)

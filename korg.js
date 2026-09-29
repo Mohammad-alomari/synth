@@ -598,6 +598,127 @@ function korgDecodePcm(r, userScale) {
   return X;
 }
 
+// ======== Triton PCM programs (540 bytes) ========
+// Byte map: Korg TRITON MIDI Implementation (1999.05.11), TABLE 1 "Program parameters (for PCM Synth)"; global user
+// scales: TABLE 4. A Triton program is played by this synth's PCM program model (the Trinity's): the Triton's two LFOs per
+// oscillator become the OSC LFO (pitch) and the filter LFO, its LPF+Reso / LPF+HPF filter the single / serial routes,
+// its shared filter and amp key tracking both filters' ramps. Effects (bytes 16-210) are the Triton's, decoded like the
+// EXB-MOSS bank's. Triton ROM multisamples are a different set from the Trinity's and are not mapped yet.
+const KORG_TRITON_PCM = {
+  REC: 540,
+  // A.M. sources 00-2A (TABLE 1 **1-4) as this synth's AMS names (knobs 1/2 = CC17/CC19; pedals and knob 3/4: off)
+  AMS: ['off', 'oeg', 'feg', 'aeg', 'olfo', 'flfo', 'note', 'note', 'note', 'note', 'note', 'note', 'note', 'note', 'note', 'vel', 'pat', 'at', 'jsx', 'jsy', 'jsyn', 'jsy', 'jsyn',
+    'foot', 'ribbon', 'slider', 'ribz', 'cc19', 'off', 'off', 'ribz', 'cc19', 'off', 'off', 'off', 'off', 'off', 'off', 'sw1', 'sw2', 'fsw', 'cc83', 'tempo'],
+  // LFO waveforms 0-14 (**1-6) as this synth's LFO shapes
+  LFOW: ['tri0', 'tri90', 'rnd1', 'sawup0', 'sawup180', 'rect0', 'sine0', 'guitar', 'tri0', 'sawdn0', 'sawup0', 'tri0', 'tri0', 'sawup0', 'sawup0', 'rnd1', 'rnd2', 'rnd3', 'rnd4', 'rnd5', 'rnd6'],
+  SCALE: ['equal', 'pureMaj', 'pureMin', 'arabic', 'pyth', 'werck', 'kirn', 'slendro', 'pelog', 'stretch']
+};
+// the Triton global's 16 user octave scales (cents) and its all-notes scale
+function korgTritonGlobal(g) {
+  const s8 = v => korgS8(v), out = { scales: [], allNotes: [] };
+  if (!g || g.length < 328) return out;
+  for (let k = 0; k < 16; k++) out.scales.push(Array.from(g.subarray(8 + k * 12, 20 + k * 12), s8));
+  out.allNotes = Array.from(g.subarray(200, 328), s8);
+  return out;
+}
+// Triton PCG contents: PCM program banks (A-E, 540-byte records), combination banks (not played yet), the global
+function korgTritonSections(buf) {
+  const b = buf instanceof Uint8Array ? buf : new Uint8Array(buf), out = { ok: false, pcm: [], combis: 0, glb: null };
+  const rd = o => ((b[o] << 24) >>> 0) + (b[o + 1] << 16) + (b[o + 2] << 8) + b[o + 3], tag = o => String.fromCharCode(b[o], b[o + 1], b[o + 2], b[o + 3]);
+  let p = -1; for (let i = 4; i < Math.min(64, b.length - 8); i++) if (tag(i) === 'PCG1') { p = i; break; }
+  if (p < 0) return out;
+  const end = Math.min(b.length, p + 8 + rd(p + 4));
+  for (let o = p + 8; o + 8 <= end;) {
+    const t = tag(o), sz = rd(o + 4), d = o + 8;
+    if (t === 'PRG1' || t === 'CMB1') {
+      for (let q = d; q + 20 <= d + sz;) {
+        const t2 = tag(q), s2 = rd(q + 4), n = rd(q + 8), rs = rd(q + 12), id = rd(q + 16);
+        if (t2 === 'PBK1' && rs === KORG_TRITON_PCM.REC) out.pcm.push({ bank: 'ABCDEFGHIJKLMN'[id] || '?', recs: Array.from({ length: n }, (_, i) => b.slice(q + 20 + i * rs, q + 20 + (i + 1) * rs)) });
+        else if (t2 === 'CBK1') out.combis += n;
+        q += 8 + s2;
+      }
+    } else if (t === 'GLB1') out.glb = korgTritonGlobal(b.subarray(d, d + sz));
+    o += 8 + sz;
+  }
+  out.ok = true;
+  return out;
+}
+// ---- one Triton PCM program (540 bytes); glb: korgTritonGlobal() of its file; ram(n): what plays RAM multisample n
+// (an entry key of the sample map, e.g. 'u:zurna005'), or undefined when that sample is not available
+function korgDecodeTritonPcm(r, glb, ram) {
+  const X = korgDecodePcm(new Uint8Array(KORG_PCM.REC)); delete X.korg; // every field of the model, then the Triton's values
+  const notes = [], u = k => r[k], s = k => korgS8(r[k]), T = KORG_TRITON_PCM, P = KORG_PCM;
+  const ams = k => T.AMS[r[k]] || 'off', pint = k => P.pint(s(k)), c99 = (v) => Math.max(0, Math.min(99, v));
+  const b204 = u(204), mode = ['single', 'double', 'drum'][b204 & 3] || 'single';
+  X.name = korgName(r) || 'Untitled'; X.cat = u(206) & 15; X.catB = 0; X.mode = mode;
+  Object.assign(X.voice, { mode: (b204 >> 2) & 1 ? ((b204 >> 3) & 1 ? 'monoSingle' : 'monoMulti') : 'poly', priority: ['low', 'high', 'last', 'last'][(b204 >> 4) & 3], hold: (b204 >> 7) & 1 });
+  const sc = u(207);
+  if (sc <= 9) X.scale = { type: T.SCALE[sc], key: u(208) % 12, user: new Array(12).fill(0) };
+  else if (sc >= 11 && sc <= 26 && glb && glb.scales[sc - 11]) X.scale = { type: 'user', key: u(208) % 12, user: glb.scales[sc - 11].slice(), userNo: sc - 11 };
+  else { X.scale = { type: 'equal', key: 0, user: new Array(12).fill(0) }; notes.push('The Triton ' + (sc === 10 ? 'all-notes user scale' : 'scale type ' + sc) + ' is not reproduced; equal temperament used'); }
+  X.random = X.voice.random = [0, 1 / 64, 1 / 32, 1 / 16, 1 / 8, 1 / 4, 1 / 2, 1][u(209) & 7];
+  X.peg = { startL: s(216), atkT: c99(u(217)), atkL: s(218), decT: c99(u(219)), relT: c99(u(220)), relL: s(221), velT: 0, tSrc: ams(226), tInt: s(227) };
+  const romMiss = new Set(), ramMiss = new Set(), ramUsed = {};
+  const ref = (hi, lo, bank) => { // multisample number + bank -> this synth's multisample id
+    const n = ((hi & 0x7f) << 8) | lo;
+    if (bank === 1) { const e = ram(n); if (e === undefined) ramMiss.add(n); else ramUsed[n] = e; return 0x1000 | (n & 0xfff); }
+    romMiss.add((bank === 0 ? 'ROM ' : 'expansion ' + bank + ' ') + n); return 0;
+  };
+  const osc = (b, k) => {
+    const O = X.o[k], lfo = (o) => ({ wave: T.LFOW[u(o) & 31] || 'tri0', start: 'on', sync: (u(o) >> 7) & 1, offset: s(o + 2), freq: c99(u(o + 1)), delay: c99(u(o + 3)), fade: s(o + 4),
+      kbd: 0, jsy: 0, fmSrc: ams(o + 6), fmInt: s(o + 7) });
+    const audible = k === 0 || mode === 'double';
+    O.offHi = u(b) >> 7; O.msHi = audible ? ref(u(b), u(b + 1), u(b + 2)) : 0; O.lvlHi = u(b + 3) & 127;
+    O.velSplit = Math.max(1, u(b + 9) & 127);
+    O.offLo = u(b + 4) >> 7; O.msLo = audible && O.velSplit > 1 && (u(b + 7) & 127) ? ref(u(b + 4), u(b + 5), u(b + 6)) : O.msHi; O.lvlLo = u(b + 7) & 127;
+    if (audible && ((u(b) >> 6) & 1 || (O.velSplit > 1 && (u(b + 4) >> 6) & 1))) notes.push('OSC ' + (k + 1) + ' plays its multisample reversed on the Triton; forwards here');
+    O.delay = u(b + 8) === 97 ? -1 : P.delayMs(u(b + 8));
+    if (k === 1 && u(b + 10) > 1) X.osc2Vel = u(b + 10) & 127;
+    if (audible && ((k === 0 && u(b + 10) > 1) || (u(b + 11) & 127) < 127)) notes.push('OSC ' + (k + 1) + ' plays only velocities ' + u(b + 10) + '-' + u(b + 11) + ' on the Triton; here it follows the Trinity model');
+    const l1 = lfo(b + 12), l2 = lfo(b + 22);
+    // pitch (262-285)
+    O.octave = Math.max(-2, Math.min(1, s(b + 32))); O.transpose = Math.max(-12, Math.min(12, s(b + 33))); O.tune = Math.max(-1200, Math.min(1200, ((u(b + 34) << 8) | u(b + 35)) << 16 >> 16));
+    const jsVib = pint(b + 50), vibJs = Math.sign(jsVib) * 99 * Math.sqrt(Math.min(12, Math.abs(jsVib)) / 12);
+    Object.assign(O.pitch, { amsSrc: ams(b + 36), amsInt: pint(b + 37), slope: Math.max(-10, Math.min(20, s(b + 38))) / 10, egInt: pint(b + 39), egAmsSrc: ams(b + 40), egAmsInt: pint(b + 41),
+      lfoInt: pint(b + 42), jsUp: Math.max(-60, Math.min(12, s(b + 46))), jsDown: Math.max(-60, Math.min(12, s(b + 47))), ribbon: Math.max(-12, Math.min(12, s(b + 48))), egVel: 0, stepUp: 0, stepDown: 0 });
+    O.lfo = l1; O.lfoPitch = { jsy: Math.round(vibJs), at: 0, amsSrc: ams(b + 52), amsInt: pint(b + 53) };
+    if (pint(b + 43)) notes.push('OSC ' + (k + 1) + ' pitch LFO 2 is left out (this model has one pitch LFO)');
+    if (k === 0 && (u(b + 44) & 1)) { X.voice.porta = 1; X.voice.portaTime = u(b + 45) & 127; X.voice.portaFingered = (u(b + 44) >> 1) & 1; }
+    // filter (286-345): LPF+Reso = one resonant low-pass; LPF+HPF = low-pass then high-pass
+    const hp = u(b + 56) === 1, kt = [u(b + 112) & 127, s(b + 113), u(b + 114) & 127, s(b + 115)];
+    O.route = hp ? 'serial' : 'single'; O.ftype = hp ? ['lpf', 'hpf'] : ['lpf', 'lpf']; O.ftn = hp ? [0, 1] : [0, 0];
+    const lfoFilt = (s(b + 72) || s(b + 87)) ? 1 : 2; // the filter LFO: LFO 1 if a filter uses it, else LFO 2
+    O.flfo = lfoFilt === 1 ? Object.assign({}, l1) : l2;
+    const filt = (o, reso) => { const kbd = s(o + 1) / 99; return { cut: c99(u(o)), gain: c99(u(b + 57)), reso: reso, resoVel: 0, egInt: s(o + 6), egVel: s(o + 7),
+      lfoInt: lfoFilt === 1 ? s(o + 8) : s(o + 9), jsx: 0, at: 0, lowKey: kt[0], highKey: kt[2], lowRamp: Math.round(kt[1] * kbd), highRamp: Math.round(kt[3] * kbd), amsSrc: ams(o + 2), amsInt: s(o + 3) }; };
+    O.f = [filt(b + 64, hp ? 0 : Math.round(c99(u(b + 58)) * 31 / 99)), filt(b + 79, 0)];
+    O.flfoMod = { jsyn: c99(Math.abs(s(b + 74 + (lfoFilt - 1)))), at: 0, amsSrc: ams(b + 62 + (lfoFilt - 1)), amsInt: s(b + 77 + (lfoFilt - 1)) };
+    const eg = o => ({ startL: s(o), atkT: c99(u(o + 1)), atkL: s(o + 2), decT: c99(u(o + 3)), brkL: s(o + 4), slpT: c99(u(o + 5)), susL: s(o + 6), relT: c99(u(o + 7)) });
+    O.feg = Object.assign(eg(b + 94), { relL: s(b + 102), kt: [0, 0, 0, 0], vt: [0, 0, 0, 0], tSrc: ams(b + 106), tInt: s(b + 107), lv: [0, 0, 0] });
+    O.fegAms = { src: ams(b + 110), int: s(b + 111) };
+    // amplifier (346-377): levels of the amp EG are 0-99 here
+    O.amp = { level: u(b + 116) & 127, lowKey: u(b + 144) & 127, highKey: u(b + 146) & 127, lowRamp: s(b + 145), highRamp: s(b + 147), vel: s(b + 117), at: 0, amsSrc: ams(b + 118), amsInt: s(b + 119) };
+    const ae = eg(b + 126); for (const q of ['startL', 'atkL', 'brkL', 'susL']) ae[q] = c99(u(b + 126 + { startL: 0, atkL: 2, brkL: 4, susL: 6 }[q]));
+    O.aeg = Object.assign(ae, { kt: [0, 0, 0, 0], vt: [0, 0, 0, 0], tSrc: ams(b + 134), tInt: s(b + 135), lv: [0, 0, 0] });
+    if (O.amp.amsSrc === 'off' && (s(b + 120) || s(b + 121))) { O.amp.amsSrc = s(b + 120) ? 'olfo' : 'flfo'; O.amp.amsInt = s(b + 120) || s(b + 121); }
+    // output (378-383): pan 0 = random
+    const pan = u(b + 149) & 127; O.pan = pan || 64; if (!pan && audible) notes.push('OSC ' + (k + 1) + ' pan is Random on the Triton; centre here');
+    O.panSrc = ams(b + 150); O.panInt = s(b + 151); O.send1 = u(b + 152) & 127; O.send2 = u(b + 153) & 127;
+  };
+  osc(230, 0); osc(384, 1);
+  X.voice.bendUp = X.o[0].pitch.jsUp; X.voice.bendDown = X.o[0].pitch.jsDown;
+  if (Object.keys(ramUsed).length) X.ramMap = ramUsed;
+  if (ramMiss.size) { X.ramMap = X.ramMap || {}; ramMiss.forEach(n => { X.ramMap[n] = 0; }); notes.push('Plays RAM multisample' + (ramMiss.size > 1 ? 's ' : ' ') + [...ramMiss].join(', ') + ', which ' + (ramMiss.size > 1 ? 'are' : 'is') + ' not among the loaded samples (stand-in: A.Piano)'); }
+  if (romMiss.size) notes.push('Plays Triton ' + [...romMiss].join(', ') + ' (Triton multisamples are not mapped yet; stand-in: A.Piano)');
+  if (mode === 'drum') notes.push('Drum-mode program: not supported');
+  X.fx = korgDecodeTritonFx(r.subarray(16, 211), notes);
+  X.fx.send1 = X.fx.ifxSend1 = X.fx.ins.length ? X.fx.ifxSend1 : X.o[0].send1;
+  X.fx.send2 = X.fx.ins.length ? X.fx.ifxSend2 : X.o[0].send2;
+  if (!X.fx.ins.length) X.fx.ifxSend2 = X.fx.send2;
+  X.korgInfo = { kind: 'pcm', fmt: 'triton', notes, missing: { rom: romMiss.size, ram: ramMiss.size } };
+  return X;
+}
+
 // ---- one combination (388 bytes): 8 timbres ----
 // Which timbres go through which insert effects. Each timbre's byte 254 is 0 = no insert effect, 1/2/3 = the
 // timbre takes an insert chain of size 1/2/4 (Korg's list), 4 = a chain using all the blocks it needs (seen only on a
@@ -659,4 +780,4 @@ function korgDecodeCombi(r, userScale) {
   return C;
 }
 
-if (typeof module !== 'undefined') module.exports = { korgDecodeTrinityFx, KORG, korgParsePCG, korgParseTritonPCG, korgTritonToTrinity, korgDecodeMoss, korgPlayability, korgS8, korgName, KORG_PCM, korgTrinitySections, korgDecodeFxBlocks, korgDecodePcm, korgDecodeCombi, korgCombiChains };
+if (typeof module !== 'undefined') module.exports = { korgDecodeTrinityFx, KORG, korgParsePCG, korgParseTritonPCG, korgTritonToTrinity, korgDecodeMoss, korgPlayability, korgS8, korgName, KORG_PCM, korgTrinitySections, korgDecodeFxBlocks, korgDecodePcm, korgDecodeCombi, korgCombiChains, KORG_TRITON_PCM, korgTritonGlobal, korgTritonSections, korgDecodeTritonPcm };
