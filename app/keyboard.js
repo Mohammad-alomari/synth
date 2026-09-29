@@ -284,9 +284,10 @@ $('#playbtn').addEventListener('click', () => { startAudio(); setPlayMode(true);
 $('#pbexit').addEventListener('click', () => setPlayMode(false));
 $('#pbkeys').addEventListener('click', () => { setPlayMode(false); selectPage('keys'); });
 $('#pbprev').addEventListener('click', () => stepProgram(-1));
+$('#pblast').addEventListener('click', goLast);
 $('#pbnext').addEventListener('click', () => stepProgram(1));
 // the program list: tapping the name opens it; picking a program (or Close, or Escape) closes it
-const pbList = progBrowser($('#pblbody'), e => { loadProgram(e.b, e.i); pbListOpen(false); }, () => !$('#pbl').hidden);
+const pbList = progBrowser($('#pblbody'), e => { loadProgram(e.b, e.i, e.recent); pbListOpen(false); }, () => !$('#pbl').hidden);
 function pbListOpen(on) {
   const box = $('#pbl'); if (box.hidden === !on) return;
   box.hidden = !on; $('#pbnamebtn').setAttribute('aria-expanded', String(on));

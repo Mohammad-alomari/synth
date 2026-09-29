@@ -81,7 +81,9 @@ Conventions / gotchas
   transferable buffer). Worklet posts {t:'st', v: voiceStates, need:[pack names]}.
 - Program ids in the UI: st:N starter, us:N user, pm:N MOSS bank, pc:N PCM (bank*128+i), cb:N combination.
 - Stored in browser localStorage: moss-user-programs, moss-current, moss-page, moss-perf, moss-kb (Keyboard page settings
-  + learned MIDI next/prev buttons), moss-favs (favourite programs: list group + "|" + program text). Imported PCGs live in IndexedDB
+  + learned MIDI next/prev buttons), moss-favs (favourite programs: list group + "|" + program text), moss-recent (the last 6
+  programs played, 'bank:idx', newest first: Last buttons #lastbtn/#pblast/#mmlast and the browsers' 'Recently played' list;
+  unsaved edits of a program left behind are kept in memory (recentEdits) and come back through them). Imported PCGs live in IndexedDB
   'trinity-web-synth', store 'files': {id, kind 'moss'|'tri', name, scale, fmt, rs, bytes} (raw bytes; restored
   asynchronously after start-up by restoreImported(); old localStorage keys moss-pcg / moss-tri are migrated).
   Max 8 imported files.
@@ -148,7 +150,7 @@ bend, mod, voices), quick edit (mmMacros: MOSS/PCM Level, Cutoff, Resonance, Fil
 by the same delta; combis: level per playing timbre), Revert / Save (saveToUser) / Full editor. Arrow keys step, Esc exits.
 Program browser (program.js progBrowser; used by the editor (#edbrowse under the display, opened by the bank button #progbtn
 between ‹ ›; replaces the old program menu and search box), MIDI mode Browse and the play-mode list #pbl, opened by tapping the play-bar
-name): one bank (list group) at a time, starting with the playing program's; the bank button lists all banks; a search or the
+name): one bank (list group) at a time, starting with the playing program's; the bank button lists all banks (after 'Recently played'); a search or the
 favourites filter lists matches from every bank. Play bar ‹ › are 58x42 px.
 Checks passed: all 2,560 PCM programs render (no NaN); 1,408 combinations render (no NaN, 1 silent by data);
 MOSS sound identical to Version 11 (regress.js); browser tests in AudioWorklet and ScriptProcessor modes; phone width.
@@ -166,7 +168,8 @@ Synth memory (app/core.js memoryFor): an IMPORTED file uses its own PCM banks / 
 comes from earlier imports (newest first), then the built-in files in list order (Hadi2024 first). Built-in files
 only use their own data (unchanged behaviour). A file with a Bank S (imports: from the PCG; built-ins: "s":1 in
 tridata.js, TRINI-1-KJ) never takes a Bank M: bank 4 = Solo-TRI there (silent). Timbres record t.from (source file
-name, shown in the Timbres table). Combination-only and Bank-M-only
+name, shown in the Timbres table) and t.src (lasting address = bankEdits key; stored combinations - User bank,
+program kept over a reload - re-read their timbre programs by it: refreshTimbres). Combination-only and Bank-M-only
 Trinity files are accepted (every Trinity import makes a tri set, so it has a place in the memory order).
 Important fact: a PCG holds parameters only, never audio. Korg's ROM samples are on chips in the synth and
 are not downloadable; the factory preload would also play stand-ins.

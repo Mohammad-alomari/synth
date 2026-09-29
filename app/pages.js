@@ -796,7 +796,7 @@ function renderImportInfo(host) {
 }
 // saves over the current user program, or adds a new one to the User bank
 function saveToUser() {
-  if (prog.bank === 'us' && userBank[prog.idx]) userBank[prog.idx] = clone(patch); else { userBank.push(clone(patch)); prog = { bank: 'us', idx: userBank.length - 1 }; }
+  if (prog.bank === 'us' && userBank[prog.idx]) userBank[prog.idx] = clone(patch); else { userBank.push(clone(patch)); prog = { bank: 'us', idx: userBank.length - 1 }; noteRecent(); }
   commitUser('Saved to User ' + String(prog.idx + 1).padStart(2, '0'));
 }
 // the current program's place in a Trinity bank (Bank M or a PCM bank), or null when it has none

@@ -86,6 +86,8 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .lcd .progbtn { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; width: auto; background: var(--lcd-2); font-size: 20px; text-align: left; padding: 2px 6px; }
 .lcd .progbtn .pg { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lcd .progbtn[aria-expanded="true"] .cr { transform: rotate(180deg); }
+.lcd .lastbtn { width: auto; padding: 0 8px; font-size: 18px; white-space: nowrap; }
+.lcd button:disabled, .playbar #pblast:disabled, #mmlast:disabled { opacity: .4; cursor: default; }
 .meta { font-family: var(--f-lcd); font-size: 19px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center; color: var(--lcd-ink); }
 .vleds { display: inline-flex; flex-wrap: wrap; gap: 4px; max-width: 100%; vertical-align: middle; }
 .vleds.many { gap: 2px; }
@@ -260,7 +262,7 @@ body.play .playbar { display: flex; grid-column: 1 / -1; align-items: center; ga
 .playbar .pb-txt { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .playbar .pb-caret { flex: none; font-size: 16px; }
 .playbar .hw { min-height: 30px; padding: 2px 10px; }
-.playbar #pbprev, .playbar #pbnext { min-width: 58px; min-height: 42px; justify-content: center; padding: 0 8px; font-size: 30px; line-height: 1; }
+.playbar #pbprev, .playbar #pbnext, .playbar #pblast { min-width: 58px; min-height: 42px; justify-content: center; padding: 0 8px; font-size: 30px; line-height: 1; }
 .playbar .rot { display: none; font-size: 13px; color: var(--muted); }
 .playbar select { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 2px 3px; min-height: 30px; font-family: var(--f-ui); font-size: 14px; max-width: 120px; }
 .playbar select:disabled { opacity: 0.5; }
@@ -278,7 +280,7 @@ body.play #kb { flex: 1; height: auto; min-height: 0; }
 body.play .toast { bottom: auto; top: calc(60px + env(safe-area-inset-top, 0px)); }
 @media (orientation: portrait) {
   /* held upright: row 1 = < name >, row 2 = scale, Sustain, Keys, Exit; the turn hint goes last */
-  body.play .playbar { flex-wrap: wrap; } body.play .playbar .pb-name { flex-basis: calc(100% - 132px); }
+  body.play .playbar { flex-wrap: wrap; } body.play .playbar .pb-name { flex-basis: calc(100% - 196px); }
   body.play .playbar #pbscale { flex: 1 1 0; } body.play .playbar .rot { display: inline; flex-basis: 100%; order: 1; font-size: 12px; line-height: 1.2; }
   /* held upright: the controllers sit in a row above the keys, which keep the full width */
   body.play .dock { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr); }
@@ -354,7 +356,7 @@ body.midi .mm { display: flex; flex-direction: column; gap: 8px; max-width: 900p
 .mm-from { font-family: var(--f-lcd); font-size: 18px; line-height: 1.1; color: var(--lcd-dim); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mm-fav { flex: none; align-self: flex-start; background: transparent; border: 1px solid var(--lcd-ink); color: var(--lcd-ink); border-radius: 4px; width: 44px; height: 44px; font-size: 26px; line-height: 1; cursor: pointer; }
 .mm-fav[aria-pressed="true"] { background: var(--lcd-ink); color: var(--lcd); }
-.mm-nav { display: grid; grid-template-columns: 1fr auto 1fr; gap: 6px; }
+.mm-nav { display: grid; grid-template-columns: 1fr auto auto 1fr; gap: 6px; }
 .mm-nav .hw { min-height: 64px; justify-content: center; font-size: 22px; }
 #mmbrowse { font-size: 16px; padding: 4px 14px; }
 #mmbrowse[aria-expanded="true"] { color: var(--accent); border-color: var(--accent); }
@@ -415,6 +417,7 @@ body.midi .mm { display: flex; flex-direction: column; gap: 8px; max-width: 900p
         <button type="button" id="prev" aria-label="Previous program">&lsaquo;</button>
         <button type="button" class="progbtn" id="progbtn" aria-expanded="false" aria-controls="edbrowse" title="Choose a bank and program, or search"><span class="pg" id="progbank"></span><span class="cr" aria-hidden="true">&#9662;</span></button>
         <button type="button" id="next" aria-label="Next program">&rsaquo;</button>
+        <button type="button" class="lastbtn" id="lastbtn" title="Back to the program before (press again to return)">&#8630; Last</button>
       </div>
       <div class="meta" style="margin-top:6px">
         <span>Voices <span class="vleds" id="vleds"></span></span>
@@ -436,6 +439,7 @@ body.midi .mm { display: flex; flex-direction: column; gap: 8px; max-width: 900p
     <button class="hw" type="button" id="pbprev" aria-label="Previous program">&lsaquo;</button>
     <button class="pb-name" type="button" id="pbnamebtn" aria-haspopup="dialog" aria-label="Choose a program" title="Choose a program"><span class="pb-txt" id="pbname"></span><span class="pb-caret" aria-hidden="true">&#9662;</span></button>
     <button class="hw" type="button" id="pbnext" aria-label="Next program">&rsaquo;</button>
+    <button class="hw" type="button" id="pblast" aria-label="Last program" title="Back to the program before (press again to return)">&#8630;</button>
     <select class="qscale" id="pbscale" aria-label="Scale"></select>
     <select class="qkey" id="pbkey" aria-label="Scale key"></select>
     <button class="hw" type="button" id="pbsus" aria-pressed="false" title="Damper pedal (CC64)">Sustain</button>
@@ -492,6 +496,7 @@ body.midi .mm { display: flex; flex-direction: column; gap: 8px; max-width: 900p
   </div>
   <div class="mm-nav">
     <button class="hw" type="button" id="mmprev" aria-label="Previous program">&lsaquo; Prev</button>
+    <button class="hw" type="button" id="mmlast" title="Back to the program before (press again to return)">&#8630; Last</button>
     <button class="hw" type="button" id="mmbrowse" aria-expanded="false">Browse</button>
     <button class="hw" type="button" id="mmnext" aria-label="Next program">Next &rsaquo;</button>
   </div>
