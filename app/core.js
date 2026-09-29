@@ -138,8 +138,41 @@ function timbreProgram(set, t) {
   t.from = ''; t.drum = false;
   if (t.bank <= 3) { const L = 'ABCD'[t.bank], src = memoryFor(set, L), bi = src ? pcmBanks.findIndex(x => x.set === src && x.letter === L) : -1; if (bi >= 0 && pcmBanks[bi].drum[t.prog]) t.drum = true; else if (bi >= 0) { t.p = pcmPatch(bi * 128 + t.prog); t.pId = 'pc:' + (bi * 128 + t.prog); if (src !== set) t.from = src.name; } }
   else if (t.bank === 4) { const src = memoryFor(set, 'M'), mb = src && mossOf(src), mi = mb ? pcgBanks.indexOf(mb) : -1; if (mi >= 0) { t.p = pcgPatch(mi * 128 + t.prog); t.pId = 'pm:' + (mi * 128 + t.prog); if (src !== set) t.from = src.name; } else if (set.hasS || set.builtin) t.pLabel = 'S' + pad3(t.prog); }
-  if (t.p) delete t.p.korg; // the raw bytes are not needed inside a combination
+  if (t.p) { delete t.p.korg; t.src = progKey(t.pId); } // the raw bytes are not needed inside a combination
   t.pName = t.p ? t.p.name : '';
+}
+// a program's lasting address, the same as its bankEdits key (file, bank, number): list positions ('pc:N') change when
+// files are imported or removed
+function progKey(id) {
+  const [bk, n] = (id || '').split(':'), idx = Number(n), i = idx % 128;
+  if (bk === 'pm') { const b = pcgBanks[Math.floor(idx / 128)]; return b && i < b.n ? editKeyM(b, i) : ''; }
+  if (bk === 'pc') { const b = pcmBanks[Math.floor(idx / 128)]; return b ? editKeyP(b, i) : ''; }
+  return '';
+}
+function progByKey(key) {
+  for (let bi = 0; bi < pcgBanks.length; bi++) { const b = pcgBanks[bi]; for (let i = 0; i < b.n; i++) if (editKeyM(b, i) === key) return 'pm:' + (bi * 128 + i); }
+  for (let bi = 0; bi < pcmBanks.length; bi++) { const b = pcmBanks[bi]; if (key.startsWith('P|') && key.split('|')[2] === b.letter) for (let i = 0; i < 128; i++) if (editKeyP(b, i) === key) return 'pc:' + (bi * 128 + i); }
+  return '';
+}
+// A stored combination (User bank, the program kept over a reload) holds a copy of each timbre program; it plays the
+// program from its bank instead, so edits saved in place reach it. Copies stored before t.src existed are matched by
+// list position and name. A program whose file is gone keeps its copy.
+function refreshTimbres(C) {
+  if (!C || C.kind !== 'combi') return C;
+  for (const t of C.timbres) {
+    if (!t || !t.p) continue;
+    let id = t.src ? progByKey(t.src) : '';
+    if (!t.src && t.pId) { // the name then, before or after an edit saved in place
+      const [bk, n] = t.pId.split(':'), i = n % 128, pm = bk === 'pm', b = pm ? pcgBanks[Math.floor(n / 128)] : pcmBanks[Math.floor(n / 128)];
+      const orig = b && (pm ? (i < b.n ? korgName(b.bytes.subarray(i * b.rs, i * b.rs + 16)) : null) : korgName(b.bytes.subarray(i * 433, i * 433 + 16)));
+      if (b && (b.names[i] === t.pName || orig === t.pName)) id = t.pId;
+    }
+    if (!id) continue;
+    const [bk, n] = id.split(':'), p = bk === 'pm' ? pcgPatch(Number(n)) : pcmPatch(Number(n));
+    if (!p) continue;
+    delete p.korg; t.p = p; t.pId = id; t.src = progKey(id); t.pName = p.name;
+  }
+  return C;
 }
 function combiPatch(idx) {
   const b = combiBanks[Math.floor(idx / 128)], i = idx % 128;
@@ -152,6 +185,7 @@ function combiPatch(idx) {
 }
 // an unedited program is reloaded from its source, so it picks up anything newer (such as its decoded effects)
 if (!edited) { try { const P = prog.bank === 'pm' ? pcgPatch(prog.idx) : prog.bank === 'pc' ? pcmPatch(prog.idx) : prog.bank === 'cb' ? combiPatch(prog.idx) : prog.bank === 'st' ? mossPreset(prog.idx) : null; if (P) patch = P; } catch (e) { console.warn('Could not reload the current program', e); } }
+refreshTimbres(patch);
 // restores a stored bank into the lists; returns false (and logs) when the record cannot be read
 function restoreRecord(r) {
   try {
@@ -178,7 +212,8 @@ async function restoreImported() {
   for (const r of recs) if (!restoreRecord(r)) bad.push(r.name);
   if (bad.length) status('Could not restore imported bank' + (bad.length > 1 ? 's' : '') + ': ' + bad.join(', ') + '. Import the file again.');
   if (!recs.length) return;
-  if (!edited && ['pm', 'pc', 'cb'].includes(prog.bank)) loadProgram(prog.bank, prog.idx); else { refreshProgs(); lcd(); }
+  if (!edited && ['pm', 'pc', 'cb'].includes(prog.bank)) loadProgram(prog.bank, prog.idx);
+  else { if (patch.kind === 'combi') { refreshTimbres(patch); pcmPrepare(patch); send({ t: 'patch', p: clone(patch) }); } refreshProgs(); lcd(); }
 }
 // any failure while importing ends up in the status line instead of being lost in the console
 async function importPcgFile(file) {

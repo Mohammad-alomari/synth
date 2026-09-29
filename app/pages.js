@@ -770,7 +770,7 @@ function renderMemory(host) {
   if (ts && !ts.builtin) b('Remove these PCM banks and combinations', () => { removeTriSet(ts); forget(ts); loadProgram('st', 0); toast('Removed ' + ts.name); });
   b('Revert', () => loadProgram(prog.bank, prog.idx));
   host.appendChild(row);
-  if (w) host.appendChild(el('p', 'help', 'Save in place keeps your edit as ' + w.label + ' of ' + w.file + ': the bank list and every combination that uses this program play it from now on. Restore original brings back the program from the file.'));
+  if (w) host.appendChild(el('p', 'help', 'Save in place keeps your edit as ' + w.label + ' of ' + w.file + ': the bank list and every combination that uses this program play it from now on (as on the Trinity, a combination uses its own effects, not the program’s). Restore original brings back the program from the file.'));
   host.appendChild(el('p', 'help', 'User programs and imported banks live in this browser only. Use Export to keep a copy elsewhere. Importing reads a Trinity PCG file\u2019s Bank M (MOSS) programs, its PCM programs (banks A\u2013D; Drum-mode programs are not supported), its combinations, and its user scale. Korg\u2019s free Trinity preload data can be imported the same way. Like the real synth\u2019s memory, an imported file that lacks some banks uses the ones loaded before it (earlier imports first, then the built-in files); the Timbres table shows where each program comes from.'));
 }
 function renderImportInfo(host) {
