@@ -1,12 +1,8 @@
 // Every effect type, alone, rendered by the reference tree and the current one; reports any difference
-const fs = require('fs'), path = require('path');
+const path = require('path'), H = require('../harness.js');
 const REF = process.argv[2], CUR = path.join(__dirname, '..', '..');
 if (!REF) { console.error('usage: node test/tools/fxregress.js <refdir>  (refdir = folder with an older copy of the sources)'); process.exit(2); }
-function load(dir) {
-  const src = ['fxcat.js', 'patches.js', 'engine.js', 'fxdsp.js'].map(f => fs.readFileSync(path.join(dir, f), 'utf8').replace(/if \(typeof module !== 'undefined'\)[^\n]*\n/g, '')).join('\n;\n') + '\nmodule.exports={MossEngine,mossPreset,TFX};';
-  const m = new module.constructor(); m._compile(src, path.join(dir, 'b' + Math.random() + '.js')); return m.exports;
-}
-const A = load(REF), B = load(CUR), sr = 48000, N = 128;
+const A = H.load(H.ORDER, REF), B = H.load(H.ORDER, CUR), sr = 48000, N = 128;
 let seed = 1; const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }; const RR = Math.random;
 function render(X, P) {
   seed = 777; Math.random = rnd;
