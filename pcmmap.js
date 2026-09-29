@@ -65,6 +65,38 @@ const PCM_STANDIN = (() => {
   return { ms };
 })();
 
+// Korg's own recordings, used instead of the stand-ins above when the page finds them (samples/korg/packs.json).
+// They come from Korg's PBS-TRI sample libraries (KMP/KSF files), which are NOT part of this project: the owner builds
+// samples/korg/ from his copy with tools/samples/build_korg.py, and the public build never has them.
+// K(file): the multisample file (path under the libraries' SOUNDBANKS folder, without .KMP); pack name k_<file name>.
+// Entries without s are the Trinity ROM multisample itself (same Korg name; the Korg Multisamples disk holds 112 of
+// them); s: 1 = the closest Korg recording (a sibling: other loop / velocity version, or a similar instrument).
+// g: 8 dB = the median level difference to the stand-ins (so the balance against MOSS voices and PCM trim stays as tuned).
+const PCM_KORG = (() => {
+  const ms = {}, K = (f, extra) => Object.assign({ p: 'k_' + f.split('/').pop().toLowerCase(), f, g: 8 }, extra || {});
+  const put = (list, lib, extra) => list.trim().split(/\s+/).forEach(x => { const [n, f] = x.split(':'); ms[n] = K(lib + '/' + f, extra); });
+  // the Trinity ROM multisamples on the Korg Multisamples disk (names match the ROM directory)
+  put(`0:A_PIA000 1:A_PIA001 11:EP_-D002 25:HARPS003 26:HARPS004 32:E_ORG005 36:E_ORG006 38:E_ORG007 39:E_ORG008 45:PIPE-009
+    54:XYLOP010 62:FM_TU011 63:SLIT_012 64:SLIT_013 65:BALAP014 66:BALAP015 67:GUNTA016 68:GUNTA017 69:BOTTL018 70:BOTTL019
+    71:FM_PL020 72:FM_PL021 76:GAMEL022 77:GAMEL023 78:FINGE024 79:FINGE025 80:TIBET026 81:TIBET027 83:THAI_028 84:THAI_029
+    85:POT_C030 86:POT_C031 87:FM_SO032 88:FM_CH033 89:GLASS034 92:ENS_B035 93:ENSEM036 96:TIN_F037 97:TIN_F038 101:BOTTL039
+    105:BASS_040 110:TENOR041 112:TENOR042 114:ALTO_043 116:SOPRA044 117:SAX_G045 118:SAX_E046 119:SAX_E047 124:TROMB048
+    125:TROMB049 126:TROMB050 127:TRUMP051 129:TRUMP052 131:PICCO053 134:BRASS054 135:BRASS055 138:BANDO056 158:KOKYO057
+    162:12_ST058 164:PARKE059 168:CLEAN060 173:FUNKT061 181:DIST_062 184:AMP_N063 194:PICK_064 195:PICK_065 196:PICK_066
+    197:PICK_067 214:MANDO068 215:BOUZO069 216:BOUZO070 223:HARP-071 224:HARP-072 226:UKULE073 227:UKULE074 228:SYN_B075
+    229:SYN_B076 236:SYN_B077 237:SYN_B078 239:SYN_B079 240:SYNC_080 241:SYNC_081 242:SYNC_082 243:SYNC_083 245:DETUN084
+    249:SYN-E085 250:SYN-E086 251:SYN-C087 253:SYN-V088 255:SYN-A089 259:SYN-S090 260:SYN-S091 261:SYN-S092 262:SYN-S093
+    263:SYN-M094 270:SAW-M095 280:SQUAR096 282:SQUAR097 283:TRIAN098 287:PARAB099 289:SINE-100 321:RUBBE101 326:XYLOP102
+    357:TRIAN103 358:SLEIG104 362:ANKLU105 363:ANKLU106 371:GUNSH107`, 'KORG_MULTISAMPLES');
+  // siblings on the same disk: the other loop version, or another velocity recording of the same instrument
+  put(`7:EP_-D002 8:EP_-D002 9:EP_-D002 10:EP_-D002 24:HARPS003 31:E_ORG005 33:E_ORG005 53:XYLOP010 75:GAMEL022 91:ENS_B035
+    111:TENOR042 113:ALTO_043 115:SOPRA044 123:TROMB048 128:TRUMP051 192:PICK_064 193:PICK_065 284:TRIAN098`, 'KORG_MULTISAMPLES', { s: 1 });
+  // a similar instrument from another library. (Orchestral Elements, Dance, M1 and the PBS-TRI defaults would give strings,
+  // horns, accordion, sitar...; their samples are compressed, which ConvertWithMoss 20.3 cannot read yet.)
+  put('12:RHODES73 13:RHODES73 14:RHODES73 15:RHODES73', 'BENCHES_2/Rhodes', { s: 1 });
+  return { ms };
+})();
+
 // Programs that play RAM/Flash samples (loaded from disk into the Trinity, not saved in the PCG): the stand-in is
 // chosen from the program's name. [pattern, ROM multisample used instead]
 const PCM_RAMGUESS = [

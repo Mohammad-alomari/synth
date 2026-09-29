@@ -242,6 +242,13 @@ async def sound_and_pages(b, url):
     pc = await pg.evaluate("__t.find(/^pc:\\d+ A\\d+ (?!Initl)/)")
     pk = await pg.evaluate("(v) => __t.play('pc', +v.split(':')[1], [48, 60, 64], 1500)", pc)
     ok('PCM program %s plays (stand-in samples)' % pc, pk > 0.005, round(pk, 3))
+    if os.path.exists(os.path.join(ROOT, 'samples', 'korg', 'packs.json')):  # only in the owner's copy (tools/samples/build_korg.py)
+        info = await pg.evaluate("__moss.pcmInfo()")
+        ok('Korg multisamples replace their stand-ins', info['korg'] > 50 and info['map']['ms']['215']['p'] == 'k_bouzo069', info['korg'])
+        kp = await pg.evaluate("__t.find(/^pc:\\d+ \\w\\d+ .*piano/i)")
+        pk = await pg.evaluate("(v) => __t.play('pc', +v.split(':')[1], [48, 60, 64], 1500)", kp)
+        st = await pg.evaluate("__moss.pcmInfo().state")
+        ok('a piano program %s plays Korg\'s A.Piano' % kp, pk > 0.005 and st.get('k_a_pia000') == 'ok', (round(pk, 3), {k: v for k, v in st.items() if k.startswith('k_')}))
     ok('drum programs are not in the program list', await pg.evaluate("__t.find(/Mega-Mix/)") is None)  # a TRINI-1-KJ drum program
     pk = await pg.evaluate("__t.play('cb', 0, [48, 60, 64], 1500)")
     ok('combination cb:0 plays', pk > 0.005, round(pk, 3))

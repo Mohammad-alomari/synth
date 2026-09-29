@@ -268,10 +268,21 @@ registerProcessor('moss', MossProc);`;
 // ---------------- stand-in samples for Trinity PCM programs ----------------
 // samples/packs.json lists the packs (one MP3 per General MIDI instrument or drum set, mono 32 kHz); each is decoded
 // here when a program first needs it and handed to the engine as zones (see PcmStore in pcm.js).
-let packsReq = null, engineUp = false; const packState = {};
+// samples/korg/packs.json (optional, only in the owner's own copy: Korg's recordings, see PCM_KORG in pcmmap.js) adds
+// packs that replace the stand-ins of the multisamples they cover; pcmMap is the map in use.
+let packsReq = null, engineUp = false, pcmMap = PCM_STANDIN, korgPacks = 0; const packState = {};
 function packIndex() {
-  if (!packsReq) packsReq = fetch('samples/packs.json').then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-    .catch(e => { status('The stand-in samples could not be loaded (' + (e && e.message || e) + '). PCM programs play a soft placeholder tone.'); return { packs: {} }; });
+  if (!packsReq) {
+    const gm = fetch('samples/packs.json').then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .catch(e => { status('The stand-in samples could not be loaded (' + (e && e.message || e) + '). PCM programs play a soft placeholder tone.'); return { packs: {} }; });
+    const korg = fetch('samples/korg/packs.json').then(r => r.ok ? r.json() : { packs: {} }).catch(() => ({ packs: {} }));
+    packsReq = Promise.all([gm, korg]).then(([a, b]) => {
+      const ms = Object.assign({}, PCM_STANDIN.ms);
+      for (const n in PCM_KORG.ms) { const e = PCM_KORG.ms[n]; if (b.packs[e.p]) { ms[n] = e; korgPacks++; } }
+      if (korgPacks) { pcmMap = { ms }; if (engineUp) { send({ t: 'pcmMap', map: pcmMap }); pcmPrepare(patch); } }
+      return { packs: Object.assign({}, a.packs, b.packs) };
+    });
+  }
   return packsReq;
 }
 function pcmZones(meta, x) { // align on the sync click, heal each loop seam, list the zones
@@ -300,7 +311,7 @@ async function loadPack(name) {
 }
 // the packs a PCM program uses (so they load before the first note)
 function packsFor(P) {
-  const out = new Set(), M = PCM_STANDIN;
+  const out = new Set(), M = pcmMap;
   if (!P || P.kind !== 'pcm') return out;
   for (const O of P.o) for (let id of [O.msHi, O.msLo]) { if (id >= 0x1000) id = P.ramMap ? P.ramMap[id & 0xfff] || 0 : 0; const e = M.ms[id]; if (e && e.p) out.add(e.p); }
   return out;
@@ -311,7 +322,7 @@ function pcmPrepare(P) {
   else if (P.kind === 'pcm') packsFor(P).forEach(loadPack);
 }
 // a new engine (audio start, compatibility mode) has no packs yet
-function pcmEngineReset() { for (const k in packState) delete packState[k]; send({ t: 'pcmMap', map: PCM_STANDIN }); engineUp = true; pcmPrepare(patch); }
+function pcmEngineReset() { for (const k in packState) delete packState[k]; send({ t: 'pcmMap', map: pcmMap }); engineUp = true; packIndex(); pcmPrepare(patch); }
 // Must run synchronously inside a user gesture (tap, click, key): WebKit only lets audio start there.
 function ensureContext() {
   // iOS 16.4+: play as media, so the Silent switch does not mute the synth

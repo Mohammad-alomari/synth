@@ -9,6 +9,7 @@ A browser model of the Korg Trinity V3 (with the DSP-MOSS-TRI board). One self-c
   - MOSS programs (Bank M): 13 oscillator models, filters, EGs, LFOs, mod matrix, Trinity effects.
   - PCM ("ACCESS") programs (Banks A-D): Single/Double mode, own filters/EGs/LFOs/effects.
     Korg's sample ROM is NOT available -> stand-in recordings (General MIDI, MIT licence) or built-in waves.
+    In the owner's own copy, ~140 multisamples play Korg recordings instead (samples/korg/, see build_korg.py).
   - Drum kits / Drum-mode programs: REMOVED on purpose (owner's decision). Drum programs are left out of the
     lists; combination timbres that use one are silent ("drum program, not supported"). PCG kit sections are skipped.
   - Combinations (8 timbres, zones, mix, insert chains, master effects).
@@ -53,7 +54,9 @@ patches.js     MOSS patch model, default patch, starter programs (Mijwiz, Rababa
 korg.js        PCG reader; decoders: korgDecodeMoss (521 B), korgTrinitySections, korgDecodePcm (433 B),
                korgDecodeCombi (388 B), korgDecodeFxBlocks, korgCombiChains.
 pcmmap.js      PCM_STANDIN.ms (multisample 0-374 -> stand-in; percussion multisamples 333-374 use the kit_* packs),
-               PCM_RAMGUESS (RAM/Flash samples guessed from program name), PCM_MS_NAMES (Korg names 0-374).
+               PCM_RAMGUESS (RAM/Flash samples guessed from program name), PCM_MS_NAMES (Korg names 0-374),
+               PCM_KORG.ms (multisample -> Korg KMP file + pack k_<file>; s:1 = similar recording, else the ROM multisample
+               itself). Used instead of PCM_STANDIN when samples/korg/packs.json exists (app/core.js packIndex -> pcmMap).
 pcgdata.js     built-in MOSS banks (base64): the user's 4 Bank M files.
 tridata.js     built-in Trinity data (base64): user's PCM banks and combinations (TRI_BUILTIN).
 samples/       111 MP3 packs (mono 32 kHz 48 kb/s; gmNNN = GM program NNN 0-based; kit_std/elec/808/brush/orch)
@@ -61,6 +64,10 @@ samples/       111 MP3 packs (mono 32 kHz 48 kb/s; gmNNN = GM program NNN 0-base
                [[lo,hi,root,tune]]]]}}}. A sync click at the start aligns decode offsets; loop seams healed 64 frames.
 tools/samples/ build_packs.py (+pack.py, extract_sf.py, sf2parse.py...) rebuilds samples/ from MuseScore
                MS General SoundFont FluidR3Mono_GM.sf3 (set SF3=path). Needs ffmpeg.
+               build_korg.py builds samples/korg/ (NOT committed, not in the public build: Korg's recordings) from the
+               owner's copy of Korg's PBS-TRI libraries (KMP/KSF; "Korg Multisamples" disk = 112 Trinity ROM multisamples)
+               via ConvertWithMoss (KMP -> SF2) in the Docker image tools/samples/korg/Dockerfile; packs keep the source
+               rate (48 kHz) and Korg's loops (pack.py --kind auto). Usage in the script's docstring.
 docs/research/ format notes: 01 PCM program 433, 02 combination 388, 03 drum kit 1426, 04 global,
                05 PCG file format, 06 effects, 07 multisample names 0-414, 08/09 factory program/combi names.
 test/          Node + Playwright tests (see section 6). demos/: two MP3 demos.

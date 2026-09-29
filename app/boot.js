@@ -8,7 +8,8 @@ kbApply(); perfLcd(); showVoices(new Array((patch.voice && patch.voice.maxVoices
 window.addEventListener('resize', setDockH);
 if (bootNote) status(bootNote);
 restoreImported();
-window.__moss = { getPatch: () => patch, engine: () => fallbackEng, perf, kbs, kbApply, setPlayMode, setMidiMode, onMidi, tuningTable, playOn, playOff, pcgBanks, importPcgFile, startAudio, noteOn, noteOff, selectPage, loadProgram, progEntries, progList };
+window.__moss = { getPatch: () => patch, engine: () => fallbackEng, perf, kbs, kbApply, setPlayMode, setMidiMode, onMidi, tuningTable, playOn, playOff, pcgBanks, importPcgFile, startAudio, noteOn, noteOff, selectPage, loadProgram, progEntries, progList,
+  pcmInfo: () => ({ korg: korgPacks, state: Object.assign({}, packState), map: pcmMap }) };
 // installable app: the service worker (sw.js) keeps the page and used sample packs for offline play
 if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(e => console.warn('Offline support is not available here', e));
 let installEvt = null;
