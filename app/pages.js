@@ -550,16 +550,26 @@ function renderTimbreProgram(host) {
   const t = patch.timbres[curTimbre], cb = combiBanks[Math.floor(prog.idx / 128)], set = prog.bank === 'cb' && cb ? cb.set : null;
   const w = el('label', 'ctl'), s = el('select');
   w.append(el('span', 'nm', 'Program'), el('span'), s);
-  if (!set) { const o = el('option', null, t.pLabel + ' ' + (t.pName || '')); s.appendChild(o); s.disabled = true; }
-  else {
+  const apply = () => { edited = true; lcd(); saveCurrent(); pcmPrepare(patch); send({ t: 'patch', p: clone(patch) }); renderPage(); renderFlow(); };
+  if (!set) { // a combination made here or kept in the User bank: any program that can play in a timbre
+    let g = null, cur = false;
+    if (!t.pId) { const o = el('option', null, '(choose a program)'); o.value = ''; s.appendChild(o); }
+    for (const e of progEntries()) {
+      if (e.b === 'cb' || (e.b === 'us' && userBank[e.i].kind === 'combi')) continue;
+      if (!g || g.label !== e.g) { g = el('optgroup'); g.label = e.g; s.appendChild(g); }
+      const o = el('option', null, e.t); o.value = e.v; g.appendChild(o); if (e.v === t.pId) cur = true;
+    }
+    if (t.pId && !cur) { const o = el('option', null, t.pLabel + ' ' + (t.pName || '') + ' (kept copy)'); o.value = '='; s.prepend(o); }
+    s.value = !t.pId ? '' : cur ? t.pId : '=';
+    s.addEventListener('change', () => { if (s.value && s.value !== '=' && setTimbreProgram(t, s.value)) { if (t.status === 'off') t.status = 'int'; apply(); } });
+  } else {
     const fromTxt = src => src !== set ? ' (from ' + src.name + ')' : '';
     for (const L of 'ABCD') { const src = memoryFor(set, L), b = src && pcmBanks.find(x => x.set === src && x.letter === L); if (!b) continue; const g = el('optgroup'); g.label = 'Bank ' + L + fromTxt(src); b.names.forEach((n, i) => { if (b.drum[i]) return; const o = el('option', null, L + pad3(i) + ' ' + n); o.value = 'ABCD'.indexOf(L) + ':' + i; g.appendChild(o); }); s.appendChild(g); }
     const msrc = memoryFor(set, 'M'), mb = msrc && mossOf(msrc);
     if (mb) { const g = el('optgroup'); g.label = 'Bank M (MOSS)' + fromTxt(msrc); mb.names.forEach((n, i) => { const o = el('option', null, 'M' + pad3(i) + ' ' + n); o.value = '4:' + i; g.appendChild(o); }); s.appendChild(g); }
     s.value = t.bank + ':' + t.prog;
     s.addEventListener('change', () => {
-      const [bk, pg] = s.value.split(':').map(Number); t.bank = bk; t.prog = pg; timbreProgram(set, t);
-      edited = true; lcd(); saveCurrent(); pcmPrepare(patch); send({ t: 'patch', p: clone(patch) }); renderPage(); renderFlow();
+      const [bk, pg] = s.value.split(':').map(Number); t.bank = bk; t.prog = pg; timbreProgram(set, t); apply();
     });
   }
   host.appendChild(w);
@@ -748,9 +758,20 @@ function renderMods(host) {
   host.appendChild(box);
   host.appendChild(el('p', 'help', 'Each slot is one of MOSS\u2019s per-parameter AMS routings. Pitch amounts are curved: 25 is about three-quarters of a semitone and 99 is an octave. \u201cVia\u201d multiplies the route by a second source, such as LFO 1 via JS +Y for joystick vibrato. Mod A and B change meaning with the oscillator type and are named in the destination list.'));
 }
+// New program: a blank MOSS, PCM or combination program, added to the User bank
+let newOpen = false;
+function newProgram(kind) {
+  const first = ['pm', 'pc', 'st', 'us'].includes(prog.bank) && patch.kind !== 'combi' ? prog.bank + ':' + prog.idx : 'st:0';
+  const P = kind === 'moss' ? Object.assign(mossDefaultPatch(), { name: 'Init MOSS' }) : kind === 'pcm' ? newPcmProgram() : newCombination(first);
+  newOpen = false; userBank.push(P);
+  if (!store.set(LS_USER, userBank)) { userBank.pop(); toast('Could not save: browser storage is unavailable'); renderPage(); return; }
+  loadProgram('us', userBank.length - 1);
+  toast('New ' + (kind === 'moss' ? 'MOSS program' : kind === 'pcm' ? 'PCM program' : 'combination') + ' in User ' + String(userBank.length).padStart(2, '0'));
+}
 function renderMemory(host) {
   const row = el('div', 'btnrow');
-  const b = (label, fn) => { const x = el('button', 'hw', label); x.type = 'button'; x.addEventListener('click', fn); row.appendChild(x); return x; };
+  const b = (label, fn, r) => { const x = el('button', 'hw', label); x.type = 'button'; x.addEventListener('click', fn); (r || row).appendChild(x); return x; };
+  b(newOpen ? 'New program ▴' : 'New program ▾', () => { newOpen = !newOpen; renderPage(); }).setAttribute('aria-expanded', String(newOpen));
   const w = inPlace();
   if (w) b('Save in place (' + w.label + ')', saveInPlace);
   b(prog.bank === 'us' ? 'Save to User ' + String(prog.idx + 1).padStart(2, '0') : 'Save to User bank', saveToUser);
@@ -770,6 +791,11 @@ function renderMemory(host) {
   if (ts && !ts.builtin) b('Remove these PCM banks and combinations', () => { removeTriSet(ts); forget(ts); loadProgram('st', 0); toast('Removed ' + ts.name); });
   b('Revert', () => loadProgram(prog.bank, prog.idx));
   host.appendChild(row);
+  if (newOpen) {
+    const nr = el('div', 'btnrow newprog');
+    b('MOSS program', () => newProgram('moss'), nr); b('PCM program', () => newProgram('pcm'), nr); b('Combination', () => newProgram('combi'), nr);
+    host.append(nr, el('p', 'help', 'Adds a blank program to your User bank. MOSS: the modelling synth of Bank M. PCM: a sample program like banks A–D (one oscillator, A.Piano, filter open). Combination: up to 8 timbres, each playing a program; timbre 1 starts with the program you were on, and the Timbre pages choose the others.'));
+  }
   if (w) host.appendChild(el('p', 'help', 'Save in place keeps your edit as ' + w.label + ' of ' + w.file + ': the bank list and every combination that uses this program play it from now on (as on the Trinity, a combination uses its own effects, not the program’s). Restore original brings back the program from the file.'));
   host.appendChild(el('p', 'help', 'User programs and imported banks live in this browser only. Use Export to keep a copy elsewhere. Importing reads a Trinity PCG file\u2019s Bank M (MOSS) programs, its PCM programs (banks A\u2013D; Drum-mode programs are not supported), its combinations, and its user scale. Korg\u2019s free Trinity preload data can be imported the same way. Like the real synth\u2019s memory, an imported file that lacks some banks uses the ones loaded before it (earlier imports first, then the built-in files); the Timbres table shows where each program comes from.'));
 }

@@ -162,16 +162,63 @@ function refreshTimbres(C) {
   for (const t of C.timbres) {
     if (!t || !t.p) continue;
     let id = t.src ? progByKey(t.src) : '';
-    if (!t.src && t.pId) { // the name then, before or after an edit saved in place
+    if (!t.src && /^p[mc]:/.test(t.pId || '')) { // the name then, before or after an edit saved in place
       const [bk, n] = t.pId.split(':'), i = n % 128, pm = bk === 'pm', b = pm ? pcgBanks[Math.floor(n / 128)] : pcmBanks[Math.floor(n / 128)];
       const orig = b && (pm ? (i < b.n ? korgName(b.bytes.subarray(i * b.rs, i * b.rs + 16)) : null) : korgName(b.bytes.subarray(i * 433, i * 433 + 16)));
       if (b && (b.names[i] === t.pName || orig === t.pName)) id = t.pId;
     }
+    // a starter program, or a User program still under the same name (User programs have no lasting address)
+    if (!id && /^st:/.test(t.pId || '')) id = t.pId;
+    if (!id && /^us:/.test(t.pId || '')) { const u = userBank[Number(t.pId.slice(3))]; if (u && u.kind !== 'combi' && (u.name || 'Untitled') === t.pName) id = t.pId; }
     if (!id) continue;
-    const [bk, n] = id.split(':'), p = bk === 'pm' ? pcgPatch(Number(n)) : pcmPatch(Number(n));
+    const p = patchById(id);
     if (!p) continue;
-    delete p.korg; t.p = p; t.pId = id; t.src = progKey(id); t.pName = p.name;
+    t.p = p; t.pId = id; t.src = progKey(id); t.pName = p.name;
   }
+  return C;
+}
+// a program that can play in a timbre, by list id: a bank program (pm, pc), a starter or a User program (not a combination)
+function patchById(id) {
+  const [bk, s] = (id || '').split(':'), n = Number(s);
+  const p = bk === 'pm' ? pcgPatch(n) : bk === 'pc' ? pcmPatch(n) : bk === 'st' ? (MOSS_PRESETS[n] ? mossPreset(n) : null)
+    : bk === 'us' && userBank[n] && userBank[n].kind !== 'combi' ? loadAny(userBank[n]) : null;
+  if (p) delete p.korg; // the raw bytes are not needed inside a combination
+  return p;
+}
+// points timbre t at a program chosen by list id (combinations made here or kept in the User bank)
+function setTimbreProgram(t, id) {
+  const p = patchById(id); if (!p) return false;
+  const [bk, s] = id.split(':'), n = Number(s), b = bk === 'pc' ? pcmBanks[Math.floor(n / 128)] : bk === 'pm' ? pcgBanks[Math.floor(n / 128)] : null;
+  t.p = p; t.pId = id; t.src = progKey(id); t.pName = p.name || 'Untitled'; t.drum = false;
+  t.bank = bk === 'pc' ? 'ABCD'.indexOf(b.letter) : 4; t.prog = n % 128;
+  t.pLabel = bk === 'pc' ? b.letter + pad3(n % 128) : bk === 'pm' ? bankLetter(b) + pad3(n % 128) : bk === 'st' ? 'ST' + String(n).padStart(2, '0') : 'US' + String(n + 1).padStart(2, '0');
+  t.from = b ? (bk === 'pc' ? b.set.name : b.name) : bk === 'us' ? 'User bank' : 'starter programs';
+  return true;
+}
+
+// ---------------- new programs (Program page: New program) ----------------
+// clean starting points built from an empty Korg record, so they have every field the decoders give
+function newPcmProgram() {
+  const P = korgDecodePcm(new Uint8Array(433)); delete P.korg;
+  P.name = 'Init PCM'; P.mode = 'single'; P.voice.bendUp = 2; P.voice.bendDown = -2; P.osc2Vel = 1;
+  P.korgInfo = { kind: 'pcm', notes: [], source: 'New PCM program' };
+  for (const O of P.o) {
+    Object.assign(O, { msLo: 0, msHi: 0, lvlLo: 127, lvlHi: 127, octave: 0, route: 'single', ftype: ['lpf', 'lpf'], pan: 64, send1: 0, send2: 0 });
+    Object.assign(O.pitch, { jsUp: 2, jsDown: -2 });
+    O.f.forEach(f => Object.assign(f, { cut: 99, gain: 99, reso: 0, lowKey: 60, highKey: 60 }));
+    Object.assign(O.amp, { level: 127, lowKey: 60, highKey: 60, vel: 20 });
+    Object.assign(O.aeg, { startL: 0, atkT: 0, atkL: 99, decT: 0, brkL: 99, slpT: 0, susL: 99, relT: 20 });
+  }
+  P.out = { level: 127, pan: 64, trim: 3.3 };
+  return P;
+}
+// timbre 1 plays `first` (a list id, see patchById); the other timbres are off
+function newCombination(first) {
+  const C = korgDecodeCombi(new Uint8Array(388)); delete C.korg;
+  C.name = 'Init Combi'; C.voice = { hold: 0 }; C.out = { level: 127 }; C.korgInfo = { kind: 'combi', notes: [], source: 'New combination' };
+  C.timbres.forEach(t => Object.assign(t, { status: 'off', ch: 16, level: 127, pan: 64, bend: null, transpose: 0, detune: 0, delay: 0, send1: 0, send2: 0,
+    keyTop: 127, keyBot: 0, velTop: 127, velBot: 1, rxDamper: 1, rxAT: 1, rxCC: 1, ifx: 0, chain: -1, p: null, pId: '', src: '', pLabel: '', pName: '', from: '' }));
+  if (first && setTimbreProgram(C.timbres[0], first)) C.timbres[0].status = 'int';
   return C;
 }
 function combiPatch(idx) {

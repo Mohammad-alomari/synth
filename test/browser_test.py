@@ -414,6 +414,37 @@ async def last_program(b, url):
     ok('no page errors (Last)', not pg.errs, pg.errs[:5])
     await pg.close()
 
+async def new_programs(b, url):
+    pg = await open_page(b, url)
+    info = "() => { const P = window.__moss.getPatch(), p = document.querySelector('#pnum').textContent; return [p, P.kind || 'moss', P.name]; }"
+    async def new(kind):
+        await pg.evaluate("() => window.__moss.selectPage(window.__moss.getPatch().kind === 'combi' ? 'combi' : 'program')")
+        await pg.click("#page button:has-text('New program')")
+        await pg.click("#page .newprog button:has-text('%s')" % kind)
+        return await pg.evaluate(info)
+    got = await new('MOSS program')
+    pk = await pg.evaluate("(p) => __t.play('us', +p.slice(3) - 1, [60, 64])", got[0])
+    ok('New program: a MOSS program in the User bank plays', got[1] == 'moss' and got[2] == 'Init MOSS' and got[0].startswith('US') and pk > 0.005, [got, round(pk, 3)])
+    got = await new('PCM program')
+    pk = await pg.evaluate("(p) => __t.play('us', +p.slice(3) - 1, [60, 64], 1200)", got[0])
+    n, empty = await pg.evaluate('__t.pages()')
+    ok('...a PCM program plays and every page shows', got[1] == 'pcm' and got[2] == 'Init PCM' and pk > 0.005 and not empty, [got, round(pk, 3), empty])
+    await pg.evaluate("__t.load(__t.find(/^pc:\\d+ A\\d+ (?!Initl)/))")
+    src = await pg.evaluate("window.__moss.getPatch().name")
+    got = await new('Combination')
+    T = await pg.evaluate('__t.timbres()')
+    pk = await pg.evaluate("(p) => __t.play('us', +p.slice(3) - 1, [60, 64], 1200)", got[0])
+    ok('...a combination starts with the program you were on in timbre 1, and plays', got[1] == 'combi' and len(T) == 1 and T[0][1] == src and pk > 0.005, [got, T, round(pk, 3)])
+    # timbre 2 picks a starter program; saved and reloaded, the combination keeps it
+    await pg.evaluate("() => { window.__moss.selectPage('timbre'); [...document.querySelectorAll('#page .btnrow button')].find(b => b.textContent === 'T2').click(); }")
+    await pg.select_option('#page label.ctl select >> nth=0', 'st:1')
+    await pg.evaluate("() => { window.__moss.selectPage('combi'); [...document.querySelectorAll('#page button')].find(b => /^Save to User \\d/.test(b.textContent)).click(); }")
+    await pg.reload(); await pg.wait_for_timeout(800)
+    T = await pg.evaluate("(p) => { window.__moss.loadProgram('us', +p.slice(3) - 1); return __t.timbres(); }", got[0])
+    ok('...timbre 2 takes any program (here a starter), kept after saving and a reload', len(T) == 2 and T[1][0] == 'ST01' and T[1][2] == 'starter programs', T)
+    ok('no page errors (New program)', not pg.errs, pg.errs[:5])
+    await pg.close()
+
 async def main():
     if not os.path.exists(os.path.join(ROOT, 'index.html')): sys.exit('index.html missing: run python3 build.py')
     url = serve()
@@ -422,6 +453,7 @@ async def main():
         await sound_and_pages(b, url)
         await storage_and_memory(b, url)
         await last_program(b, url)
+        await new_programs(b, url)
         await public_page(b)
         await b.close()
     print('ALL PASSED' if not fails else '%d FAILED: %s' % (len(fails), '; '.join(fails)))

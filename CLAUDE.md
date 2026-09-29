@@ -143,6 +143,9 @@ allowed); MIDI next/prev program buttons (learn a note, CC or program change; pr
 SW1/SW2 lit by incoming CC80/81. Controls (kbs.ctl, Keyboard page 'Controls'): show/hide Oct, Trans, joystick, vertical X stick
 (#xbar, bend), vertical Y stick (#ybar, +Y CC1 / -Y CC2), ribbon, SW buttons; sticks sit left of the keys and spring back; old playCtl migrated. Play bar: Sustain (CC64, shows the MIDI pedal), scale switch
 (Equal / Arabic / maqams via loadMaqam / your scale; choosing turns program scales off), screen wake lock.
+New program (Program page, pages.js newProgram): a blank MOSS (mossDefaultPatch), PCM (core.js newPcmProgram: empty
+Korg record + open filter, A.Piano) or combination (newCombination: T1 = the program you were on) goes into the User bank.
+Combinations without a file (made here / User bank) pick any pm/pc/st/us program per timbre (setTimbreProgram, patchById).
 Program search (program.js progEntries/progList): filters the browsers and the ‹ › steps. Fonts bundled; PWA.
 MIDI mode (app/midimode.js, body.midi, header button "MIDI mode"): no keys/editor; big program name, Prev/Next, Browse (search +
 favourites; favOnly limits ‹ › too, reset on exit), scale/key, Oct/Trans, Sustain, Record, Panic, MIDI monitor (device, note,
