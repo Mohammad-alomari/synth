@@ -78,7 +78,7 @@ function mmQuick() {
 }
 
 // ---------------- browse: search and favourites ----------------
-const mmBr = progBrowser($('#mmbrowsebox'), e => loadProgram(e.b, e.i));
+const mmBr = progBrowser($('#mmbrowsebox'), e => loadProgram(e.b, e.i, e.recent));
 function mmBrowse(open) {
   $('#mmbrowsebox').hidden = !open; $('#mmbrowse').setAttribute('aria-expanded', String(open));
   if (open) mmBr.open();
@@ -105,6 +105,7 @@ $('#midimodebtn').addEventListener('click', () => { startAudio(); setMidiMode(tr
 $('#mmexit').addEventListener('click', () => setMidiMode(false));
 $('#mmconnect').addEventListener('click', () => $('#midibtn').click());
 $('#mmprev').addEventListener('click', () => stepProgram(-1));
+$('#mmlast').addEventListener('click', goLast);
 $('#mmnext').addEventListener('click', () => stepProgram(1));
 $('#mmbrowse').addEventListener('click', () => mmBrowse($('#mmbrowsebox').hidden));
 $('#mmnamebtn').addEventListener('click', () => mmBrowse($('#mmbrowsebox').hidden));

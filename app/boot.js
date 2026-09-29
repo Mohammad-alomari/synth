@@ -4,11 +4,11 @@
 try { renderAll(); } catch (e) { // a stored program the pages cannot show: start from the first starter program
   console.error('Start-up render failed', e); patch = mossPreset(0); prog = { bank: 'st', idx: 0 }; edited = false; bootNote = 'Your last program could not be shown, so the first starter program is loaded.'; renderAll(); saveCurrent();
 }
-kbApply(); perfLcd(); showVoices(new Array((patch.voice && patch.voice.maxVoices) || 32).fill(0)); setDockH();
+noteRecent(); kbApply(); perfLcd(); showVoices(new Array((patch.voice && patch.voice.maxVoices) || 32).fill(0)); setDockH();
 window.addEventListener('resize', setDockH);
 if (bootNote) status(bootNote);
 restoreImported();
-window.__moss = { getPatch: () => patch, engine: () => fallbackEng, perf, kbs, kbApply, setPlayMode, setMidiMode, onMidi, tuningTable, playOn, playOff, pcgBanks, importPcgFile, startAudio, noteOn, noteOff, selectPage, loadProgram, progEntries, progList,
+window.__moss = { getPatch: () => patch, engine: () => fallbackEng, perf, kbs, kbApply, setPlayMode, setMidiMode, onMidi, tuningTable, playOn, playOff, pcgBanks, importPcgFile, startAudio, noteOn, noteOff, selectPage, loadProgram, progEntries, progList, goLast, recent: () => recent.slice(),
   pcmInfo: () => ({ korg: korgPacks, state: Object.assign({}, packState), map: pcmMap }) };
 // installable app: the service worker (sw.js) keeps the page and used sample packs for offline play
 if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(e => console.warn('Offline support is not available here', e));

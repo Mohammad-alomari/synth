@@ -41,7 +41,7 @@ function progList() {
   return words.length ? all.filter(e => progMatch(e, words)) : all;
 }
 // the program lists changed (a program saved, a bank imported, the favourites filter): open browsers show it
-function refreshProgs() { browsers.forEach(b => b.render()); }
+function refreshProgs() { browsers.forEach(b => b.render()); lastButtons(); }
 function lcd() {
   const pb = prog.bank === 'pc' ? pcmBanks[Math.floor(prog.idx / 128)] : prog.bank === 'cb' ? combiBanks[Math.floor(prog.idx / 128)] : null;
   $('#pnum').textContent = prog.bank === 'st' ? 'ST ' + String(prog.idx).padStart(2, '0') : prog.bank === 'pm' ? bankLetter(pcgBanks[Math.floor(prog.idx / 128)]) + String(prog.idx % 128).padStart(3, '0')
@@ -52,18 +52,42 @@ function lcd() {
   $('#progbank').textContent = progGroup() || 'Programs';
   perfLcd(); mmLcd(); browsers.forEach(b => b.sync());
 }
-function loadProgram(bank, idx) {
+// ---------------- recently played programs (Last) ----------------
+// The last programs played, newest first (the current one included), kept over a reload. Last goes to the one before,
+// and pressing it again comes back, e.g. between a combination and a timbre program being edited. Unsaved edits of a
+// program you leave are kept (for this session) and come back with it when you return through Last or the recent list.
+const RECENT_MAX = 6;
+let recent = (a => Array.isArray(a) ? a.filter(v => typeof v === 'string') : [])(store.get('moss-recent', [])).slice(0, RECENT_MAX);
+const recentEdits = new Map(); // 'bank:idx' -> the program with its unsaved edits
+function noteRecent() {
+  const v = prog.bank + ':' + prog.idx;
+  if (recent[0] !== v) { recent = [v, ...recent.filter(x => x !== v)].slice(0, RECENT_MAX); store.set('moss-recent', recent); }
+  lastButtons();
+}
+// the recent programs that still exist (a removed file takes its programs away), current first
+function recentEntries() { const all = new Map(progEntries().map(e => [e.v, e])); return recent.map(v => all.get(v)).filter(Boolean); }
+// the program before the current one (after Save to User the current one is not yet in the list)
+const lastEntry = () => recentEntries().find(e => e.v !== prog.bank + ':' + prog.idx);
+function lastButtons() { const has = !!lastEntry(); ['#lastbtn', '#pblast', '#mmlast'].forEach(s => { const b = $(s); if (b) b.disabled = !has; }); }
+function goLast() { const e = lastEntry(); if (e) loadProgram(e.b, e.i, true); }
+// fromRecent: opened through Last or the recent list, so kept unsaved edits come back
+function loadProgram(bank, idx, fromRecent) {
+  const was = prog.bank + ':' + prog.idx, now = bank + ':' + idx, kept = fromRecent ? recentEdits.get(now) : null;
+  if (edited && was !== now) { recentEdits.set(was, clone(patch)); toast('Unsaved edits kept: ↶ Last brings them back'); }
+  recentEdits.delete(now);
   let pm = null;
   try { pm = bank === 'pm' ? pcgPatch(idx) : bank === 'pc' ? pcmPatch(idx) : bank === 'cb' ? combiPatch(idx) : null; }
   catch (e) { console.error('Could not decode program ' + bank + ':' + idx, e); status('That program could not be read (' + (e && e.message || e) + '); its data may be damaged. The previous program stays.'); return; }
   if ((bank === 'us' && !userBank[idx]) || ((bank === 'pm' || bank === 'pc' || bank === 'cb') && !pm) || !['st', 'us', 'pm', 'pc', 'cb'].includes(bank)) { bank = 'st'; idx = 0; }
   patch = bank === 'st' ? mossPreset(idx) : bank === 'pm' || bank === 'pc' || bank === 'cb' ? pm : refreshTimbres(loadAny(userBank[idx]));
   prog = { bank, idx }; edited = false;
+  if (kept && now === bank + ':' + idx) { patch = kept; edited = true; }
   pcmPrepare(patch);
   send({ t: 'patch', p: clone(patch) }); sendTuning();
   if (!PAGESET()[curPage]) curPage = Object.keys(PAGESET())[0];
-  renderAll(); saveCurrent();
-  if (patch.kind === 'combi') status(combiStatus());
+  renderAll(); saveCurrent(); noteRecent();
+  if (edited) status('Your unsaved edits of ' + (patch.name || 'this program') + ' are back.');
+  else if (patch.kind === 'combi') status(combiStatus());
   else if (patch.kind === 'pcm') status('Trinity PCM program: Korg\u2019s samples are not available, so stand-in recordings play (see the Program page).');
   else if (patch.korgInfo) { const pl = korgPlayability(patch); status(pl.full ? '' : 'Not built yet: ' + pl.missing.join(', ') + '. That part is silent.'); } else status('');
 }
@@ -76,13 +100,14 @@ function stepProgram(dir) {
 }
 $('#prev').addEventListener('click', () => stepProgram(-1));
 $('#next').addEventListener('click', () => stepProgram(1));
+$('#lastbtn').addEventListener('click', goLast);
 function renderAll() { lcd(); renderTabs(); renderPage(); renderFlow(); }
 
 // ---------------- program browser (editor, play mode list, MIDI mode Browse) ----------------
 // Lists one bank at a time, starting with the current program's; the bank button above the list shows every bank to
 // switch to. A search or the favourites filter lists the matches from every bank. All browsers share the search,
 // so ‹ › then step through its results.
-const browsers = [];
+const browsers = [], RECENT = 'Recently played';
 function setProgQuery(v) { progQuery = v; }
 function setFavOnly(on) { favOnly = on; refreshProgs(); }
 function progBrowser(host, onPick, shown = () => !host.hidden) {
@@ -99,7 +124,7 @@ function progBrowser(host, onPick, shown = () => !host.hidden) {
     const cur = prog.bank + ':' + prog.idx, all = progEntries(), ce = all.find(e => e.v === cur), groups = [...new Set(all.map(e => e.g))];
     if (document.activeElement !== q) q.value = progQuery;
     fav.setAttribute('aria-pressed', String(favOnly));
-    if (!bank || !groups.includes(bank)) bank = ce ? ce.g : groups[0];
+    if (!bank || (bank !== RECENT && !groups.includes(bank))) bank = ce ? ce.g : groups[0];
     list.innerHTML = ''; let sel = null;
     if (progQuery || favOnly) { // matches from every bank, under their bank names
       bankBtn.hidden = true;
@@ -109,11 +134,15 @@ function progBrowser(host, onPick, shown = () => !host.hidden) {
     } else if (showBanks) { // every bank; the current one is marked
       bankBtn.hidden = false; bankBtn.replaceChildren(el('span', 'bn', 'Choose a bank'), el('span', 'bx', 'Back'));
       bankBtn.setAttribute('aria-label', 'Back to ' + bank);
+      const rn = recentEntries().length;
+      if (rn) { const b = item(RECENT, bank === RECENT, ['n', String(rn)], () => { bank = RECENT; showBanks = false; render(); }); if (bank === RECENT) sel = b; }
       for (const g of groups) { const b = item(g, g === bank, ['n', String(all.filter(e => e.g === g).length)], () => { bank = g; showBanks = false; render(); }); if (g === bank) sel = b; }
     } else { // the programs of one bank
       bankBtn.hidden = false; bankBtn.replaceChildren(el('span', 'bn', bank), el('span', 'bx', 'Banks ▾'));
       bankBtn.setAttribute('aria-label', 'Bank: ' + bank + '. Show all banks');
-      for (const e of all) if (e.g === bank) { const b = item(e.t, e.v === cur, isFav(e) ? ['st', '★'] : null, () => onPick(e)); if (e.v === cur) sel = b; }
+      if (bank === RECENT) { // newest first, under their bank names; kept unsaved edits come back with them
+        for (const e of recentEntries()) { list.appendChild(el('div', 'g', e.g)); const b = item(e.t, e.v === cur, recentEdits.has(e.v) ? ['st', 'edited'] : null, () => onPick(Object.assign({ recent: true }, e))); if (e.v === cur) sel = b; }
+      } else for (const e of all) if (e.g === bank) { const b = item(e.t, e.v === cur, isFav(e) ? ['st', '★'] : null, () => onPick(e)); if (e.v === cur) sel = b; }
     }
     centre(sel);
   }
@@ -124,12 +153,12 @@ function progBrowser(host, onPick, shown = () => !host.hidden) {
     render,
     // open, or follow the playing program into its bank when it changes
     open() { bank = null; showBanks = false; shownFor = prog.bank + ':' + prog.idx; render(); },
-    sync() { const cur = prog.bank + ':' + prog.idx; if (!shown() || cur === shownFor) return; api.open(); }
+    sync() { const cur = prog.bank + ':' + prog.idx; if (!shown() || cur === shownFor) return; if (bank === RECENT) { shownFor = cur; render(); } else api.open(); }
   };
   browsers.push(api); return api;
 }
 // the editor's browser opens under the ‹ › buttons from the bank button; it stays open while you try programs
-const edBr = progBrowser($('#edbrowse'), e => loadProgram(e.b, e.i));
+const edBr = progBrowser($('#edbrowse'), e => loadProgram(e.b, e.i, e.recent));
 function edBrowse(on) { const box = $('#edbrowse'); box.hidden = !on; $('#progbtn').setAttribute('aria-expanded', String(on)); if (on) { edBr.open(); box.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } }
 $('#progbtn').addEventListener('click', () => edBrowse($('#edbrowse').hidden));
 $('#edbrowse').addEventListener('keydown', e => { if (e.key === 'Escape') { e.stopPropagation(); edBrowse(false); $('#progbtn').focus(); } });

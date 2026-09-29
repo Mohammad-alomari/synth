@@ -209,7 +209,7 @@ async def keyboard_and_midi(pg):
     ok('program list: the current program is marked', (await pg.evaluate("document.querySelector('#pblbody [aria-selected=true]').textContent")).startswith('02'))
     await pg.click(L + ' .pbr-bank')
     banks = await pg.evaluate(items)
-    ok('program list: the bank button lists every bank', banks[0] == 'Starter programs' and any(b.startswith('Bank A (PCM)') for b in banks)
+    ok('program list: the bank button lists every bank, after Recently played', banks[0] == 'Recently played' and banks[1] == 'Starter programs' and any(b.startswith('Bank A (PCM)') for b in banks)
        and any(b.startswith('Combinations') for b in banks) and len(banks) == len(set(banks)), banks[:4])
     ok('program list: the current bank is marked', await pg.evaluate("document.querySelector('#pblbody [aria-selected=true]').firstChild.textContent") == 'Starter programs')
     target = next(b for b in banks if b.startswith('Bank A (PCM)'))
@@ -383,6 +383,37 @@ async def public_page(b):
     ok('no page errors (public page)', not pg.errs, pg.errs[:5])
     await ctx.close()
 
+async def last_program(b, url):
+    pg = await open_page(b, url)
+    cur = "() => { const P = window.__moss.getPatch(); return [document.querySelector('#pnum').textContent, P.name, document.querySelector('#pname').textContent.endsWith(' *')]; }"
+    cb = await pg.evaluate("__t.firstIn('Combinations A from Hadi2024')")
+    pid = await pg.evaluate("(v) => { __t.load(v); return window.__moss.getPatch().timbres.find(t => t.pId).pId; }", cb)
+    combi = await pg.evaluate(cur)
+    await pg.evaluate("(p) => __t.load(p)", pid)
+    prog1 = await pg.evaluate(cur)
+    await pg.click('#lastbtn')
+    ok('Last goes back to the combination', await pg.evaluate(cur) == combi, combi)
+    await pg.click('#lastbtn')
+    ok('...and pressing it again returns to the timbre program', await pg.evaluate(cur) == prog1, prog1)
+    # an unsaved edit is kept while you are away and comes back through Last
+    await pg.evaluate("() => { window.__moss.selectPage('program'); }")
+    name = pg.locator('#page input[type=text]').first
+    await name.fill('Kept Edit'); await pg.wait_for_timeout(100)
+    await pg.click('#lastbtn')
+    back = await pg.evaluate(cur)
+    await pg.click('#lastbtn')
+    ok('unsaved edits come back with Last', back == combi and await pg.evaluate(cur) == [prog1[0], 'Kept Edit', True], await pg.evaluate(cur))
+    # the recent list in the editor's browser
+    await pg.evaluate("__t.load(__t.firstIn('Starter programs'))")
+    await pg.click('#progbtn'); await pg.click('#edbrowse .pbr-bank')
+    await pg.click("#edbrowse .pbr-list button:has-text('Recently played')")
+    rows = await pg.evaluate("[...document.querySelectorAll('#edbrowse .pbr-list button')].map(b => b.textContent)")
+    ok('the browser lists the recently played programs, newest first, marking kept edits', len(rows) == 3 and rows[0].startswith('00 ') and rows[1].startswith(prog1[0]) and rows[1].endswith('edited') and rows[2].startswith(combi[0]), rows)
+    await pg.reload(); await pg.wait_for_timeout(800)
+    ok('the register is kept over a reload', len(await pg.evaluate("window.__moss.recent()")) >= 3 and not await pg.is_disabled('#lastbtn'))
+    ok('no page errors (Last)', not pg.errs, pg.errs[:5])
+    await pg.close()
+
 async def main():
     if not os.path.exists(os.path.join(ROOT, 'index.html')): sys.exit('index.html missing: run python3 build.py')
     url = serve()
@@ -390,6 +421,7 @@ async def main():
         b = await p.chromium.launch(args=['--autoplay-policy=no-user-gesture-required'])
         await sound_and_pages(b, url)
         await storage_and_memory(b, url)
+        await last_program(b, url)
         await public_page(b)
         await b.close()
     print('ALL PASSED' if not fails else '%d FAILED: %s' % (len(fails), '; '.join(fails)))
