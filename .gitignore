@@ -6,3 +6,7 @@ tools/samples/src/
 tools/samples/decoded_tri/
 dist/
 index.html
+# Korg recordings built from the owner's copy of the PBS-TRI libraries (tools/samples/build_korg.py): never committed
+samples/korg/
+# local copies of Korg material
+New folder/

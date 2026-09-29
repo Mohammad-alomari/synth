@@ -417,7 +417,8 @@ const K = {
 };
 const pcmAms = i => KORG_PCM.AMS.map((a, k) => [a, KORG_PCM.AMS_NAME[k]]).slice(0, i === 1 ? 27 : 23);
 const MS_OPTS = () => PCM_MS_NAMES.map((n, i) => [i, String(i).padStart(3, '0') + ' ' + n]);
-const standinName = id => { const e = PCM_STANDIN.ms[id]; if (!e) return 'placeholder'; if (e.syn) return 'built-in ' + e.syn + ' wave'; if (/^kit/.test(e.p)) return 'General MIDI ' + e.p.replace('kit_', '') + ' drum set, key ' + e.k; return 'General MIDI ' + (parseInt(e.p.slice(2), 10) + 1) + (e.r ? ' (shifted ' + e.r + ' st)' : ''); };
+const standinName = id => { const e = pcmMap.ms[id]; if (!e) return 'placeholder';
+  if (e.f) return e.s ? 'Korg recording ' + e.f.split('/').pop() + ' (similar)' : 'Korg’s own multisample'; if (e.syn) return 'built-in ' + e.syn + ' wave'; if (/^kit/.test(e.p)) return 'General MIDI ' + e.p.replace('kit_', '') + ' drum set, key ' + e.k; return 'General MIDI ' + (parseInt(e.p.slice(2), 10) + 1) + (e.r ? ' (shifted ' + e.r + ' st)' : ''); };
 function pcmPageProgram() {
   const secs = [
     { title: 'Program', controls: [
@@ -443,7 +444,7 @@ function pcmPageOsc(i) {
   secs.push({ title: 'Multisample', controls: [SEL(b + 'msHi', 'High multisample', MS_OPTS(), { num: true, rerender: true }), S(b + 'lvlHi', 'High level', 0, 127, { fmt: K.n }), TOG(b + 'offHi', 'High: offset start'),
     SEL(b + 'msLo', 'Low multisample', MS_OPTS(), { num: true, rerender: true }), S(b + 'lvlLo', 'Low level', 0, 127, { fmt: K.n }), TOG(b + 'offLo', 'Low: offset start'),
     S(b + 'velSplit', 'High from velocity', 1, 127, { fmt: K.n })],
-    help: 'Stand-ins: high → ' + standinName(O.msHi) + '; low → ' + standinName(O.msLo) + '. Korg’s own samples are not available.' });
+    help: 'Plays: high → ' + standinName(O.msHi) + '; low → ' + standinName(O.msLo) + '.' + (korgPacks ? '' : ' Korg’s own samples are not available.') });
   secs.push({ title: 'Pitch', controls: [S(b + 'octave', 'Octave', -2, 1, { fmt: K.oct }), S(b + 'transpose', 'Transpose', -12, 12, { fmt: K.semis }), S(b + 'tune', 'Tune', -1200, 1200, { fmt: K.cents }),
     S(b + 'delay', 'Delay start', -1, 5000, { fmt: K.delay, step: 2 }), S(b + 'pitch.slope', 'Pitch slope', -1, 2, { fmt: K.slope, step: 0.1 }),
     S(b + 'pitch.egInt', 'Pitch EG intensity', -12, 12, { fmt: K.pint, step: 0.01 }), S(b + 'pitch.egVel', 'EG intensity by velocity', -99, 99, { fmt: K.sgn }),

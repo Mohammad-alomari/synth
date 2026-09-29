@@ -13,6 +13,8 @@ Processing per sample:
     decay   : (piano, plucked, mallets) keep --maxlen seconds, put a short loop at the tail with the
               envelope flattened across the loop, so a held note can sustain under the synth's amp EG.
     oneshot : (drums) cut where the tail falls below --floor dB re peak (max --maxlen), fade out, no loop.
+    auto    : (Korg multisamples) a sample with an authored loop keeps it whatever its length; one without
+              plays once, like oneshot.
   normalise each sample to -1 dBFS peak and store the gain in the map (so velocity/level stays authored).
 
 Stream layout (mono, --rate):  [sync click][gap][s0 ... s0.loop tail pad][gap][s1 ...]...
@@ -330,7 +332,7 @@ def main():
     g = ap.add_mutually_exclusive_group(required=True)
     g.add_argument('--sf-zones'); g.add_argument('--notes-dir')
     ap.add_argument('--name', required=True)
-    ap.add_argument('--kind', choices=['sustain', 'decay', 'oneshot'], required=True)
+    ap.add_argument('--kind', choices=['sustain', 'decay', 'oneshot', 'auto'], required=True)
     ap.add_argument('--rate', type=int, default=32000)
     ap.add_argument('--maxlen', type=float, default=2.5, help='seconds kept per sample (upper bound)')
     ap.add_argument('--minloop', type=float, default=0.25, help='min loop length (s) for found loops')
@@ -372,13 +374,16 @@ def main():
         f0 = midi_hz(z['keyRanges'][0]['rootKey'])
         maxn = int(a.maxlen * rate)
         info = ''
-        if a.kind == 'sustain':
-            if loop and loop[1] <= maxn and loop[0] > 0:
+        kind = a.kind
+        if kind == 'auto':
+            kind = 'keep' if loop and 0 < loop[0] < loop[1] <= len(x) else 'oneshot'
+        if kind in ('sustain', 'keep'):
+            if loop and (kind == 'keep' or loop[1] <= maxn) and loop[0] > 0:
                 # authored loop: keep; after resampling the points are rounded, so nudge the end by +-2
                 # frames to the position whose preceding 16 frames best match those before loop start
                 s0, e0 = loop
                 best = min(range(-2, 3), key=lambda d: float(np.sum((x[e0 + d - 16:e0 + d] - x[s0 - 16:s0]) ** 2))
-                           if e0 + d <= len(x) else 1e9)
+                           if e0 + d <= len(x) else 1e9) if s0 >= 16 else 0  # (a loop from the very start: kept as is)
                 loop = [s0, e0 + best]
                 x = x[:loop[1]]
                 info = f'authored loop ({(loop[1] - loop[0]) / rate:.2f}s, end nudged {best:+d})'
@@ -395,7 +400,7 @@ def main():
                 x = crossfade_loop(x, s, e, xf, equal_power=sc < 0.9)[:e]
                 loop = [s, e]
                 info = f'found loop corr={sc:.3f} xfade={xf / rate * 1000:.0f}ms'
-        elif a.kind == 'decay':
+        elif kind == 'decay':
             hi = min(len(x), maxn)
             lmin = max(int(0.12 * rate), int(8 * rate / f0))
             r = find_loop(x, rate, f0, int(0.5 * hi), hi - int(0.005 * rate), lmin, int(0.4 * hi))

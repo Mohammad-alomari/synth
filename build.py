@@ -2,7 +2,7 @@
 # Usage: python3 build.py [out.html] [--public]
 #   --public  leaves out the owner's own files (tridata.js and pcgdata.js); used for the
 #             Netlify site. Visitors import their own PCG files instead.
-import base64, json, re, sys
+import base64, json, os, re, sys
 args = [a for a in sys.argv[1:] if not a.startswith('--')]
 public = '--public' in sys.argv
 out = args[0] if args else 'index.html'
@@ -15,6 +15,8 @@ def source(f):
         return 'const TRI_BUILTIN = []; // public build: no built-in Trinity files\n'
     if public and f == 'pcgdata.js':
         return 'const MOSS_PCG_BUILTIN = []; // public build: no built-in Bank M files\n'
+    if f == 'pcmmap.js' and not public and os.path.exists('samples/korg/packs.json'):  # the owner's Korg recordings (build_korg.py)
+        code = code.replace('const PCM_KORG_BUILT = false;', 'const PCM_KORG_BUILT = true;')
     return code
 
 ui = open('ui.html', encoding='utf-8').read()
