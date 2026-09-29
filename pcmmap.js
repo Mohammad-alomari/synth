@@ -72,6 +72,9 @@ const PCM_STANDIN = (() => {
 // Entries without s are the Trinity ROM multisample itself (same Korg name; the Korg Multisamples disk holds 112 of
 // them); s: 1 = the closest Korg recording (a sibling: other loop / velocity version, or a similar instrument).
 // g: 8 dB = the median level difference to the stand-ins (so the balance against MOSS voices and PCM trim stays as tuned).
+// PCM_KORG_BUILT: build.py sets it when samples/korg/packs.json exists (never in the public build), so other copies of
+// the page do not ask for a file that is not there.
+const PCM_KORG_BUILT = false;
 const PCM_KORG = (() => {
   const ms = {}, K = (f, extra) => Object.assign({ p: 'k_' + f.split('/').pop().toLowerCase(), f, g: 8 }, extra || {});
   const put = (list, lib, extra) => list.trim().split(/\s+/).forEach(x => { const [n, f] = x.split(':'); ms[n] = K(lib + '/' + f, extra); });

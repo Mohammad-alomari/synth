@@ -275,7 +275,7 @@ function packIndex() {
   if (!packsReq) {
     const gm = fetch('samples/packs.json').then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .catch(e => { status('The stand-in samples could not be loaded (' + (e && e.message || e) + '). PCM programs play a soft placeholder tone.'); return { packs: {} }; });
-    const korg = fetch('samples/korg/packs.json').then(r => r.ok ? r.json() : { packs: {} }).catch(() => ({ packs: {} }));
+    const korg = PCM_KORG_BUILT ? fetch('samples/korg/packs.json').then(r => r.ok ? r.json() : { packs: {} }).catch(() => ({ packs: {} })) : { packs: {} };
     packsReq = Promise.all([gm, korg]).then(([a, b]) => {
       const ms = Object.assign({}, PCM_STANDIN.ms);
       for (const n in PCM_KORG.ms) { const e = PCM_KORG.ms[n]; if (b.packs[e.p]) { ms[n] = e; korgPacks++; } }
