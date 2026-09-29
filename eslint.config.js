@@ -5,7 +5,7 @@ const fs = require('fs'), path = require('path');
 const js = require('@eslint/js'), globals = require('globals'), espree = require('espree');
 
 const PAGE = ['fxcat.js', 'patches.js', 'engine.js', 'pcm.js', 'combi.js', 'fxdsp.js', 'pcmmap.js', 'korg.js'];
-const DATA = { MOSS_PCG_BUILTIN: 'readonly', TRI_BUILTIN: 'readonly' }; // pcgdata.js / tridata.js (large, not linted)
+const DATA = { MOSS_PCG_BUILTIN: 'readonly', TRI_BUILTIN: 'readonly', USER_TRITON: 'readonly' }; // pcgdata.js / tridata.js / userdata.js (data, not linted)
 const APP = fs.readdirSync(path.join(__dirname, 'app')).filter(f => f.endsWith('.js')).map(f => 'app/' + f);
 // top-level names of the files: let / var may be reassigned from other files, the rest may not
 function topNames(files) {
@@ -27,11 +27,11 @@ const rules = {
 };
 
 module.exports = [
-  { ignores: ['index.html', 'dist/**', 'node_modules/**', 'pcgdata.js', 'tridata.js', 'tools/samples/**'] },
+  { ignores: ['index.html', 'dist/**', 'node_modules/**', 'pcgdata.js', 'tridata.js', 'userdata.js', 'tools/samples/**'] },
   js.configs.recommended,
   { files: PAGE, languageOptions: { sourceType: 'script', globals: { ...globals.browser, ...globals.node, ...pageGlobals } }, rules },
   { files: APP, languageOptions: { sourceType: 'script', globals: { ...globals.browser, ...pageGlobals, ...appGlobals } }, rules },
   { files: ['sw.js'], languageOptions: { sourceType: 'script', globals: { ...globals.serviceworker } }, rules },
   // the tests load the page's files into Node and use their names
-  { files: ['test/**/*.js', 'eslint.config.js'], languageOptions: { sourceType: 'commonjs', globals: { ...globals.node, ...pageGlobals } }, rules }
+  { files: ['test/**/*.js', 'tools/*.js', 'eslint.config.js'], languageOptions: { sourceType: 'commonjs', globals: { ...globals.node, ...pageGlobals } }, rules }
 ];

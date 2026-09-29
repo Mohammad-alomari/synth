@@ -75,6 +75,8 @@ const PCM_STANDIN = (() => {
 // PCM_KORG_BUILT: build.py sets it when samples/korg/packs.json exists (never in the public build), so other copies of
 // the page do not ask for a file that is not there.
 const PCM_KORG_BUILT = false;
+// PCM_USER_BUILT: the same for samples/user/packs.json (the owner's own sample disks, tools/samples/build_korg.py --all)
+const PCM_USER_BUILT = false;
 const PCM_KORG = (() => {
   const ms = {}, K = (f, extra) => Object.assign({ p: 'k_' + f.split('/').pop().toLowerCase(), f, g: 8 }, extra || {});
   const put = (list, lib, extra) => list.trim().split(/\s+/).forEach(x => { const [n, f] = x.split(':'); ms[n] = K(lib + '/' + f, extra); });

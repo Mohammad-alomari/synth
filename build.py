@@ -1,6 +1,6 @@
 # Assembles the single-file synth: ui.html template + sources and fonts inlined as <script> / <style> blocks
 # Usage: python3 build.py [out.html] [--public]
-#   --public  leaves out the owner's own files (tridata.js and pcgdata.js); used for the
+#   --public  leaves out the owner's own files (tridata.js, pcgdata.js, userdata.js); used for the
 #             Netlify site. Visitors import their own PCG files instead.
 import base64, json, os, re, sys
 args = [a for a in sys.argv[1:] if not a.startswith('--')]
@@ -15,8 +15,11 @@ def source(f):
         return 'const TRI_BUILTIN = []; // public build: no built-in Trinity files\n'
     if public and f == 'pcgdata.js':
         return 'const MOSS_PCG_BUILTIN = []; // public build: no built-in Bank M files\n'
-    if f == 'pcmmap.js' and not public and os.path.exists('samples/korg/packs.json'):  # the owner's Korg recordings (build_korg.py)
-        code = code.replace('const PCM_KORG_BUILT = false;', 'const PCM_KORG_BUILT = true;')
+    if public and f == 'userdata.js':
+        return 'const USER_TRITON = null; // public build: no starters from the owner\'s samples\n'
+    if f == 'pcmmap.js' and not public:  # the owner's Korg recordings and own sample disks (build_korg.py), when built here
+        if os.path.exists('samples/korg/packs.json'): code = code.replace('const PCM_KORG_BUILT = false;', 'const PCM_KORG_BUILT = true;')
+        if os.path.exists('samples/user/packs.json'): code = code.replace('const PCM_USER_BUILT = false;', 'const PCM_USER_BUILT = true;')
     return code
 
 ui = open('ui.html', encoding='utf-8').read()
@@ -24,7 +27,7 @@ ui = open('ui.html', encoding='utf-8').read()
 fonts = json.load(open('fonts/fonts.json', encoding='utf-8'))
 ui = ui.replace('%%FONTS%%', '\n'.join("@font-face { font-family: '%s'; font-style: normal; font-weight: %s; font-display: swap; src: url(data:font/woff2;base64,%s) format('woff2'); unicode-range: %s; }"
   % (f['family'], f['weight'], base64.b64encode(open('fonts/' + f['file'], 'rb').read()).decode(), f['range']) for f in fonts))
-parts = {'PATCHES': ['fxcat.js', 'patches.js'], 'ENGINE': ['engine.js', 'pcm.js', 'combi.js', 'fxdsp.js'], 'KORG': ['pcmmap.js', 'korg.js'], 'PCG': ['pcgdata.js', 'tridata.js'],
+parts = {'PATCHES': ['fxcat.js', 'patches.js'], 'ENGINE': ['engine.js', 'pcm.js', 'combi.js', 'fxdsp.js'], 'KORG': ['pcmmap.js', 'korg.js'], 'PCG': ['pcgdata.js', 'tridata.js', 'userdata.js'],
   'APP': ['app/' + f for f in APP_FILES]}
 for k, files in parts.items():
     code = '\n'.join(source(f) for f in files)

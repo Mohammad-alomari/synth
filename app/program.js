@@ -21,6 +21,7 @@ function progGroup() {
 function progEntries() {
   const out = [], add = (g, b, i, t) => out.push({ v: b + ':' + i, b, i, t, g });
   MOSS_PRESETS.forEach((p, i) => add('Starter programs', 'st', i, String(i).padStart(2, '0') + ' ' + p.name));
+  userStarters.forEach((p, i) => { const k = MOSS_PRESETS.length + i; add('Starter programs', 'st', k, String(k).padStart(2, '0') + ' ' + p.name); });
   const ug = userGroup();
   userBank.forEach((p, i) => add(ug, 'us', i, String(i + 1).padStart(2, '0') + ' ' + (p.name || 'Untitled')));
   pcgBanks.forEach((b, bi) => { const g = pmGroup(b); for (let i = 0; i < b.n; i++) add(g, 'pm', bi * 128 + i, bankLetter(b) + String(i).padStart(3, '0') + ' ' + b.names[i]); });
@@ -78,8 +79,8 @@ function loadProgram(bank, idx, fromRecent) {
   let pm = null;
   try { pm = bank === 'pm' ? pcgPatch(idx) : bank === 'pc' ? pcmPatch(idx) : bank === 'cb' ? combiPatch(idx) : null; }
   catch (e) { console.error('Could not decode program ' + bank + ':' + idx, e); status('That program could not be read (' + (e && e.message || e) + '); its data may be damaged. The previous program stays.'); return; }
-  if ((bank === 'us' && !userBank[idx]) || ((bank === 'pm' || bank === 'pc' || bank === 'cb') && !pm) || !['st', 'us', 'pm', 'pc', 'cb'].includes(bank)) { bank = 'st'; idx = 0; }
-  patch = bank === 'st' ? mossPreset(idx) : bank === 'pm' || bank === 'pc' || bank === 'cb' ? pm : refreshTimbres(loadAny(userBank[idx]));
+  if ((bank === 'us' && !userBank[idx]) || (bank === 'st' && !(idx < MOSS_PRESETS.length + userStarters.length)) || ((bank === 'pm' || bank === 'pc' || bank === 'cb') && !pm) || !['st', 'us', 'pm', 'pc', 'cb'].includes(bank)) { bank = 'st'; idx = 0; }
+  patch = bank === 'st' ? starterPatch(idx) : bank === 'pm' || bank === 'pc' || bank === 'cb' ? pm : refreshTimbres(loadAny(userBank[idx]));
   prog = { bank, idx }; edited = false;
   if (kept && now === bank + ':' + idx) { patch = kept; edited = true; }
   pcmPrepare(patch);
@@ -88,8 +89,14 @@ function loadProgram(bank, idx, fromRecent) {
   renderAll(); saveCurrent(); noteRecent();
   if (edited) status('Your unsaved edits of ' + (patch.name || 'this program') + ' are back.');
   else if (patch.kind === 'combi') status(combiStatus());
-  else if (patch.kind === 'pcm') status('Trinity PCM program: Korg\u2019s samples are not available, so stand-in recordings play (see the Program page).');
+  else if (patch.kind === 'pcm') status(pcmStatus(patch));
   else if (patch.korgInfo) { const pl = korgPlayability(patch); status(pl.full ? '' : 'Not built yet: ' + pl.missing.join(', ') + '. That part is silent.'); } else status('');
+}
+// what a PCM program plays, for the status line
+function pcmStatus(P) {
+  const own = Object.values(P.ramMap || {}).filter(v => typeof v === 'string'), tri = P.korgInfo && P.korgInfo.fmt === 'triton' ? 'Triton program' : 'Trinity PCM program';
+  if (own.length) return tri + ': plays your own samples' + (own.some(k => !(pcmMap.ms[k] || {}).u) ? ' where they are here, stand-ins for the rest' : '') + ' (see the Program page).';
+  return tri + ': ' + (korgPacks ? 'Korg’s own recordings where this copy has them, stand-in recordings for the rest' : 'Korg’s samples are not available, so stand-in recordings play') + ' (see the Program page).';
 }
 // previous / next program; with a search, only through its results
 function stepProgram(dir) {
