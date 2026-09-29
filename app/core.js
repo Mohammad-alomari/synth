@@ -61,7 +61,10 @@ function dropEdits(kind, name) { const all = Object.assign({}, bankEdits), pre =
 
 // ---------------- Trinity PCG banks ----------------
 const LS_PCG = 'moss-pcg', MAX_IMPORTED = 8;
-const b64dec = s => { const bin = atob(s); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u; };
+const b64dec = s => { // the browser's own decoder where there is one (quicker at start-up with the built-in files)
+  if (typeof Uint8Array.fromBase64 === 'function') return Uint8Array.fromBase64(s);
+  const bin = atob(s); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u;
+};
 const pcgBanks = []; // { name, scale, bytes, n, rs, builtin, names, fmt: 'trinity' | 'triton' }
 // rs: record size, 521 (Trinity layout) or 716 (Triton: Trinity layout + the Triton effect section)
 function addPcgBank(name, scale, bytes, builtin, fmt, rs) {
@@ -234,24 +237,30 @@ function combiPatch(idx) {
 // Programs of a Triton sample disk (tools/user_starters.js) after the MOSS starters: RAM multisample n plays the disk's
 // pack (samples/user/, key u_<file>, see pcmMap), or a Trinity ROM stand-in where that pack is not here.
 const USER_SET = typeof USER_TRITON !== 'undefined' && USER_TRITON ? USER_TRITON : null;
+// the list needs only the names: each program is decoded when it is first played (make), which keeps start-up quick
 const userStarters = (() => {
   if (!USER_SET) return [];
   const byRam = {}; for (const k in USER_SET.ms) byRam[USER_SET.ms[k].ram] = k;
   const out = [], src = (at, note) => 'Your samples (' + USER_SET.name + (at ? ', Triton ' + at : '') + ')' + (note ? ': ' + note : '');
-  for (const p of USER_SET.progs) {
-    try { const P = korgDecodeTritonPcm(b64dec(p.m), { scales: USER_SET.scales }, n => byRam[n]); P.name = p.n; P.korgInfo.source = src(p.at, p.note); out.push(P); }
-    catch (e) { console.error('Could not read the starter program ' + p.n, e); }
-  }
+  for (const p of USER_SET.progs) out.push({ name: p.n, make: () => { const P = korgDecodeTritonPcm(b64dec(p.m), { scales: USER_SET.scales }, n => byRam[n]); P.name = p.n; P.korgInfo.source = src(p.at, p.note); return P; } });
   for (const k of USER_SET.plain || []) { // a multisample no program plays: a plain program for it
-    const P = newPcmProgram(), m = USER_SET.ms[k];
-    P.name = m.name; P.korgInfo.source = src('', 'a plain program for this multisample');
-    P.o[0].msHi = P.o[0].msLo = 0x1000 | m.ram; P.ramMap = { [m.ram]: k }; P.o[0].amp.level = 100; P.o[0].aeg.relT = 30;
-    out.push(P);
+    const m = USER_SET.ms[k];
+    out.push({ name: m.name, make: () => {
+      const P = newPcmProgram();
+      P.name = m.name; P.korgInfo.source = src('', 'a plain program for this multisample');
+      P.o[0].msHi = P.o[0].msLo = 0x1000 | m.ram; P.ramMap = { [m.ram]: k }; P.o[0].amp.level = 100; P.o[0].aeg.relT = 30;
+      return P;
+    } });
   }
   return out;
 })();
-// starter program i: MOSS starters first, then the ones from the owner's samples
-function starterPatch(i) { return i < MOSS_PRESETS.length ? mossPreset(i) : userStarters[i - MOSS_PRESETS.length] ? clone(userStarters[i - MOSS_PRESETS.length]) : null; }
+// starter program i: MOSS starters first, then the ones from the owner's samples (one that cannot be read gives the first starter)
+function starterPatch(i) {
+  if (i < MOSS_PRESETS.length) return mossPreset(i);
+  const s = userStarters[i - MOSS_PRESETS.length]; if (!s) return null;
+  if (s.P === undefined) { try { s.P = s.make(); } catch (e) { console.error('Could not read the starter program ' + s.name, e); s.P = null; } }
+  return s.P ? clone(s.P) : mossPreset(0);
+}
 // an unedited program is reloaded from its source, so it picks up anything newer (such as its decoded effects)
 if (!edited) { try { const P = prog.bank === 'pm' ? pcgPatch(prog.idx) : prog.bank === 'pc' ? pcmPatch(prog.idx) : prog.bank === 'cb' ? combiPatch(prog.idx) : prog.bank === 'st' ? starterPatch(prog.idx) : null; if (P) patch = P; } catch (e) { console.warn('Could not reload the current program', e); } }
 refreshTimbres(patch);
