@@ -18,6 +18,7 @@ run node test/fuzz.js
 run node test/fxfix.js
 run node test/voicefix.js
 run node test/combifix.js
+run node test/decodefix.js
 run node test/progs.js
 run node test/latency.js
 if command -v ffmpeg > /dev/null; then run node test/combis.js; else echo '== combis.js skipped (needs ffmpeg)'; fi

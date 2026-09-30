@@ -529,6 +529,9 @@ function korgDecodeFxBlocks(r, insOffs, mOff, notes) {
 }
 
 // ---- one PCM program (433 bytes) ----
+// the multisample that plays for a sound the file names but this synth does not have (pcmmap.js PCM_FALLBACK)
+function korgFallback() { return typeof PCM_FALLBACK !== 'undefined' ? PCM_FALLBACK : 0; }
+function korgFallbackName() { const n = korgFallback(); return typeof PCM_MS_NAMES !== 'undefined' && PCM_MS_NAMES[n] ? PCM_MS_NAMES[n] : 'multisample ' + n; }
 function korgDecodePcm(r, userScale) {
   const notes = [], u = k => r[k], s = k => korgS8(r[k]), P = KORG_PCM;
   const lim = (v, a, b2, what) => { if (v < a || v > b2) { notes.push(what + ' had an out-of-range value (' + v + ')'); return v < a ? a : b2; } return v; };
@@ -580,13 +583,13 @@ function korgDecodePcm(r, userScale) {
   };
   X.o.push(osc(31), osc(168));
   X.voice.bendUp = X.o[0].pitch.jsUp; X.voice.bendDown = X.o[0].pitch.jsDown;
-  // RAM/Flash samples (loaded into the Trinity from disk) are not in the file: a stand-in is guessed from the name
+  // RAM/Flash samples (loaded into the Trinity from disk) are not in the file: they play the fallback (PCM_FALLBACK)
   const ram = [];
   for (const O of X.o) for (const k of ['msLo', 'msHi']) if (O[k] >= 0x1000 && mode !== 'drum') ram.push(O[k] & 0xfff);
   if (ram.length) {
-    const g = (typeof PCM_RAMGUESS !== 'undefined' ? PCM_RAMGUESS : []).find(e => e[0].test(X.name)), rom = g ? g[1] : 0;
-    X.ramMap = {}; ram.forEach(n => { X.ramMap[n] = rom; });
-    notes.push('Plays a sample that was loaded into the Trinity’s RAM/Flash (not stored in the file); stand-in: ' + (g ? 'ROM multisample ' + rom + ', guessed from the name' : 'A.Piano'));
+    const fb = korgFallback(), ns = [...new Set(ram)];
+    X.ramMap = {}; ns.forEach(n => { X.ramMap[n] = fb; });
+    notes.push('Plays RAM/Flash sample' + (ns.length > 1 ? 's ' : ' ') + ns.join(', ') + ', loaded into the Trinity and not stored in the file; the fallback plays instead (' + korgFallbackName() + ')');
   }
   X.fx = korgDecodeFxBlocks(r, [305, 327, 349, 371], 393, notes);
   // no insert effects: the oscillator blocks' sends feed the master effects
@@ -662,7 +665,7 @@ function korgDecodeTritonPcm(r, glb, ram) {
   const ref = (hi, lo, bank) => { // multisample number + bank -> this synth's multisample id
     const n = ((hi & 0x7f) << 8) | lo;
     if (bank === 1) { const e = ram(n); if (e === undefined) ramMiss.add(n); else ramUsed[n] = e; return 0x1000 | (n & 0xfff); }
-    romMiss.add((bank === 0 ? 'ROM ' : 'expansion ' + bank + ' ') + n); return 0;
+    romMiss.add((bank === 0 ? 'ROM ' : 'expansion ' + bank + ' ') + n); return korgFallback();
   };
   const osc = (b, k) => {
     const O = X.o[k], lfo = (o) => ({ wave: T.LFOW[u(o) & 31] || 'tri0', start: 'on', sync: (u(o) >> 7) & 1, offset: s(o + 2), freq: c99(u(o + 1)), delay: c99(u(o + 3)), fade: s(o + 4),
@@ -708,8 +711,8 @@ function korgDecodeTritonPcm(r, glb, ram) {
   osc(230, 0); osc(384, 1);
   X.voice.bendUp = X.o[0].pitch.jsUp; X.voice.bendDown = X.o[0].pitch.jsDown;
   if (Object.keys(ramUsed).length) X.ramMap = ramUsed;
-  if (ramMiss.size) { X.ramMap = X.ramMap || {}; ramMiss.forEach(n => { X.ramMap[n] = 0; }); notes.push('Plays RAM multisample' + (ramMiss.size > 1 ? 's ' : ' ') + [...ramMiss].join(', ') + ', which ' + (ramMiss.size > 1 ? 'are' : 'is') + ' not among the loaded samples (stand-in: A.Piano)'); }
-  if (romMiss.size) notes.push('Plays Triton ' + [...romMiss].join(', ') + ' (Triton multisamples are not mapped yet; stand-in: A.Piano)');
+  if (ramMiss.size) { X.ramMap = X.ramMap || {}; ramMiss.forEach(n => { X.ramMap[n] = korgFallback(); }); notes.push('Plays RAM multisample' + (ramMiss.size > 1 ? 's ' : ' ') + [...ramMiss].join(', ') + ', which ' + (ramMiss.size > 1 ? 'are' : 'is') + ' not among the loaded samples (fallback: ' + korgFallbackName() + ')'); }
+  if (romMiss.size) notes.push('Plays Triton ' + [...romMiss].join(', ') + ' (Triton multisamples are not mapped yet; fallback: ' + korgFallbackName() + ')');
   if (mode === 'drum') notes.push('Drum-mode program: not supported');
   X.fx = korgDecodeTritonFx(r.subarray(16, 211), notes);
   X.fx.send1 = X.fx.ifxSend1 = X.fx.ins.length ? X.fx.ifxSend1 : X.o[0].send1;
@@ -780,4 +783,4 @@ function korgDecodeCombi(r, userScale) {
   return C;
 }
 
-if (typeof module !== 'undefined') module.exports = { korgDecodeTrinityFx, KORG, korgParsePCG, korgParseTritonPCG, korgTritonToTrinity, korgDecodeMoss, korgPlayability, korgS8, korgName, KORG_PCM, korgTrinitySections, korgDecodeFxBlocks, korgDecodePcm, korgDecodeCombi, korgCombiChains, KORG_TRITON_PCM, korgTritonGlobal, korgTritonSections, korgDecodeTritonPcm };
+if (typeof module !== 'undefined') module.exports = { korgFallback, korgFallbackName, korgDecodeTrinityFx, KORG, korgParsePCG, korgParseTritonPCG, korgTritonToTrinity, korgDecodeMoss, korgPlayability, korgS8, korgName, KORG_PCM, korgTrinitySections, korgDecodeFxBlocks, korgDecodePcm, korgDecodeCombi, korgCombiChains, KORG_TRITON_PCM, korgTritonGlobal, korgTritonSections, korgDecodeTritonPcm };

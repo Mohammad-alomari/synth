@@ -182,7 +182,7 @@ function build() {
         if (i === 1) ms[0] = ms[1] = 0; // A.Piano
         const name = drum ? 'Test Drum Kit ' + (i - 119) : i === 1 ? 'Test Piano' : ram ? 'Test RAM Zurna' : 'Test PCM ' + L + String(i).padStart(3, '0');
         const r = pcmRec(name, R, { mode, ms, plain: i < 2 });
-        if (ram) { r[31] = r[33] = 0x10; r[32] = r[34] = i; } // RAM/Flash sample 0x1000 | n: not in the file, the stand-in is guessed from the name
+        if (ram) { r[31] = r[33] = 0x10; r[32] = r[34] = i; } // RAM/Flash sample 0x1000 | n: not in the file, plays the fallback
         recs.push(r);
       }
       T.pcm.push({ bank: L, m: b64(cat(recs)) });
@@ -200,7 +200,7 @@ function build() {
     }
   }
   const scales = Array.from({ length: 16 }, (_, k) => k === 0 ? [0, 0, 0, 0, -50, 0, 0, 0, 0, 0, -50, 0] : new Array(12).fill(0));
-  const user = { name: 'TESTDISK', scales, ms: { u_testzurna112: { name: 'TEST ZURNA 112', ram: 112, rom: 106 }, u_testsaz043: { name: 'TEST SAZ 043', ram: 43, rom: 215 } },
+  const user = { name: 'TESTDISK', scales, ms: { u_testzurna112: { name: 'TEST ZURNA 112', ram: 112 }, u_testsaz043: { name: 'TEST SAZ 043', ram: 43 } },
     progs: [{ n: 'Test Zurna', at: 'A000', m: b64(tritonRec('Test Zurna', 112)) }], plain: ['u_testsaz043'] };
   return { moss, tri, user };
 }

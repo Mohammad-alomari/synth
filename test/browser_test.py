@@ -490,7 +490,8 @@ async def user_starters(b, url):
     P = await pg.evaluate("() => { const P = window.__moss.getPatch(); return [P.kind, P.korgInfo.fmt, P.scale.type, JSON.stringify(P.ramMap)]; }")
     ok('...a Triton starter decodes (PCM, Triton, its maqam user scale) and plays', pk > 0.005 and P[:3] == ['pcm', 'triton', 'user'] and 'u_testzurna112' in P[3], [round(pk, 3), P])
     info = await pg.evaluate("() => { const i = window.__moss.pcmInfo(); return [!!(i.map.ms.u_testzurna112 || {}).u, document.querySelector('#status').textContent]; }")
-    ok('...it plays a stand-in (the disk\'s samples are not here)', not info[0] and 'stand-ins' in info[1], info)
+    ok('...it plays the fallback, not a sound picked by its name (the disk\'s samples are not here)', not info[0] and 'the fallback (A.Piano)' in info[1]
+       and await pg.evaluate("__moss.pcmInfo().map.ms.u_testzurna112.p") == await pg.evaluate("__moss.pcmInfo().map.ms[0].p"), info)
     await pg.evaluate("() => window.__moss.selectPage('osc0')")
     help_ = await pg.evaluate("document.querySelector('#page').textContent")
     ok('...the OSC page names the sample', 'TEST ZURNA 112' in help_, help_[:0])
