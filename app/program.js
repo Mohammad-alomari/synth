@@ -237,8 +237,13 @@ function renderFlowPcm(svg) {
 // ---------------- voice LEDs & scope ----------------
 function showVoices(v) {
   const h = $('#vleds'); if (h.children.length !== v.length) { h.innerHTML = ''; v.forEach(() => h.appendChild(el('i'))); h.classList.toggle('many', v.length > 16); }
-  v.forEach((s, i) => { h.children[i].className = s === 2 ? 'g' : s === 1 ? 'r' : ''; });
-  if (document.body.classList.contains('midi')) { let n = 0; for (const s of v) if (s) n++; $('#mmvoices').textContent = n; }
+  v.forEach((s, i) => { const c = s === 2 ? 'g' : s === 1 ? 'r' : '', e = h.children[i]; if (e.className !== c) e.className = c; }); // only the lights that changed
+  if (document.body.classList.contains('midi')) {
+    let n = 0; for (const s of v) if (s) n++;
+    const vo = $('#mmvoices'), lt = $('#mmlat'), l = '≈ ' + latencyMs() + ' ms';
+    if (vo.textContent !== String(n)) vo.textContent = n;
+    if (lt.textContent !== l) lt.textContent = l;
+  }
 }
 const scopeBuf = new Float32Array(2048);
 let scopeInk = '', scopeGain = 1;

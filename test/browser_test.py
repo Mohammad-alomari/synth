@@ -1,7 +1,7 @@
 # Browser test of the built page (Chromium via Playwright). Starts its own http server; exit code 0 = all passed.
 # Usage: python3 test/browser_test.py   (needs node: it builds _test.html with the made-up test banks, test/fixtures.js, and
 # writes PCG files from them with test/mkpcg.js; nobody's own files are needed)
-# Covers: sound of MOSS / PCM / combination programs in both audio modes, drum programs left out, every page renders, effects editing,
+# Covers: sound of MOSS / PCM / combination programs in both audio modes, MIDI note-on latency, drum programs left out, every page renders, effects editing,
 # phone width, keyboard settings, play mode, MIDI program buttons and SW1/SW2, recording, imported-PCG storage (IndexedDB, reload, migration, removal), synth memory, error messages,
 # and the public (Netlify) build.
 import asyncio, base64, functools, http.server, os, struct, subprocess, sys, tempfile, threading
@@ -43,6 +43,21 @@ window.__t = {
   async import(b64, name) { const bin = atob(b64), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
     await window.__moss.importPcgFile(new File([u], name)); return document.querySelector('#status').textContent; },
   timbres() { const P = window.__moss.getPatch(); return P.timbres.filter(t => t.status !== 'off').map(t => [t.pLabel, t.pName, t.from || '']); },
+  // MIDI latency probe: an AudioWorklet on the synth's output reports the audio time when sound first arrives after being armed
+  async probe() {
+    if (this.pn) return; const c = window.__mossCtx();
+    const src = `class P extends AudioWorkletProcessor { constructor() { super(); this.arm = 0; this.port.onmessage = () => { this.arm = 1; }; }
+      process(ins) { const x = ins[0] && ins[0][0]; if (this.arm && x) for (let i = 0; i < x.length; i++) if (Math.abs(x[i]) > 1e-5) { this.arm = 0; this.port.postMessage(currentTime + i / sampleRate); break; } return true; } }
+      registerProcessor('probe', P);`;
+    await c.audioWorklet.addModule(URL.createObjectURL(new Blob([src], { type: 'application/javascript' })));
+    this.pn = new AudioWorkletNode(c, 'probe', { numberOfInputs: 1, numberOfOutputs: 0 }); window.__mossAnalyser().connect(this.pn);
+  },
+  // a note-on through the page's MIDI handler, from silence: [ms the main thread spent on it, ms of audio until it sounded]
+  hit(note) { return new Promise(res => { const M = window.__moss, c = window.__mossCtx(), p = this.pn;
+    M.onMidi({ data: [0xB0, 120, 0] });
+    setTimeout(() => { let c0 = 0, m0 = 0, m1 = 0, to = 0; const done = r => { clearTimeout(to); p.port.onmessage = null; M.onMidi({ data: [0x80, note, 0] }); res(r); };
+      p.port.onmessage = e => done([m1 - m0, (e.data - c0) * 1000]); to = setTimeout(() => done([m1 - m0, -1]), 1000);
+      c0 = c.currentTime; m0 = performance.now(); p.port.postMessage(1); M.onMidi({ data: [0x90, note, 100] }); m1 = performance.now(); }, 150); }); },
 };
 """
 
@@ -174,6 +189,9 @@ async def keyboard_and_midi(pg):
     ok('MIDI mode: Next steps the program', (await pg.text_content('#mmnum')).startswith('ST 01'), await pg.text_content('#mmnum'))
     await pg.evaluate("window.__moss.onMidi({data: [0x90, 62, 90]}); window.__moss.onMidi({data: [0x80, 62, 0]})")
     ok('MIDI mode: the monitor shows the note', 'D4' in await pg.text_content('#mmnote') and '90' in await pg.text_content('#mmnote'), await pg.text_content('#mmnote'))
+    await pg.wait_for_timeout(150)
+    lat = await pg.text_content('#mmlat')
+    ok('MIDI mode: the monitor shows the latency', lat.startswith('≈ ') and lat.endswith(' ms') and int(lat[2:-3]) > 0, ascii(lat))
     # Cutoff moves both filters by the same amount
     f0 = await pg.evaluate("(p => [p.f[0].freqA, p.f[1].freqA, p.filt.link])(window.__moss.getPatch())")
     await pg.evaluate("(() => { const r = [...document.querySelectorAll('#mmgrid .ctl')].find(c => c.textContent.startsWith('Cutoff')).querySelector('input'); r.value = Number(r.value) - 10; r.dispatchEvent(new Event('input')); })()")
@@ -234,6 +252,20 @@ async def keyboard_and_midi(pg):
     await pg.evaluate("window.__moss.setPlayMode(false)")
     await pg.set_viewport_size({'width': 1200, 'height': 900})
 
+async def midi_latency(pg):
+    # a MIDI keyboard's note-on through the page's MIDI handler: the main thread's share, and the audio until the sound
+    # leaves the synth (at most the next block or two); the browser's buffer and the output device come on top (reported)
+    await pg.evaluate('__t.probe()')
+    sr, base, out = await pg.evaluate("(c => [c.sampleRate, c.baseLatency || 0, c.outputLatency || 0])(window.__mossCtx())")
+    q = 128 / sr * 1000
+    for bank, idx in [('st', 0), ('pc', 0)]:
+        await pg.evaluate("([b, i]) => window.__moss.loadProgram(b, i)", [bank, idx]); await pg.wait_for_timeout(1500)
+        r = [await pg.evaluate("(n) => __t.hit(n)", 60 + k % 5) for k in range(8)]
+        main, audio = sorted(x[0] for x in r), sorted(x[1] for x in r)
+        print('     MIDI latency %s:%d: main thread %.2f ms (max %.2f), synth %.1f ms (max %.1f), browser buffer + device %.0f ms' % (bank, idx, main[4], main[-1], audio[4], audio[-1], (base + out) * 1000))
+        ok('MIDI latency %s:%d: the main thread passes a note on in under 2 ms' % (bank, idx), main[4] < 2, main)
+        ok('MIDI latency %s:%d: the note sounds within the next audio blocks' % (bank, idx), audio[0] >= 0 and audio[-1] <= max(10, base * 1000) + 3 * q + 2, audio)
+
 async def sound_and_pages(b, url):
     pg = await open_page(b, url)
     ok('audio starts (AudioWorklet)', await pg.evaluate('window.__mossMode') == 'worklet')
@@ -270,6 +302,7 @@ async def sound_and_pages(b, url):
         ov = await pg.evaluate('document.documentElement.scrollWidth - document.documentElement.clientWidth')
         ok('phone width, %s %s page: no sideways scrolling' % (v, page), ov <= 0, ov)
     await record_wav(pg, 'worklet')
+    await midi_latency(pg)
     await keyboard_and_midi(pg)
     ok('no errors (AudioWorklet mode)', not pg.errs, pg.errs[:5])
     await pg.close()

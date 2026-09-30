@@ -19,6 +19,7 @@ run node test/fxfix.js
 run node test/voicefix.js
 run node test/combifix.js
 run node test/progs.js
+run node test/latency.js
 if command -v ffmpeg > /dev/null; then run node test/combis.js; else echo '== combis.js skipped (needs ffmpeg)'; fi
 if python3 -c 'import playwright' 2> /dev/null; then run python3 test/browser_test.py; else echo '== browser_test.py skipped (needs: pip install playwright)'; fi
 

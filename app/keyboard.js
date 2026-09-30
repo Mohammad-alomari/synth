@@ -87,19 +87,20 @@ function playOn(id, k, v) {
   if (srcMap.has(id)) playOff(id);
   const tk = k + perf.oct * 12, s = tk + perf.trans;
   if (k < 0 || k > 127 || s < 0 || s > 127) return;
-  srcMap.set(id, { k, s }); light(k, 1);
+  srcMap.set(id, { k, s });
   sounding.set(s, (sounding.get(s) || 0) + 1);
   const msg = { t: 'on', n: s, v, k: Math.max(0, Math.min(127, tk)) };
   userPaused = false;
-  if (!graphReady) { startAudio().then(() => { const r = srcMap.get(id); if (r && r.s === s) send(msg); }); return; }
-  if (ctx.state !== 'running') ensureContext();
-  send(msg);
+  if (!graphReady) startAudio().then(() => { const r = srcMap.get(id); if (r && r.s === s) send(msg); });
+  else { if (ctx.state !== 'running') ensureContext(); send(msg); }
+  light(k, 1); // the key lights after the note is on its way
 }
 function playOff(id) {
   const r = srcMap.get(id); if (!r) return;
-  srcMap.delete(id); light(r.k, -1);
+  srcMap.delete(id);
   const c = (sounding.get(r.s) || 0) - 1;
   if (c <= 0) { sounding.delete(r.s); send({ t: 'off', n: r.s }); } else sounding.set(r.s, c);
+  light(r.k, -1);
 }
 // let go of every note an input (or all inputs) is holding: used by panic, MIDI All Notes Off and unplugging
 function releaseInputs(prefix) { for (const id of [...srcMap.keys()]) if (!prefix || id.startsWith(prefix)) playOff(id); }
