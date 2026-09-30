@@ -463,6 +463,14 @@ function ensureContext() {
   }
   return ctx;
 }
+// key-to-speaker delay: the browser's audio buffer and the output device, as the browser reports them (baseLatency,
+// outputLatency), plus the engine's share: at most one 128-frame block (compatibility mode: its 1024-frame buffer, twice).
+// The synth's own work (MIDI message, main thread, note start) stays under a millisecond (test/latency.js, browser test).
+function latencyMs() {
+  if (!ctx) return 0;
+  const dev = (ctx.baseLatency || 0) + (ctx.outputLatency || 0), eng = (audioMode === 'script' ? 2048 : 128) / ctx.sampleRate;
+  return Math.round((dev + eng) * 1000);
+}
 function engineError(m) { status('Sound engine error: ' + String(m).slice(0, 140) + '. Reload the page to go on; if it happens again, please report this message.'); }
 function useScriptFallback(msg) {
   if (node) { try { node.disconnect(); } catch (e) { console.debug('worklet node already disconnected', e); } if (node.port) node.port.onmessage = null; }

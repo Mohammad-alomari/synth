@@ -171,6 +171,12 @@ MOSS sound identical to Version 11 (regress.js); browser tests in AudioWorklet a
 Speed (2026-09-29, main-context Node on the dev PC, 4-note chord): MOSS program ~10% of a core, PCM ~5%, combination
 ~13%; the reverbs are the costliest code (FxReverb ~200-470 ns/sample). Idle (12 s after the last note): MOSS ~1%, PCM
 ~0.6%, combinations ~0.9% (were 2.6 / 2.1 / 3.7% before effects rested).
+MIDI latency (2026-09-30): the synth's share is under ~3 ms: onMidi on the main thread 0.1-0.7 ms (the note is sent before
+any screen update: monitor, key lights, SW/pedal), the note starts in the next 128-frame block (<= 2.7 ms), the engine
+starts it at once (median 0.1 ms; Reed/Bowed build up 2-7 ms, part of the model); no lookahead anywhere. The rest is the
+browser and the device: ctx.baseLatency + outputLatency (dev PC, Chrome on Windows: 10 + 40 ms; latencyHint 'interactive'
+is already the lowest). MIDI mode's monitor shows the total (latencyMs in app/core.js). Main thread while playing: no long
+tasks, queued tasks wait 0.1 ms at p99. Compatibility mode (ScriptProcessor, 1024 frames) adds ~40 ms.
 
 Open / ideas (not built):
 1. Combination: per-timbre (program) scale not modelled.
@@ -201,8 +207,11 @@ Run:     python3 -m http.server 8765   then open http://localhost:8765/index.htm
 Lint:    npm install once, then npm run lint (also in CI).
 Tests: sh test/run_all.sh (~2 min, most of it the browser test; exit 0 = pass; FULL=1 for every program/combination).
   CI: .github/workflows/test.yml runs npm run lint, then build.py + run_all.sh on every push / PR.
-  Checks: fxunit, fuzz, fxfix (effects), voicefix (notes), combifix (timbre delay, MIDI filters), progs (MOSS programs, every 8th), combis (every 16th,
-  needs ffmpeg), browser_test.py (Playwright; starts its own server; sound in both audio modes, all pages, fx edit,
+  Checks: fxunit, fuzz, fxfix (effects), voicefix (notes), combifix (timbre delay, MIDI filters), progs (MOSS programs, every 8th),
+  latency (note-on to first sample: <= 1 ms for every program with a fast amp attack, effects off; Reed/Brass/Bowed 10 ms;
+  damaged records skipped), combis (every 16th,
+  needs ffmpeg), browser_test.py (Playwright; starts its own server; sound in both audio modes, MIDI latency through
+  onMidi with a probe worklet on the output (main thread < 2 ms, sound within the next blocks), all pages, fx edit,
   phone width, recording, keyboard settings, play mode, search, MIDI buttons, IndexedDB storage, synth memory,
   error messages, public build: manifest, service worker, opens offline).
   The tests play the made-up banks (test/fixtures.js; run_all.sh writes them, harness.js ensure() too), never private/:

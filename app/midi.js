@@ -33,18 +33,23 @@ function midiProgramButtons(st, ch, d1, d2) {
   }
   return false;
 }
+// the message goes to the engine first; the screen (monitor, switches, pedal) follows
 function onMidi(e) {
   const d = e.data; if (!d || d.length < 1) return;
   const st = d[0] & 0xf0, ch = d[0] & 15, d1 = d[1], d2 = d[2];
+  if (!midiProgramButtons(st, ch, d1, d2)) {
+    if (st === 0x90 && d2 > 0) playOn('m:' + ch + ':' + d1, d1, d2);
+    else if (st === 0x80 || (st === 0x90 && d2 === 0)) playOff('m:' + ch + ':' + d1);
+    else if (st === 0xB0) {
+      if (d1 === 120 || d1 === 123) releaseInputs('m:');
+      send({ t: 'cc', c: d1, v: d2 });
+      if (d1 === 80 || d1 === 81) swShow(d1 - 80, d2 >= 64);
+      else if (d1 === 64) sustainShow(d2 >= 64);
+    }
+    else if (st === 0xE0) { const v = ((d2 << 7) | d1) - 8192; send({ t: 'bend', v: Math.max(-1, v / 8192) }); }
+    else if (st === 0xD0) send({ t: 'at', v: d1 / 127 });
+  }
   mmMonitor(st, d1, d2);
-  if (midiProgramButtons(st, ch, d1, d2)) return;
-  if (st === 0xB0 && (d1 === 80 || d1 === 81)) swShow(d1 - 80, d2 >= 64);
-  if (st === 0xB0 && d1 === 64) sustainShow(d2 >= 64);
-  if (st === 0x90 && d2 > 0) playOn('m:' + ch + ':' + d1, d1, d2);
-  else if (st === 0x80 || (st === 0x90 && d2 === 0)) playOff('m:' + ch + ':' + d1);
-  else if (st === 0xB0) { if (d1 === 120 || d1 === 123) releaseInputs('m:'); send({ t: 'cc', c: d1, v: d2 }); }
-  else if (st === 0xE0) { const v = ((d2 << 7) | d1) - 8192; send({ t: 'bend', v: Math.max(-1, v / 8192) }); }
-  else if (st === 0xD0) send({ t: 'at', v: d1 / 127 });
 }
 $('#midibtn').addEventListener('click', async () => {
   startAudio();

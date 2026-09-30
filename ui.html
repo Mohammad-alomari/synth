@@ -512,6 +512,7 @@ body.midi .mm { display: flex; flex-direction: column; gap: 8px; max-width: 900p
     <span class="mm-meter"><span class="sl">Bend</span><span class="bar bi"><i id="mmbend"></i></span></span>
     <span class="mm-meter"><span class="sl">Mod</span><span class="bar"><i id="mmmod"></i></span></span>
     <span class="mm-meter"><span class="sl">Voices</span><output id="mmvoices">0</output></span>
+    <span class="mm-meter" title="Delay from a key to the sound, as the browser reports it: its audio buffer and your audio device (Bluetooth adds much more; wired speakers or headphones are quickest). The synth itself adds under 3 ms."><span class="sl">Latency</span><output id="mmlat">–</output></span>
   </div>
   <div class="mm-status" id="mmstatus" aria-live="polite"></div>
   <section class="mm-edit" aria-label="Sound">
