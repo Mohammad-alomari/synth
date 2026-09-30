@@ -331,6 +331,16 @@ async def storage_and_memory(b, url):
     ok('memory: a later import takes programs from the newest earlier import', T and all(t[2] == 'Full' for t in T if t[1]), T[:3])
     await pg.evaluate("__t.load(__t.firstIn('Combinations A from Full'))")
     ok("memory: a file's own banks come first", all(t[2] == '' for t in await pg.evaluate('__t.timbres()')))
+    # a Triton PCG without a MOSS bank: its PCM programs import (Triton multisamples: the fallback); Trinity files never borrow from it
+    st = await pg.evaluate('([b, n]) => __t.import(b, n)', [pcg('TESTDISK', 'Tri.pcg', 'triton'), 'Tri.PCG'])
+    n = len(await pg.evaluate("__t.inGroup(/^Bank A .PCM. from Tri$/)"))
+    ok('a Triton file without a MOSS bank: its PCM programs import', '128 PCM programs' in st and 'not mapped yet' in st and n == 128, [n, st])
+    await pg.evaluate('window.__moss.startAudio()'); await pg.wait_for_timeout(800)
+    pk = await pg.evaluate("(v) => __t.play('pc', +v.split(':')[1], [60, 64], 1200)", await pg.evaluate("__t.firstIn('from Tri')"))
+    ok('...and play', pk > 0.005, round(pk, 3))
+    await pg.evaluate('([b, n]) => __t.import(b, n)', [combis, 'Combis3.PCG'])
+    T = await pg.evaluate('__t.timbres()')
+    ok('memory: a later Trinity file never takes programs from a Triton file', T and all(t[2] == 'Full' for t in T if t[1]), T[:3])
     await pg.evaluate('([b, n]) => __t.import(b, n)', [pcm, 'PcmOnly.PCG'])
     n = len(await pg.evaluate("__t.inGroup(/\(PCM\) from PcmOnly/)"))
     ok('drum programs of an imported file are left out', 0 < n < 256, n)  # TestSet3 has 4 drum programs in each of banks A-B
@@ -338,7 +348,7 @@ async def storage_and_memory(b, url):
     ok('built-in files only use their own banks', n == 0, n)
     # storage: everything is still there after a reload
     await pg.reload(); await pg.wait_for_timeout(1200)
-    ok('imports kept after reload (IndexedDB)', await pg.evaluate("__t.group('from Full')") == 9 and await pg.evaluate("__t.group('from Combis2')") == 1)
+    ok('imports kept after reload (IndexedDB)', await pg.evaluate("__t.group('from Full')") == 9 and await pg.evaluate("__t.group('from Combis2')") == 1 and await pg.evaluate("__t.group('from Tri')") == 1)
     ok('...memory order kept', all(t[2] == 'Full' for t in await pg.evaluate("() => { __t.load(__t.firstIn('from Combis2')); return __t.timbres(); }") if t[1]))
     # a timbre's program edited and saved in place: the combination plays the edit, also after a reload; Restore original undoes it
     cv = await pg.evaluate("__t.firstIn('Combinations A from TestSet1')")

@@ -75,7 +75,7 @@ function addPcgBank(name, scale, bytes, builtin, fmt, rs) {
   pcgBanks.push(b); return b;
 }
 function pcgName(b, i) { const e = bankEdits[editKeyM(b, i)]; return e ? e.name || 'Untitled' : korgName(b.bytes.subarray(i * b.rs, i * b.rs + 16)) || 'Untitled'; }
-function pcmName(b, i) { const e = bankEdits[editKeyP(b, i)]; return e ? e.name || 'Untitled' : korgName(b.bytes.subarray(i * 433, i * 433 + 16)) || 'Untitled'; }
+function pcmName(b, i) { const e = bankEdits[editKeyP(b, i)], rs = pcmRs(b); return e ? e.name || 'Untitled' : korgName(b.bytes.subarray(i * rs, i * rs + 16)) || 'Untitled'; }
 (typeof MOSS_PCG_BUILTIN !== 'undefined' ? MOSS_PCG_BUILTIN : []).forEach(b => addPcgBank(b.name, b.scale, b64dec(b.m), true, b.fmt, b.rs));
 const bankLetter = b => b && b.fmt === 'triton' ? 'F' : 'M';
 function pcgPatch(idx) {
@@ -89,15 +89,19 @@ function pcgPatch(idx) {
 // ---------------- Trinity PCM programs and combinations (built-in files + imported PCGs) ----------------
 // A set is one PCG file: its PCM banks (A-D, 128 x 433 bytes) and its combination banks. Drum kits are not supported:
 // Drum-mode programs are left out of the lists, and timbres that use one stay silent.
+// A Triton PCG gives a set of its PCM banks only (A-E..., 128 x 540 bytes, fmt 'triton', decoded into the same PCM model
+// with the file's global: its user scales); its combinations are not read yet, and it takes no part in the synth memory.
 const LS_TRI = 'moss-tri';
-const triSets = [], pcmBanks = [], combiBanks = []; // flat lists of { set, letter, bytes, names }; ids 'pc:' / 'cb:' + (index * 128 + number)
+const triSets = [], pcmBanks = [], combiBanks = []; // flat lists of { set, letter, bytes, rs, names }; ids 'pc:' / 'cb:' + (index * 128 + number)
 const pad3 = n => String(n).padStart(3, '0');
-function addTriSet(name, scale, pcm, combis, builtin, hasS) {
-  const set = { name, scale: scale || new Array(12).fill(0), combis: combis || [], builtin, hasS: !!hasS, dbId: null };
+const pcmRs = b => b.rs || 433; // record size of a PCM bank: Trinity 433, Triton 540
+function addTriSet(name, scale, pcm, combis, builtin, hasS, triton) {
+  const set = { name, scale: scale || new Array(12).fill(0), combis: combis || [], builtin, hasS: !!hasS, dbId: null, fmt: triton ? 'triton' : 'trinity', glb: triton ? triton.glb : null };
   triSets.push(set);
   for (const b of pcm) {
-    const pb = { set, letter: b.letter, bytes: b.bytes, names: [], drum: [] };
-    for (let i = 0; i < 128; i++) { pb.names.push(pcmName(pb, i)); pb.drum.push((b.bytes[i * 433 + 17] & 3) === 2); }
+    const rs = triton ? KORG_TRITON_PCM.REC : KORG_PCM.REC, mode = triton ? 204 : 17, n = Math.min(128, Math.floor(b.bytes.length / rs));
+    const pb = { set, letter: b.letter, bytes: b.bytes, rs, names: [], drum: [] };
+    for (let i = 0; i < 128; i++) { pb.names.push(i < n ? pcmName(pb, i) : 'Untitled'); pb.drum.push(i >= n || (b.bytes[i * rs + mode] & 3) === 2); }
     pcmBanks.push(pb);
   }
   for (const b of set.combis) {
@@ -106,9 +110,13 @@ function addTriSet(name, scale, pcm, combis, builtin, hasS) {
   }
   return set;
 }
-function triFromFile(name, bytes, builtin) { // a whole Trinity PCG -> set
-  const S = korgTrinitySections(bytes); if (!S.ok || (!S.pcm.length && !S.combis.length && !S.bankM.length)) return null;
+function triFromFile(name, bytes, builtin) { // a whole Trinity PCG -> set; a Triton PCG -> a set of its PCM banks
   const cat = recs => { const rs = recs[0].length, u = new Uint8Array(recs.length * rs); recs.forEach((r, i) => u.set(r, i * rs)); return u; };
+  if (korgParsePCG(bytes).fmt === 'triton') {
+    const T = korgTritonSections(bytes); if (!T.ok || !T.pcm.length) return null;
+    return addTriSet(name, null, T.pcm.map(b => ({ letter: b.bank, bytes: cat(b.recs) })), [], builtin, false, { glb: T.glb });
+  }
+  const S = korgTrinitySections(bytes); if (!S.ok || (!S.pcm.length && !S.combis.length && !S.bankM.length)) return null;
   return addTriSet(name, S.userScale, S.pcm.map(b => ({ letter: b.bank, bytes: cat(b.recs) })), S.combis.map(b => ({ letter: b.bank, bytes: cat(b.recs) })), builtin, S.bankS.length > 0);
 }
 (typeof TRI_BUILTIN !== 'undefined' ? TRI_BUILTIN : []).forEach(t => addTriSet(t.name, t.scale, t.pcm.map(b => ({ letter: b.bank, bytes: b64dec(b.m) })), t.combis.map(b => ({ letter: b.bank, bytes: b64dec(b.m) })), true, !!t.s));
@@ -121,15 +129,16 @@ const mossOf = s => pcgBanks.find(x => x.name === s.name && x.fmt !== 'triton' &
 function setHas(s, what) { return what === 'M' ? !!mossOf(s) : pcmBanks.some(b => b.set === s && b.letter === what); }
 function memoryFor(set, what) {
   if (setHas(set, what)) return set;
-  if (set.builtin || (what === 'M' && set.hasS)) return null;
-  const imp = triSets.filter(s => !s.builtin), order = imp.slice(0, imp.indexOf(set)).reverse().concat(triSets.filter(s => s.builtin));
+  if (set.builtin || set.fmt === 'triton' || (what === 'M' && set.hasS)) return null;
+  const tri = triSets.filter(s => s.fmt !== 'triton'), imp = tri.filter(s => !s.builtin), order = imp.slice(0, imp.indexOf(set)).reverse().concat(tri.filter(s => s.builtin)); // Triton files: another synth, never in memory
   for (const s of order) { if (what === 'M' && s.hasS) return null; if (setHas(s, what)) return s; }
   return null;
 }
 function pcmPatch(idx) {
   const b = pcmBanks[Math.floor(idx / 128)], i = idx % 128;
   if (!b || b.drum[i]) return null; // Drum-mode programs (drum kits) are not supported
-  const e = bankEdits[editKeyP(b, i)], P = e ? loadAny(e) : korgDecodePcm(b.bytes.subarray(i * 433, (i + 1) * 433), b.set.scale);
+  const rs = pcmRs(b), rec = b.bytes.subarray(i * rs, (i + 1) * rs), e = bankEdits[editKeyP(b, i)];
+  const P = e ? loadAny(e) : b.set.fmt === 'triton' ? korgDecodeTritonPcm(rec, b.set.glb, n => tritonRam(b.set, n)) : korgDecodePcm(rec, b.set.scale);
   P.korgInfo = P.korgInfo || { notes: [] };
   P.korgInfo.source = b.set.name + ', Bank ' + b.letter + ' ' + String(i).padStart(3, '0') + (e ? ' (edited and saved in place)' : '');
   return P;
@@ -167,7 +176,7 @@ function refreshTimbres(C) {
     let id = t.src ? progByKey(t.src) : '';
     if (!t.src && /^p[mc]:/.test(t.pId || '')) { // the name then, before or after an edit saved in place
       const [bk, n] = t.pId.split(':'), i = n % 128, pm = bk === 'pm', b = pm ? pcgBanks[Math.floor(n / 128)] : pcmBanks[Math.floor(n / 128)];
-      const orig = b && (pm ? (i < b.n ? korgName(b.bytes.subarray(i * b.rs, i * b.rs + 16)) : null) : korgName(b.bytes.subarray(i * 433, i * 433 + 16)));
+      const orig = b && (pm ? (i < b.n ? korgName(b.bytes.subarray(i * b.rs, i * b.rs + 16)) : null) : korgName(b.bytes.subarray(i * pcmRs(b), i * pcmRs(b) + 16)));
       if (b && (b.names[i] === t.pName || orig === t.pName)) id = t.pId;
     }
     // a starter program, or a User program still under the same name (User programs have no lasting address)
@@ -193,7 +202,7 @@ function setTimbreProgram(t, id) {
   const p = patchById(id); if (!p) return false;
   const [bk, s] = id.split(':'), n = Number(s), b = bk === 'pc' ? pcmBanks[Math.floor(n / 128)] : bk === 'pm' ? pcgBanks[Math.floor(n / 128)] : null;
   t.p = p; t.pId = id; t.src = progKey(id); t.pName = p.name || 'Untitled'; t.drum = false;
-  t.bank = bk === 'pc' ? 'ABCD'.indexOf(b.letter) : 4; t.prog = n % 128;
+  t.bank = bk === 'pc' ? Math.max(0, 'ABCD'.indexOf(b.letter)) : 4; t.prog = n % 128; // (a Triton bank E program: t.p plays it)
   t.pLabel = bk === 'pc' ? b.letter + pad3(n % 128) : bk === 'pm' ? bankLetter(b) + pad3(n % 128) : bk === 'st' ? 'ST' + String(n).padStart(2, '0') : 'US' + String(n + 1).padStart(2, '0');
   t.from = b ? (bk === 'pc' ? b.set.name : b.name) : bk === 'us' ? 'User bank' : 'starter programs';
   return true;
@@ -237,10 +246,14 @@ function combiPatch(idx) {
 // Programs of a Triton sample disk (tools/user_starters.js) after the MOSS starters: RAM multisample n plays the disk's
 // pack (samples/user/, key u_<file>, see pcmMap), or the fallback (PCM_FALLBACK) where that pack is not here.
 const USER_SET = typeof USER_TRITON !== 'undefined' && USER_TRITON ? USER_TRITON : null;
+const USER_RAM = {}; if (USER_SET) for (const k in USER_SET.ms) USER_RAM[USER_SET.ms[k].ram] = k; // RAM number -> the disk's pack
+// what plays RAM multisample n of an imported Triton file: the sample disk's own sample when the file is that disk's PCG
+// (same name, matched by RAM number), else nothing (the decoder then plays the fallback)
+function tritonRam(set, n) { return USER_SET && set.name.toUpperCase() === String(USER_SET.name).toUpperCase() ? USER_RAM[n] : undefined; }
 // the list needs only the names: each program is decoded when it is first played (make), which keeps start-up quick
 const userStarters = (() => {
   if (!USER_SET) return [];
-  const byRam = {}; for (const k in USER_SET.ms) byRam[USER_SET.ms[k].ram] = k;
+  const byRam = USER_RAM;
   const out = [], src = (at, note) => 'Your samples (' + USER_SET.name + (at ? ', Triton ' + at : '') + ')' + (note ? ': ' + note : '');
   for (const p of USER_SET.progs) out.push({ name: p.n, make: () => { const P = korgDecodeTritonPcm(b64dec(p.m), { scales: USER_SET.scales }, n => byRam[n]); P.name = p.n; P.korgInfo.source = src(p.at, p.note); return P; } });
   for (const k of USER_SET.plain || []) { // a multisample no program plays: a plain program for it
@@ -307,9 +320,7 @@ async function importPcgInner(file) {
   const bytes = new Uint8Array(buf), r = korgParsePCG(bytes);
   if (!r.ok) { status(r.error); toast('Not imported: ' + r.error); return; }
   const name = file.name.replace(/\.pcg$/i, '');
-  if (r.fmt === 'triton') {
-    if (!r.bankM.length) { status(name + ': this Triton-family file has no MOSS (bank F) programs.' + (r.pcmPrograms ? ' Its ' + r.pcmPrograms + ' PCM programs need the Triton\u2019s samples.' : '')); toast('No MOSS programs in ' + name); return; }
-  }
+  if (r.fmt === 'triton' && !r.bankM.length && !r.pcmPrograms) { status(name + ': this Triton-family file has no programs this synth can play.'); toast('Nothing imported from ' + name); return; }
   if (new Set(pcgBanks.filter(b => !b.builtin).concat(triSets.filter(t => !t.builtin)).map(x => x.name)).size >= MAX_IMPORTED) { /* counts files, not banks */ toast('Remove an imported bank first (limit ' + MAX_IMPORTED + ')'); return; }
   const got = [];
   let first = null, notKept = false;
@@ -320,19 +331,22 @@ async function importPcgInner(file) {
     catch (e) { console.error('Could not store bank', e); notKept = true; }
     got.push(r.bankM.length + (r.fmt === 'triton' ? ' MOSS (bank F)' : ' Bank M') + ' programs'); first = ['pm', (pcgBanks.length - 1) * 128];
   }
-  if (r.fmt !== 'triton' && (r.pcmPrograms || r.combis || r.bankM.length)) {
+  let triton = '';
+  if (r.pcmPrograms || r.combis || (r.fmt !== 'triton' && r.bankM.length)) { // (a Triton file: its PCM banks)
     const before = pcmBanks.length, set = triFromFile(name, bytes, false);
     if (set) {
       try { set.dbId = await idb.add({ kind: 'tri', name, bytes }); }
       catch (e) { console.error('Could not store PCM banks', e); notKept = true; }
-      const nb = pcmBanks.length - before;
-      if (nb) { got.push(nb * 128 + ' PCM programs (banks ' + pcmBanks.slice(before).map(b => b.letter).join('') + ')'); if (!first) first = ['pc', before * 128]; }
+      const bs = pcmBanks.slice(before), drums = bs.reduce((a, b) => a + b.drum.filter(Boolean).length, 0);
+      const fb = bs.findIndex(b => b.drum.includes(false)), fp = fb < 0 ? -1 : (before + fb) * 128 + bs[fb].drum.indexOf(false); // the first program that plays
+      if (bs.length) { got.push(bs.length * 128 - drums + ' PCM programs (banks ' + bs.map(b => b.letter).join('') + ')' + (drums ? ', ' + drums + ' drum programs left out' : '')); if (!first && fp >= 0) first = ['pc', fp]; }
       if (set.combis.length) { got.push(set.combis.length * 128 + ' combinations'); if (!first) first = ['cb', (combiBanks.length - set.combis.length) * 128]; }
+      if (set.fmt === 'triton') triton = ' The Triton’s own multisamples are not mapped yet: they play the fallback (' + korgFallbackName() + ')' + (r.combis ? '; its combinations are not read yet' : '') + '.';
     }
   }
   if (!got.length) { status(name + ': nothing this synth can play' + (r.bankS ? ' (it has a Bank S for the SOLO-TRI board, not supported yet)' : '') + '.'); toast('Nothing imported from ' + name); return; }
   refreshProgs(); if (first) loadProgram(first[0], first[1]);
-  status('Imported from ' + name + ': ' + got.join(', ') + '.' + (r.bankS ? ' Its Bank S (SOLO-TRI) is not supported yet.' : '') + (notKept ? ' Browser storage refused it: it plays now but is gone after a reload.' : ''));
+  status('Imported from ' + name + ': ' + got.join(', ') + '.' + triton + (r.bankS ?' Its Bank S (SOLO-TRI) is not supported yet.' : '') + (notKept ? ' Browser storage refused it: it plays now but is gone after a reload.' : ''));
   toast(notKept ? 'Imported ' + name + ' (not kept)' : 'Imported ' + name);
 }
 

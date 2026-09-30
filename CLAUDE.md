@@ -199,6 +199,10 @@ tridata.js) never takes a Bank M: bank 4 = Solo-TRI there (silent). Timbres reco
 name, shown in the Timbres table) and t.src (lasting address = bankEdits key; stored combinations - User bank,
 program kept over a reload - re-read their timbre programs by it: refreshTimbres). Combination-only and Bank-M-only
 Trinity files are accepted (every Trinity import makes a tri set, so it has a place in the memory order).
+Triton PCGs: the MOSS bank (bank F) and/or the PCM banks (A-E.., 540 B records: set.fmt 'triton', bank.rs 540, decoded
+by korgDecodeTritonPcm with the file's global) import; Triton ROM multisamples play the fallback (not mapped yet), RAM
+samples play the sample disk's packs when the file is that disk's PCG (same name as USER_TRITON.name, by RAM number:
+tritonRam), Triton combinations are not read. Triton sets never take part in the synth memory (memoryFor).
 Important fact: a PCG holds parameters only, never audio. Korg's ROM samples are on chips in the synth and
 are not downloadable; the factory preload would also play stand-ins.
 
@@ -224,7 +228,8 @@ Tests: sh test/run_all.sh (~2 min, most of it the browser test; exit 0 = pass; F
   OWN=1 makes harness.js / mkpcg.js read private/ instead (progs.js, combis.js, test/tools/ on your own banks).
   test/harness.js loads sources as one module of the Node process (load(files, root); the bank files always come from
   this tree; NOT a vm context, where Math & co. are 4-5x slower); test/pcmpacks.js decodes samples/ with ffmpeg;
-  test/mkpcg.js <bank file name> writes a PCG from the test banks (TestSet1-3). window.__moss exposes loadProgram(bank, idx), getPatch, noteOn/noteOff, selectPage, engine()
+  test/mkpcg.js <bank file name> writes a PCG from the test banks (TestSet1-3; the Trinity directory layout: entry n = section type n);
+  test/mkpcg.js TESTDISK <out> triton writes a Triton PCG (one PCM bank, the global's scales). window.__moss exposes loadProgram(bank, idx), getPatch, noteOn/noteOff, selectPage, engine()
   (script mode), importPcgFile.
   test/tools/ (by hand, no pass/fail): regress.js <older copy folder> (sample-by-sample regression of MOSS programs, PCM
   programs with their stand-in packs and combinations; env KIND moss,pcm,combi, STEP, SECS, TAIL, ONLY, DRY; an older copy:
