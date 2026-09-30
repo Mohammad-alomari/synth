@@ -156,7 +156,8 @@ SW1/SW2 lit by incoming CC80/81. Controls (kbs.ctl, Keyboard page 'Controls'): s
 (#xbar, bend), vertical Y stick (#ybar, +Y CC1 / -Y CC2), ribbon, SW buttons; sticks sit left of the keys and spring back; old playCtl migrated. Play bar: Sustain (CC64, shows the MIDI pedal), scale switch
 (Equal / Arabic / maqams via loadMaqam / your scale; choosing turns program scales off), screen wake lock.
 New program (Program page, pages.js newProgram): a blank MOSS (mossDefaultPatch), PCM (core.js newPcmProgram: empty
-Korg record + open filter, A.Piano) or combination (newCombination: T1 = the program you were on) goes into the User bank.
+Korg record + open filter, Pitch slope +1.0 (the blank record's 0 plays one note on every key; loadAny's pcmSlopeFix
+repairs copies saved before 2026-10-01), A.Piano) or combination (newCombination: T1 = the program you were on) goes into the User bank.
 Combinations without a file (made here / User bank) pick any pm/pc/st/us program per timbre (setTimbreProgram, patchById).
 Program search (program.js progEntries/progList): filters the browsers and the ‹ › steps. Fonts bundled; PWA.
 PCM portamento (Program tab): Trinity PCM programs have none (not in the 433-byte table), so it starts off; Triton programs

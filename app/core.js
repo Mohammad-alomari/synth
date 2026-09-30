@@ -42,7 +42,15 @@ function loadAny(p) {
   if (p && p.kind === 'combi' && !Array.isArray(p.timbres)) throw new Error('combination without timbres');
   if (p && p.kind === 'combi') for (const t of p.timbres) for (const f of ['rxDamper', 'rxAT', 'rxCC']) if (t && t[f] === undefined) t[f] = 1;
   if (p && p.kind === 'pcm' && !Array.isArray(p.o)) throw new Error('PCM program without oscillators');
-  return p && (p.kind === 'pcm' || p.kind === 'combi') ? clone(p) : mossLoad(p);
+  const P = p && (p.kind === 'pcm' || p.kind === 'combi') ? clone(p) : mossLoad(p);
+  if (P.kind === 'combi') P.timbres.forEach(t => { if (t) pcmSlopeFix(t.p); }); else pcmSlopeFix(P);
+  return P;
+}
+// New PCM programs (and the plain programs of the owner's samples) made before 2026-10-01 had Pitch slope 0 on both
+// oscillators, so every key played the same note: a kept copy gets +1.0 back when it is read
+function pcmSlopeFix(P) {
+  if (P && P.kind === 'pcm' && Array.isArray(P.o) && P.korgInfo && /^New PCM program$|a plain program for this multisample$/.test(P.korgInfo.source || '')
+    && P.o.every(O => O && O.pitch && O.pitch.slope === 0)) P.o.forEach(O => { O.pitch.slope = 1; });
 }
 let saveT = 0;
 let saveWarned = false;
@@ -216,7 +224,7 @@ function newPcmProgram() {
   P.korgInfo = { kind: 'pcm', notes: [], source: 'New PCM program' };
   for (const O of P.o) {
     Object.assign(O, { msLo: 0, msHi: 0, lvlLo: 127, lvlHi: 127, octave: 0, route: 'single', ftype: ['lpf', 'lpf'], pan: 64, send1: 0, send2: 0 });
-    Object.assign(O.pitch, { jsUp: 2, jsDown: -2 });
+    Object.assign(O.pitch, { slope: 1, jsUp: 2, jsDown: -2 }); // Pitch slope +1.0: the keys play their own notes (0 in the blank record)
     O.f.forEach(f => Object.assign(f, { cut: 99, gain: 99, reso: 0, lowKey: 60, highKey: 60 }));
     Object.assign(O.amp, { level: 127, lowKey: 60, highKey: 60, vel: 20 });
     Object.assign(O.aeg, { startL: 0, atkT: 0, atkL: 99, decT: 0, brkL: 99, slpT: 0, susL: 99, relT: 20 });

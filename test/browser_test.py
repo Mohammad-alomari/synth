@@ -485,6 +485,9 @@ async def new_programs(b, url):
     pk = await pg.evaluate("(p) => __t.play('us', +p.slice(3) - 1, [60, 64], 1200)", got[0])
     n, empty = await pg.evaluate('__t.pages()')
     ok('...a PCM program plays and every page shows', got[1] == 'pcm' and got[2] == 'Init PCM' and pk > 0.005 and not empty, [got, round(pk, 3), empty])
+    sl = await pg.evaluate("window.__moss.getPatch().o.map(O => O.pitch.slope)")
+    ok('...its keys play their own notes (Pitch slope +1.0)', sl == [1, 1], sl)
+    pcm = got[0]
     await pg.evaluate("__t.load(__t.find(/^pc:\\d+ A\\d+ (?!Initl)/))")
     src = await pg.evaluate("window.__moss.getPatch().name")
     got = await new('Combination')
@@ -498,6 +501,11 @@ async def new_programs(b, url):
     await pg.reload(); await pg.wait_for_timeout(800)
     T = await pg.evaluate("(p) => { window.__moss.loadProgram('us', +p.slice(3) - 1); return __t.timbres(); }", got[0])
     ok('...timbre 2 takes any program (here a starter), kept after saving and a reload', len(T) == 2 and T[1][0] == 'ST01' and T[1][2] == 'starter programs', T)
+    # a new PCM program kept from before 2026-10-01 (Pitch slope 0: every key the same note) gets +1.0 back when read
+    await pg.evaluate("(p) => { const k = 'moss-user-programs', U = JSON.parse(localStorage.getItem(k)); U[+p.slice(3) - 1].o.forEach(O => { O.pitch.slope = 0; }); localStorage.setItem(k, JSON.stringify(U)); }", pcm)
+    await pg.reload(); await pg.wait_for_timeout(800)
+    sl = await pg.evaluate("(p) => { window.__moss.loadProgram('us', +p.slice(3) - 1); return window.__moss.getPatch().o.map(O => O.pitch.slope); }", pcm)
+    ok('...a new PCM program saved with the old Pitch slope 0 gets +1.0 back', sl == [1, 1], sl)
     ok('no page errors (New program)', not pg.errs, pg.errs[:5])
     await pg.close()
 
