@@ -2,7 +2,7 @@
 # Usage: python3 test/browser_test.py   (needs node: it builds _test.html with the made-up test banks, test/fixtures.js, and
 # writes PCG files from them with test/mkpcg.js; nobody's own files are needed)
 # Covers: sound of MOSS / PCM / combination programs in both audio modes, MIDI note-on latency, drum programs left out, every page renders, effects editing,
-# phone width, keyboard settings, play mode, MIDI program buttons and SW1/SW2, recording, imported-PCG storage (IndexedDB, reload, migration, removal), synth memory, error messages,
+# phone width, keyboard settings, play mode, Import PCG buttons in every mode, MIDI program buttons and SW1/SW2, recording, imported-PCG storage (IndexedDB, reload, migration, removal), synth memory, error messages,
 # and the public (Netlify) build.
 import asyncio, base64, functools, http.server, os, struct, subprocess, sys, tempfile, threading
 from playwright.async_api import async_playwright
@@ -480,6 +480,24 @@ async def new_programs(b, url):
     ok('no page errors (New program)', not pg.errs, pg.errs[:5])
     await pg.close()
 
+async def import_buttons(b, url):
+    # an Import PCG button at the top in every mode: editor header, play bar, MIDI mode; each opens a file chooser that imports
+    ctx = await b.new_context(); pg = await ctx.new_page(); pg.errs = []
+    pg.on('pageerror', lambda e: pg.errs.append(str(e)))
+    await pg.add_init_script(JS); await pg.goto(url); await pg.wait_for_timeout(500)
+    files = {n: os.path.join(TMP, n + '.PCG') for n in ['Ed', 'Play', 'Midi']}
+    for n in files: pcg('TestSet3', n + '.PCG', 'pcm')
+    for mode, btn, name in [('editor', '#importbtn', 'Ed'), ('play', '#pbimport', 'Play'), ('midi', '#mmimport', 'Midi')]:
+        await pg.evaluate("(m) => { window.__moss.setPlayMode(m === 'play'); window.__moss.setMidiMode(m === 'midi'); }", mode); await pg.wait_for_timeout(150)
+        vis = await pg.is_visible(btn)
+        async with pg.expect_file_chooser() as fc:
+            await pg.click(btn)
+        await (await fc.value).set_files(files[name]); await pg.wait_for_timeout(600)
+        ok('Import PCG button in %s mode: shown at the top, imports the chosen file' % mode, vis and await pg.evaluate("(n) => __t.group('from ' + n)", name) == 2, [vis, await pg.text_content('#toast')])
+    await pg.evaluate("window.__moss.setMidiMode(false)")
+    ok('no page errors (Import buttons)', not pg.errs, pg.errs[:5])
+    await ctx.close()
+
 async def user_starters(b, url):
     # starter programs from a Triton sample disk (userdata.js; here the test banks' made-up disk, whose samples are not here: stand-ins)
     pg = await open_page(b, url)
@@ -512,6 +530,7 @@ async def main():
         await last_program(b, url)
         await new_programs(b, url)
         await user_starters(b, url)
+        await import_buttons(b, url)
         await public_page(b)
         await b.close()
     print('ALL PASSED' if not fails else '%d FAILED: %s' % (len(fails), '; '.join(fails)))

@@ -293,6 +293,9 @@ async function restoreImported() {
   if (!edited && ['pm', 'pc', 'cb'].includes(prog.bank)) loadProgram(prog.bank, prog.idx);
   else { if (patch.kind === 'combi') { refreshTimbres(patch); pcmPrepare(patch); send({ t: 'patch', p: clone(patch) }); } refreshProgs(); lcd(); }
 }
+// the Import buttons (header, play bar, MIDI mode, Program page): pick a .PCG file and import it
+function pickPcgFile() { const f = el('input'); f.type = 'file'; f.accept = '.pcg,.PCG'; f.addEventListener('change', () => { if (f.files && f.files[0]) importPcgFile(f.files[0]); }); f.click(); }
+['#importbtn', '#pbimport', '#mmimport'].forEach(s => $(s).addEventListener('click', pickPcgFile));
 // any failure while importing ends up in the status line instead of being lost in the console
 async function importPcgFile(file) {
   try { await importPcgInner(file); }

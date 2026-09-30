@@ -784,7 +784,7 @@ function renderMemory(host) {
   if (prog.bank === 'us') b('Save as new', () => { userBank.push(clone(patch)); prog = { bank: 'us', idx: userBank.length - 1 }; commitUser('Saved to User ' + String(prog.idx + 1).padStart(2, '0')); });
   if (prog.bank === 'us' && userBank[prog.idx]) b('Delete from User bank', () => { userBank.splice(prog.idx, 1); prog = { bank: 'st', idx: 0 }; commitUser('Deleted'); loadProgram('st', 0); });
   b('Export or import', () => { $('#dlgtxt').value = JSON.stringify(patch); $('#dlg').showModal(); });
-  b('Import Trinity PCG', () => { const f = el('input'); f.type = 'file'; f.accept = '.pcg,.PCG'; f.addEventListener('change', () => { if (f.files && f.files[0]) importPcgFile(f.files[0]); }); f.click(); });
+  b('Import Trinity PCG', pickPcgFile);
   const cb = prog.bank === 'pm' ? pcgBanks[Math.floor(prog.idx / 128)] : null;
   if (cb && !cb.builtin) b('Remove this Trinity bank', () => {
     pcgBanks.splice(pcgBanks.indexOf(cb), 1); forget(cb);
