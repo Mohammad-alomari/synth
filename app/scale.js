@@ -102,9 +102,9 @@ function pageScale() {
       w.append(c, document.createTextNode('Use each program\u2019s own scale')); g.appendChild(w); host.appendChild(g);
       const s = patch.scale;
       const info = s && s.type && s.type !== 'equal'
-        ? 'This program has its own scale: ' + ((SCALES.find(x => x[0] === s.type) || SCALES[0])[1]) + (s.type === 'user' ? ' (' + offsetSummary(pcTableFor('user', s.key, s.user)) + ', from its PCG file\u2019s Global user scale)' : s.key ? ' in ' + NOTE_NAMES[s.key] : '') + '.'
-        : 'This program has no scale of its own, so the scale below applies.';
-      host.appendChild(el('p', 'help', info + ' Trinity programs store a scale; when this is on, they play in it, and programs without one use the scale below.'));
+        ? 'This program\u2019s scale: ' + ((SCALES.find(x => x[0] === s.type) || SCALES[0])[1]) + (s.type === 'user' ? ' (' + offsetSummary(pcTableFor('user', s.key, s.user)) + ')' : s.key ? ' in ' + NOTE_NAMES[s.key] : '') + '.'
+        : 'No scale of its own: the scale below applies.';
+      host.appendChild(el('p', 'help', info));
       if (s && s.type === 'user') { const row = el('div', 'btnrow'); const bt = el('button', 'hw', 'Copy the program scale into your scale'); bt.type = 'button';
         bt.addEventListener('click', () => { perf.user = pcTableFor('user', s.key, s.user); perf.scale = 'user'; perf.userLabel = 'From ' + (patch.name || 'program'); perf.progScale = false; applyScaleChange('Copied; program scales are now off so you can edit it'); });
         row.appendChild(bt); host.appendChild(row); }
@@ -126,14 +126,14 @@ function pageScale() {
       host.appendChild(g);
       const help = {
         equal: 'Standard tuning. Key has no effect.',
-        arabic: 'Quarter-tone scale. Key C gives Rast on C and Bayati on D (E and B a quarter tone flat); D gives Rast on D and Bayati on E; F gives Rast on F; G gives Rast on G; A# gives Rast on B\u266d.',
+        arabic: 'Quarter tones. Key C: Rast on C, Bayati on D.',
         pureMaj: 'Major chords in the selected key are perfectly in tune.',
         pureMin: 'Minor chords in the selected key are perfectly in tune.',
-        slendro: 'Five-note gamelan scale on C, D, F, G and A (with Key C). Other keys stay equal-tempered. Gamelan tunings vary by ensemble, so these are typical values.',
-        pelog: 'Seven-note gamelan scale on the white keys (with Key C). Gamelan tunings vary by ensemble, so these are typical values.',
+        slendro: 'Five-note gamelan scale on C, D, F, G and A (Key C).',
+        pelog: 'Seven-note gamelan scale on the white keys (Key C).',
         stretch: 'Piano-style stretch: low notes slightly flat, high notes slightly sharp. Key has no effect.',
-        user: 'Your own 12-key scale, edited below. Key has no effect: each key keeps its own offset.'
-      }[perf.scale] || 'Historical temperament. Korg did not publish its exact tables, so these use the standard values.';
+        user: 'Your own 12-key scale, edited below.'
+      }[perf.scale] || 'Historical temperament (standard values).';
       host.appendChild(el('p', 'help', help));
     } },
     { title: 'Your scale', note: 'Cents per key, applied to every octave', custom: host => {
@@ -170,7 +170,7 @@ function pageScale() {
       [['\u22121 ct', -1], ['+1 ct', 1], ['Reset ' + NOTE_NAMES[perf.sel], 0]].forEach(([t, d]) => { const b = el('button', 'hw', t); b.type = 'button'; b.addEventListener('click', () => editUser(perf.sel, d === 0 ? 0 : Math.max(-100, Math.min(100, Math.round(cur[perf.sel]) + d)))); nudge.appendChild(b); });
       g.appendChild(nudge);
       host.appendChild(g);
-      host.appendChild(el('p', 'help', 'Tuning follows the keys you press, so it moves with Transpose. Changes apply instantly, even to notes you are holding.'));
+      host.appendChild(el('p', 'help', 'Changes apply at once, even to held notes.'));
     } },
     { title: 'Load a maqam', custom: host => {
       const g = el('div', 'grid');
@@ -184,7 +184,7 @@ function pageScale() {
       const clr = el('button', 'hw', 'Clear your scale'); clr.type = 'button';
       clr.addEventListener('click', () => { perf.user = new Array(12).fill(0); perf.userLabel = ''; applyScaleChange('Your scale is back to equal tuning'); });
       row.append(ld, clr); host.appendChild(row);
-      host.appendChild(el('p', 'help', 'Loading replaces your scale with the maqam\u2019s quarter tones at the chosen starting note. Bayati and Saba share the same tuning; Saba also uses the G\u266d key.'));
+      host.appendChild(el('p', 'help', 'Loads the maqam\u2019s quarter tones into your scale.'));
     } }
   ];
 }

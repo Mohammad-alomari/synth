@@ -1,7 +1,7 @@
 {
   "name": "Trinity Web Synth",
   "short_name": "Trinity",
-  "description": "A playable model of the Korg Trinity V3: MOSS and PCM programs, combinations and effects.",
+  "description": "A browser synth inspired by the Korg Trinity. Work in progress.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
