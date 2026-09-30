@@ -161,9 +161,11 @@ Combinations without a file (made here / User bank) pick any pm/pc/st/us program
 Program search (program.js progEntries/progList): filters the browsers and the ‹ › steps. Fonts bundled; PWA.
 PCM portamento (Program tab): Trinity PCM programs have none (not in the 433-byte table), so it starts off; Triton programs
 bring theirs. PcmVoice glides like MossVoice (MD.tsec(portaTime) / 2), only when the engine passes a glide start.
-PCM Mod tab (pages.js pcmPageMod): a Trinity PCM program has no modulation matrix (MOSS has); each section has its own
-A.M. slots and fixed controller amounts. The tab gathers them per oscillator (OSC 1/2 switch in Double mode), the same
-parameters as the OSC/Filter/Amp tabs, with an 'Active' list (sec.onChange refreshes it).
+PCM Mod tab (pages.js pcmPageMod, renderPcmMods): a Trinity PCM program has no modulation matrix (MOSS has); each section has
+its own A.M. slot and fixed controller amounts. The tab lays them out as a matrix per oscillator (OSC 1/2 switch in Double
+mode): Destination (named once, bold while active) / Source (fixed controller label or A.M. menu) / Amount, grouped Pitch,
+Vibrato, Filter, Amp and pan, EG times; rows that do nothing are dimmed; the heading counts active routes. Same parameters
+as the OSC/Filter/Amp tabs.
 Import PCG: one button at the top in every mode (header #importbtn, play bar #pbimport, MIDI mode #mmimport; core.js
 pickPcgFile), plus 'Import Trinity PCG' on the Program page.
 MIDI mode (app/midimode.js, body.midi, header button "MIDI mode"): no keys/editor; big program name, Prev/Next, Browse (search +

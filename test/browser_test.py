@@ -292,13 +292,14 @@ async def sound_and_pages(b, url):
         ok('%s: all %d pages render' % (v, n), n > 0 and not empty, empty)
     # PCM programs: the Mod tab gathers every modulation slot of an oscillator (the Trinity has no matrix for them)
     await pg.evaluate("(v) => { __t.load(v); window.__moss.selectPage('mod'); }", pc)
-    ok('PCM program: a Mod tab with its modulation slots', await pg.is_visible('#tab-mod') and 'Vibrato depth A.M.' in await pg.text_content('#page'))
-    await pg.evaluate("""() => { const c = [...document.querySelectorAll('#page label.ctl')], f = t => c.find(l => l.querySelector('.nm').textContent === t);
-      const s = f('Filter A cutoff A.M.').querySelector('select'); s.value = 'at'; s.dispatchEvent(new Event('change'));
-      const r = f('Filter A cutoff A.M. amount').querySelector('input'); r.value = 30; r.dispatchEvent(new Event('input')); }""")
+    ok('PCM program: a Mod tab laid out as a matrix (destination, source, amount)', await pg.is_visible('#tab-mod') and await pg.evaluate("document.querySelectorAll('#page .pmrow:not(.modhead)').length") > 20
+       and await pg.evaluate("[...document.querySelectorAll('#page .pmgrp')].map(g => g.textContent).join(',')") == 'Pitch,Vibrato,Filter,Amp and pan,EG times')
+    n0 = await pg.evaluate("parseInt(document.querySelector('#page h3 .note').textContent)")
+    r = await pg.evaluate("""() => { const s = document.querySelector('#page select[aria-label="Filter A cutoff source"]'), row = s.closest('.pmrow'), was = row.classList.contains('off');
+      s.value = 'at'; s.dispatchEvent(new Event('change')); const a = row.querySelector('input'); a.value = 30; a.dispatchEvent(new Event('input'));
+      return [was, row.classList.contains('off'), row.querySelector('output').textContent, parseInt(document.querySelector('#page h3 .note').textContent)]; }""")
     f0 = await pg.evaluate("(f => [f.amsSrc, f.amsInt])(window.__moss.getPatch().o[0].f[0])")
-    lst = await pg.text_content('#pcmmods')
-    ok('...editing there changes the program, and the list of active routes follows', f0 == ['at', 30] and 'Aftertouch → Filter A cutoff: +30' in lst, [f0, lst])
+    ok('...editing a row changes the program; the row lights up and the active count follows', f0 == ['at', 30] and r[0] and not r[1] and r[2] == '+30' and r[3] == n0 + 1, [f0, r, n0])
     await pg.evaluate("window.__moss.loadProgram('cb', 0); window.__moss.selectPage('timbre')")
     txt = await pg.evaluate("document.querySelector('#page').textContent")
     ok('combination Timbre page shows Delay start and the MIDI filters', 'Delay start' in txt and 'MIDI filters' in txt and 'Receives the damper' in txt)

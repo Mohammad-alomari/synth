@@ -514,62 +514,74 @@ function pcmPageAmp(i) {
 }
 // ---- PCM Mod tab ----
 // A Trinity PCM program has no modulation matrix (MOSS programs do): each section has its own A.M. (alternate modulation)
-// slots and fixed controller amounts (joystick, ribbon, aftertouch). This tab collects them per oscillator, the same
-// parameters as on the OSC, Filter and Amp tabs, with a list of what is active.
+// slot and fixed controller amounts (joystick, ribbon, aftertouch). This tab lays them out as one matrix per oscillator:
+// destination, source, amount, grouped by section; for each destination the fixed controllers first, then the A.M. slot.
+// The same parameters as on the OSC, Filter and Amp tabs; rows that do nothing are dimmed.
 let pcmModOsc = 0;
 function pcmModRoutes(i) {
   const b = 'o.' + i + '.', O = patch.o[i], R = [];
-  const am = (grp, dst, src, amt, pint, osc) => R.push({ grp, dst, src, amt, pint, osc: osc === undefined ? i : osc });
-  const by = (grp, dst, ctl, amt, min, max, fmt) => R.push({ grp, dst, by: ctl, amt, min, max, fmt });
-  am('Pitch', 'Pitch', b + 'pitch.amsSrc', b + 'pitch.amsInt', true);
-  am('Pitch', 'Pitch EG intensity', b + 'pitch.egAmsSrc', b + 'pitch.egAmsInt', true);
-  by('Pitch', 'Pitch', 'Joystick +X', b + 'pitch.jsUp', -60, 12, K.semis);
-  by('Pitch', 'Pitch', 'Joystick −X', b + 'pitch.jsDown', -60, 12, K.semis);
-  by('Pitch', 'Pitch', 'Ribbon', b + 'pitch.ribbon', -12, 12, K.semis);
-  by('Vibrato (OSC LFO)', 'Vibrato depth', 'Joystick +Y', b + 'lfoPitch.jsy', 0, 99, K.n);
-  by('Vibrato (OSC LFO)', 'Vibrato depth', 'Aftertouch', b + 'lfoPitch.at', 0, 99, K.n);
-  am('Vibrato (OSC LFO)', 'Vibrato depth', b + 'lfoPitch.amsSrc', b + 'lfoPitch.amsInt', true);
-  by('Vibrato (OSC LFO)', 'Vibrato speed', 'Joystick +Y', b + 'lfo.jsy', 0, 99, K.n);
-  am('Vibrato (OSC LFO)', 'Vibrato speed', b + 'lfo.fmSrc', b + 'lfo.fmInt');
+  const PINT = { min: -12, max: 12, step: 0.01, fmt: K.pint }, SGN = { min: -99, max: 99, step: 1, fmt: K.sgn }, POS = { min: 0, max: 99, step: 1, fmt: K.n };
+  const add = (grp, dst, by, amt, range, src, osc) => R.push(Object.assign({ grp, dst, by, amt, src, osc: osc === undefined ? i : osc }, range));
+  const am = (grp, dst, src, amt, range, osc) => add(grp, dst, null, amt, range || SGN, src, osc);
+  add('Pitch', 'Bend up', 'Joystick +X', b + 'pitch.jsUp', { min: -60, max: 12, step: 1, fmt: K.semis });
+  add('Pitch', 'Bend down', 'Joystick −X', b + 'pitch.jsDown', { min: -60, max: 12, step: 1, fmt: K.semis });
+  add('Pitch', 'Pitch', 'Ribbon', b + 'pitch.ribbon', { min: -12, max: 12, step: 1, fmt: K.semis });
+  am('Pitch', 'Pitch', b + 'pitch.amsSrc', b + 'pitch.amsInt', PINT);
+  am('Pitch', 'Pitch EG depth', b + 'pitch.egAmsSrc', b + 'pitch.egAmsInt', PINT);
+  add('Vibrato', 'Vibrato depth', 'Joystick +Y', b + 'lfoPitch.jsy', POS);
+  add('Vibrato', 'Vibrato depth', 'Aftertouch', b + 'lfoPitch.at', POS);
+  am('Vibrato', 'Vibrato depth', b + 'lfoPitch.amsSrc', b + 'lfoPitch.amsInt', PINT);
+  add('Vibrato', 'Vibrato speed', 'Joystick +Y', b + 'lfo.jsy', POS);
+  am('Vibrato', 'Vibrato speed', b + 'lfo.fmSrc', b + 'lfo.fmInt');
   for (const k of O.route === 'single' || O.route === 'thru' ? [0] : [0, 1]) {
     const f = b + 'f.' + k + '.', n = 'Filter ' + 'AB'[k] + ' cutoff';
-    am('Filter', n, f + 'amsSrc', f + 'amsInt'); by('Filter', n, 'Joystick X', f + 'jsx', -99, 99, K.sgn); by('Filter', n, 'Aftertouch', f + 'at', 0, 99, K.n);
+    add('Filter', n, 'Joystick X', f + 'jsx', SGN); add('Filter', n, 'Aftertouch', f + 'at', POS); am('Filter', n, f + 'amsSrc', f + 'amsInt');
   }
-  am('Filter', 'Filter EG intensity', b + 'fegAms.src', b + 'fegAms.int');
-  by('Filter', 'Filter LFO depth', 'Joystick −Y', b + 'flfoMod.jsyn', 0, 99, K.n);
-  by('Filter', 'Filter LFO depth', 'Aftertouch', b + 'flfoMod.at', 0, 99, K.n);
+  am('Filter', 'Filter EG depth', b + 'fegAms.src', b + 'fegAms.int');
+  add('Filter', 'Filter LFO depth', 'Joystick −Y', b + 'flfoMod.jsyn', POS);
+  add('Filter', 'Filter LFO depth', 'Aftertouch', b + 'flfoMod.at', POS);
   am('Filter', 'Filter LFO depth', b + 'flfoMod.amsSrc', b + 'flfoMod.amsInt');
   am('Filter', 'Filter LFO speed', b + 'flfo.fmSrc', b + 'flfo.fmInt');
-  by('Amp and pan', 'Level', 'Aftertouch', b + 'amp.at', -99, 99, K.sgn);
+  add('Amp and pan', 'Level', 'Aftertouch', b + 'amp.at', SGN);
   am('Amp and pan', 'Level', b + 'amp.amsSrc', b + 'amp.amsInt');
   am('Amp and pan', 'Pan', b + 'panSrc', b + 'panInt');
-  am('EG times', 'Pitch EG times', 'peg.tSrc', 'peg.tInt', false, 0);
+  am('EG times', 'Pitch EG times', 'peg.tSrc', 'peg.tInt', SGN, 0);
   am('EG times', 'Filter EG times', b + 'feg.tSrc', b + 'feg.tInt');
   am('EG times', 'Amp EG times', b + 'aeg.tSrc', b + 'aeg.tInt');
   return R;
 }
-const amsName = s => KORG_PCM.AMS_NAME[KORG_PCM.AMS.indexOf(s)] || s;
-function pcmModList(host) {
-  const on = pcmModRoutes(patch.mode === 'double' ? pcmModOsc : 0).filter(r => Number(getP(r.amt)) !== 0 && (r.by || getP(r.src) !== 'off'));
-  host.innerHTML = '';
-  if (!on.length) { host.appendChild(el('p', 'help', 'Nothing modulates this oscillator.')); return; }
-  const ul = el('ul', 'modlist');
-  for (const r of on) { const v = Number(getP(r.amt)); ul.appendChild(el('li', null, (r.by || amsName(getP(r.src))) + ' → ' + r.dst + ': ' + (r.by ? r.fmt(v) : r.pint ? K.pint(v) : K.sgn(v)))); }
-  host.appendChild(ul);
+const pcmModOn = r => Number(getP(r.amt)) !== 0 && (!!r.by || getP(r.src) !== 'off');
+function renderPcmMods(host) {
+  const R = pcmModRoutes(patch.mode === 'double' ? pcmModOsc : 0), box = el('div', 'mods pcmmods');
+  const count = () => { const h = host.closest('.sec') && host.closest('.sec').querySelector('h3 .note'); if (h) h.textContent = R.filter(pcmModOn).length + ' active'; };
+  const hd = el('div', 'modrow pmrow modhead'); ['Destination', 'Source', 'Amount'].forEach(t => hd.appendChild(el('span', null, t))); box.appendChild(hd);
+  let grp = '', lab = null;
+  for (const r of R) {
+    if (r.grp !== grp) { grp = r.grp; box.appendChild(el('div', 'pmgrp', grp)); lab = null; }
+    // the destination is named once, on its first row; it is bold while any of its routes does something
+    const first = !lab || lab.textContent !== r.dst, dl = first ? el('span', 'dst', r.dst) : lab, same = R.filter(x => x.dst === r.dst && x.grp === r.grp);
+    const row = el('div', 'modrow pmrow'), mark = () => { row.classList.toggle('off', !pcmModOn(r)); dl.classList.toggle('on', same.some(pcmModOn)); };
+    row.appendChild(first ? dl : el('span', 'dst rep')); lab = dl;
+    if (r.by) row.appendChild(el('span', 'fixed', r.by));
+    else {
+      const sel = el('select'); sel.setAttribute('aria-label', r.dst + ' source');
+      for (const [v, t] of pcmAms(r.osc)) { const o = el('option', null, t); o.value = v; sel.appendChild(o); }
+      sel.value = getP(r.src); sel.addEventListener('change', () => { setP(r.src, sel.value); mark(); count(); });
+      row.appendChild(sel);
+    }
+    const a = el('div', 'amt'), inp = el('input'), out = el('output', null, r.fmt(Number(getP(r.amt))));
+    inp.type = 'range'; inp.min = r.min; inp.max = r.max; inp.step = r.step; inp.value = getP(r.amt); inp.setAttribute('aria-label', r.dst + ' amount' + (r.by ? ' by ' + r.by : ''));
+    const put = v => { setP(r.amt, v); out.textContent = r.fmt(v); mark(); count(); };
+    inp.addEventListener('input', () => put(Number(inp.value)));
+    inp.addEventListener('dblclick', () => { inp.value = 0; put(0); });
+    a.append(inp, out); row.appendChild(a); mark(); box.appendChild(row);
+  }
+  host.appendChild(box);
 }
 function pcmPageMod() {
-  const dbl = patch.mode === 'double', i = dbl ? pcmModOsc : 0, R = pcmModRoutes(i), refresh = () => { const h = $('#pcmmods'); if (h) pcmModList(h); };
-  const secs = [{ title: 'Active', seg: dbl ? ['OSC 1', 'OSC 2'] : null, segVal: i, segSet: k => { pcmModOsc = k; renderPage(); },
-    custom: s => { const h = el('div'); h.id = 'pcmmods'; s.appendChild(h); pcmModList(h); } }];
-  for (const g of [...new Set(R.map(r => r.grp))]) {
-    const controls = [];
-    for (const r of R.filter(x => x.grp === g)) {
-      if (r.by) controls.push(S(r.amt, r.dst + ' by ' + r.by, r.min, r.max, { fmt: r.fmt }));
-      else controls.push(SEL(r.src, r.dst + ' A.M.', pcmAms(r.osc)), S(r.amt, r.dst + ' A.M. amount', r.pint ? -12 : -99, r.pint ? 12 : 99, r.pint ? { fmt: K.pint, step: 0.01 } : { fmt: K.sgn }));
-    }
-    secs.push({ title: g, controls, onChange: refresh });
-  }
-  return secs;
+  const dbl = patch.mode === 'double', R = pcmModRoutes(dbl ? pcmModOsc : 0);
+  return [{ title: 'Modulation', seg: dbl ? ['OSC 1', 'OSC 2'] : null, segVal: dbl ? pcmModOsc : 0, segSet: k => { pcmModOsc = k; renderPage(); },
+    note: R.filter(pcmModOn).length + ' active', custom: renderPcmMods }];
 }
 const PAGES_PCM = { program: ['Program', pcmPageProgram], osc0: ['OSC 1', () => pcmPageOsc(0)], osc1: ['OSC 2', () => pcmPageOsc(1)], filter0: ['Filter 1', () => pcmPageFilter(0)], filter1: ['Filter 2', () => pcmPageFilter(1)],
   amp0: ['Amp 1', () => pcmPageAmp(0)], amp1: ['Amp 2', () => pcmPageAmp(1)], mod: ['Mod', pcmPageMod], fx: ['Effects', pageFX], scale: ['Scale', pageScale], keys: ['Keyboard', pageKeys] };
@@ -786,7 +798,7 @@ function renderPage() {
     if (sec.custom) sec.custom(s);
     else {
       const g = el('div', 'grid');
-      for (const d of sec.controls) g.appendChild(mkCtl(d, egSvg ? () => drawEG(egSvg, sec.eg, sec.isAmp) : sec.onChange || null));
+      for (const d of sec.controls) g.appendChild(mkCtl(d, egSvg ? () => drawEG(egSvg, sec.eg, sec.isAmp) : null));
       s.appendChild(g);
     }
     if (sec.help) s.appendChild(el('p', 'help', sec.help));
