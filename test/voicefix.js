@@ -59,3 +59,12 @@ const ok = (name, cond, extra) => { if (!cond) process.exitCode = 1; console.log
   const e = mk(P => { P.voice.bendUp = 12; P.voice.bendStepUp = 2; }); e.handle({ t: 'bend', v: 0.3 });
   ok('bend Step 2: +3.6 semitones of bend plays as +4', e.bendSemis() === 4, e.bendSemis());
 }
+{ // 11 PCM portamento: a mono PCM program glides to a legato note when portamento is on, and jumps when it is off
+  const pcm = porta => { const P = X.korgDecodePcm(new Uint8Array(433)); P.voice.mode = 'monoSingle'; Object.assign(P.voice, { priority: 'last', porta, portaTime: 60 });
+    Object.assign(P.o[0].aeg, { atkL: 99, brkL: 99, susL: 99 }); P.o[0].lvlHi = P.o[0].lvlLo = 127; const e = new X.MossEngine(sr); e.handle({ t: 'patch', p: P }); return e; };
+  for (const porta of [1, 0]) {
+    const e = pcm(porta); e.handle({ t: 'on', n: 60, v: 100 }); run(e, 0.1); e.handle({ t: 'on', n: 72, v: 100 }); run(e, 0.03);
+    const v = e.voices.find(x => x.active), mid = v.pitch; run(e, 3);
+    ok('PCM portamento ' + (porta ? 'on: glides C4 to C5' : 'off: jumps to C5'), porta ? mid > 60.5 && mid < 71.5 && v.pitch === 72 : mid === 72, 'pitch after 30 ms ' + mid.toFixed(2) + ', later ' + v.pitch);
+  }
+}

@@ -159,6 +159,8 @@ New program (Program page, pages.js newProgram): a blank MOSS (mossDefaultPatch)
 Korg record + open filter, A.Piano) or combination (newCombination: T1 = the program you were on) goes into the User bank.
 Combinations without a file (made here / User bank) pick any pm/pc/st/us program per timbre (setTimbreProgram, patchById).
 Program search (program.js progEntries/progList): filters the browsers and the ‹ › steps. Fonts bundled; PWA.
+PCM portamento (Program tab): Trinity PCM programs have none (not in the 433-byte table), so it starts off; Triton programs
+bring theirs. PcmVoice glides like MossVoice (MD.tsec(portaTime) / 2), only when the engine passes a glide start.
 PCM Mod tab (pages.js pcmPageMod): a Trinity PCM program has no modulation matrix (MOSS has); each section has its own
 A.M. slots and fixed controller amounts. The tab gathers them per oscillator (OSC 1/2 switch in Double mode), the same
 parameters as the OSC/Filter/Amp tabs, with an 'Active' list (sec.onChange refreshes it).
