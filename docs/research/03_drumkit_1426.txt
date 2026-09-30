@@ -6,7 +6,7 @@ scanned page 189 of KorgTrinity-ParameterGuideWithMIDIImplementation.pdf (github
 Page image: research/scans/p189_table4-7_global_combiplay_progplay_drumkit.png
 Verified against the user's PCG files (section type 3): factory kit names ("Standard Kit", "Processed Kit",
 "Jazz/Brush Kits", "01/W Producer's"...), per-key drumsample numbers 0..253, tune in 0.5-semitone steps,
-pan 0x40 etc. all decode sensibly with this map in TRINI-1-KJ.PCG.
+pan 0x40 etc. all decode sensibly with this map in user file 5.
 
 Drum kits in memory: 12 (basic Trinity, kits 0..11) or 24 (with Flash-ROM option / TR-Rack, kits 0..23).
 A program in OSCILLATOR MODE = DRUM selects the kit through its "HI MULTISAMPLE / DRUMKIT" field (bytes 33-34).

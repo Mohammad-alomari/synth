@@ -46,7 +46,7 @@ B) PCG global record (observed in the user's files; section type 4, count 1, siz
                    transpose and/or other global settings; not documented.
    PCG Tools (TrinityGlobal.cs) independently uses category offset 146 and the order
    [prog A][prog B][combi A][combi B], 16 chars each, which matches.
-   The 2-byte section header seen: 00 FF (Hadi2024) / 00 00 (TRINI-1-KJ).
+   The 2-byte section header seen: 00 FF (user file 1) / 00 00 (user file 5).
 
 Factory category names (from the user's files, likely factory defaults):
   Program set A: Keyboard, Organ, Mallet, Bell, Strings, Vocal/Airy, Brass, Woodwind/Reeds, Guitar, Bass,

@@ -1,9 +1,9 @@
 # Korg TR-Rack factory COMBINATION names, banks A-D (512). Banks A and B = Trinity factory combis A/B
 #   (A000 = "Trinity Overture").
 # Source: TR-Rack Ctrlr panel (github.com/FRDTom/TR-Rack-Editor, Lua combiNameList). Typos possible.
-# Evidence: TRINI-1-KJ.PCG (user-edited) still holds 3 bank-A and 23 bank-B combis with identical names in the
+# Evidence: user file 5 (user-edited) still holds 3 bank-A and 23 bank-B combis with identical names in the
 #   same slots (e.g. A120 Piano & Vel.Orch, A122 Beach Vocals, B101 Sombreros ... B127 Harmonium Soul).
-# Columns: bank<TAB>no<TAB>name<TAB>same_name_in_TRINI-1-KJ.PCG
+# Columns: bank<TAB>no<TAB>name<TAB>same_name_in_user_file_5
 A	000	Trinity Overture	
 A	001	Old School Split	
 A	002	Vox Morphing	

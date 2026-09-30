@@ -1,7 +1,8 @@
 {
   "name": "trinity-web-synth",
   "private": true,
-  "description": "A playable model of the Korg Trinity V3 in the browser",
+  "license": "MIT",
+  "description": "A browser synthesizer inspired by the Korg Trinity V3",
   "scripts": {
     "build": "python3 build.py",
     "lint": "eslint .",

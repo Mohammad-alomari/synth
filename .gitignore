@@ -6,6 +6,11 @@ tools/samples/src/
 tools/samples/decoded_tri/
 dist/
 index.html
+# your own built-in banks (pcgdata.js, tridata.js, userdata.js): build.py takes them from here; never committed
+private/
+# the made-up test banks (node test/fixtures.js) and the browser test's page
+test/fixtures/
+_test.html
 # Korg recordings built from the owner's copy of the PBS-TRI libraries (tools/samples/build_korg.py): never committed
 samples/korg/
 # local copies of Korg material
