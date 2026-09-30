@@ -33,7 +33,8 @@ function progEntries() {
 let progQuery = '';
 // favourites (the ★ in MIDI mode), kept by list group + program text so they survive re-imports;
 // favOnly limits the list and the ‹ › steps to them
-const favs = new Set((a => Array.isArray(a) ? a : [])(store.get('moss-favs', []))); let favOnly = false;
+// (a favourite of a renamed starter program follows its new name)
+const favs = new Set((a => Array.isArray(a) ? a : [])(store.get('moss-favs', [])).map(k => String(k).replace('Mijwiz Daraa (Do)', 'Mijwiz (Do)'))); let favOnly = false;
 const favKey = e => e.g + '|' + e.t, isFav = e => favs.has(favKey(e));
 const progMatch = (e, words) => { const t = (e.t + ' ' + e.g).toLowerCase(); return words.every(w => t.includes(w)); };
 function progList() {

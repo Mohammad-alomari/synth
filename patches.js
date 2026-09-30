@@ -262,7 +262,7 @@ const MOSS_PRESETS = [
     ampEG: { atkT: 4, decT: 60, brkL: 99, slpT: 60, susL: 99, relT: 30, vel: 20 },
     fx: { send2: 45, m2: ['MR:4', { time: 2.2, pd: 25, hd: 30, out: 85 }] },
     help: 'Brass model: EG 1 is the breath pressure. Velocity firms the lips; aftertouch blows harder.' },
-  { name: 'Mijwiz Daraa (Do)', out: { level: 106 },
+  { name: 'Mijwiz (Do)', out: { level: 106 },
     // Hauran double clarinet: two cane pipes with idioglot single reeds, a little out of tune with each other so they
     // beat; played without a break (circular breathing). Mijwiz in Do, maqam Bayati: Re a quarter tone flat.
     voice: { mode: 'monoSingle', priority: 'last', unison: 2, uniDetune: 12, porta: 0, bendUp: 2, bendDown: -2 },
