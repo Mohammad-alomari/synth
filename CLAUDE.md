@@ -159,6 +159,8 @@ New program (Program page, pages.js newProgram): a blank MOSS (mossDefaultPatch)
 Korg record + open filter, A.Piano) or combination (newCombination: T1 = the program you were on) goes into the User bank.
 Combinations without a file (made here / User bank) pick any pm/pc/st/us program per timbre (setTimbreProgram, patchById).
 Program search (program.js progEntries/progList): filters the browsers and the ‹ › steps. Fonts bundled; PWA.
+Import PCG: one button at the top in every mode (header #importbtn, play bar #pbimport, MIDI mode #mmimport; core.js
+pickPcgFile), plus 'Import Trinity PCG' on the Program page.
 MIDI mode (app/midimode.js, body.midi, header button "MIDI mode"): no keys/editor; big program name, Prev/Next, Browse (search +
 favourites; favOnly limits ‹ › too, reset on exit), scale/key, Oct/Trans, Sustain, Record, Panic, MIDI monitor (device, note,
 bend, mod, voices), quick edit (mmMacros: MOSS/PCM Level, Cutoff, Resonance, Filter EG, Attack, Release moving both filters/oscillators

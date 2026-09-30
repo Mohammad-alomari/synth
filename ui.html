@@ -400,6 +400,7 @@ body.midi .mm { display: flex; flex-direction: column; gap: 8px; max-width: 900p
     <span class="sp"></span>
     <button class="hw" id="power" type="button"><span class="led" id="pled"></span><span id="ptxt">Start audio</span></button>
     <button class="hw" id="midibtn" type="button"><span class="led" id="mled"></span>MIDI</button>
+    <button class="hw" id="importbtn" type="button" title="Load a Korg Trinity (or Triton) .PCG file: its PCM programs, combinations and MOSS banks">Import PCG</button>
     <button class="hw" id="recbtn" type="button" aria-pressed="false" title="Record what you play to a WAV file"><span class="led rec" id="rled"></span><span id="rtxt">Record</span></button>
     <button class="hw" id="installbtn" type="button" hidden title="Add the synth to your home screen; it then opens full screen and works offline">Install app</button>
     <button class="hw" id="playbtn" type="button" title="Full-screen keyboard; turn a phone sideways">Play mode</button>
@@ -444,6 +445,7 @@ body.midi .mm { display: flex; flex-direction: column; gap: 8px; max-width: 900p
     <select class="qkey" id="pbkey" aria-label="Scale key"></select>
     <button class="hw" type="button" id="pbsus" aria-pressed="false" title="Damper pedal (CC64)">Sustain</button>
     <span class="rot">Turn the phone sideways for more keys</span>
+    <button class="hw" type="button" id="pbimport" title="Load a Korg Trinity (or Triton) .PCG file: its PCM programs, combinations and MOSS banks">Import</button>
     <button class="hw" type="button" id="pbkeys">Keys</button>
     <button class="hw" type="button" id="pbexit">Exit</button>
   </div>
@@ -482,6 +484,7 @@ body.midi .mm { display: flex; flex-direction: column; gap: 8px; max-width: 900p
     <span class="led" id="mmled"></span><span class="mm-dev" id="mmdev">MIDI is off</span>
     <button class="hw" type="button" id="mmconnect">Connect MIDI</button>
     <span class="sp"></span>
+    <button class="hw" type="button" id="mmimport" title="Load a Korg Trinity (or Triton) .PCG file: its PCM programs, combinations and MOSS banks">Import PCG</button>
     <button class="hw" type="button" id="mmrec" aria-pressed="false" title="Record what you play to a WAV file"><span class="led rec" id="mmrled"></span><span id="mmrtxt">Record</span></button>
     <button class="hw" type="button" id="mmpanic" title="Stop every sounding note">Panic</button>
     <button class="hw" type="button" id="mmexit">Exit</button>
