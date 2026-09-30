@@ -432,6 +432,8 @@ function pcmPageProgram() {
       TOG('voice.hold', 'Hold'), TOG('voice.piano', 'Poly assign: Piano'),
       S('osc2Vel', 'OSC 2 bottom velocity', 1, 127, { fmt: K.n }),
       SEL('random', 'Random pitch', [[0, 'Off'], [1 / 64, '±1/64'], [1 / 32, '±1/32'], [1 / 16, '±1/16'], [1 / 8, '±1/8'], [1 / 4, '±1/4'], [1 / 2, '±1/2'], [1, '±1']], { num: true })] },
+    { title: 'Portamento', controls: [TOG('voice.porta', 'On'), TOG('voice.portaFingered', 'Fingered (legato only)'), S('voice.portaTime', 'Time', 0, 99, { fmt: K.time })],
+      help: 'An extra: Trinity PCM programs have no portamento, so it starts off.' },
     { title: 'Pitch EG', controls: [S('peg.startL', 'Start level', -99, 99, { fmt: K.sgn }), S('peg.atkT', 'Attack time', 0, 99, { fmt: K.time }), S('peg.atkL', 'Attack level', -99, 99, { fmt: K.sgn }),
       S('peg.decT', 'Decay time', 0, 99, { fmt: K.time }), S('peg.relT', 'Release time', 0, 99, { fmt: K.time }), S('peg.relL', 'Release level', -99, 99, { fmt: K.sgn }),
       S('peg.velT', 'Time by velocity', -99, 99, { fmt: K.sgn }), SEL('peg.tSrc', 'Time A.M. source', pcmAms(0)), S('peg.tInt', 'Time A.M. intensity', -99, 99, { fmt: K.sgn })],

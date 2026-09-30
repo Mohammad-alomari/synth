@@ -262,8 +262,13 @@ class PcmVoice {
   }
   renderBlock(eng, L, R, off, n) {
     const P = eng.patch, sr = this.sr, dt = n / sr, c = eng.ctl, store = eng.store;
-    // mono legato moves the pitch at once (PCM programs have no portamento); the voice-wide pitch EG
-    this.pitch = this.target;
+    // portamento: the pitch glides to the note when the program has it on (Triton programs store it; Trinity PCM
+    // programs have none, so it is off unless set here); then the voice-wide pitch EG
+    if (this.pitch !== this.target) {
+      const T = MD.tsec(P.voice.portaTime || 0) * 0.5;
+      if (T <= 0) this.pitch = this.target;
+      else { this.pitch += (this.target - this.pitch) * (1 - Math.exp(-dt / T)); if (Math.abs(this.target - this.pitch) < 0.001) this.pitch = this.target; }
+    }
     const peg = this.peg.tick(dt);
     let any = false, peak = 0;
     for (let i = 0; i < 2; i++) {
