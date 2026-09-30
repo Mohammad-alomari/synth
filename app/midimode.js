@@ -73,8 +73,8 @@ function mmQuick() {
     w.append(el('span', 'nm', m.label), out, inp); g.appendChild(w);
   }
   $('#mmhelp').textContent = patch.kind === 'combi'
-    ? 'The level of each timbre that plays. Full editor has everything else.'
-    : 'Cutoff, resonance and the envelopes move both filters and oscillators together. Save keeps the changes as a user program; Revert goes back.';
+    ? 'Level of each playing timbre.'
+    : 'Moves both filters and oscillators together.';
 }
 
 // ---------------- browse: search and favourites ----------------

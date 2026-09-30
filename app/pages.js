@@ -79,7 +79,7 @@ const TOG = (path, label, o) => Object.assign({ k: 'tog', path, label }, o || {}
 const ROUTING_HELP = {
   parallel: 'Mixer 1 feeds Filter 1 and Amp 1; Mixer 2 feeds Filter 2 and Amp 2.',
   serial1: 'Mixer 1 runs through Filter 1 then Filter 2 into Amp 1. Mixer 2 goes straight to Amp 2, unfiltered.',
-  serial2: 'Mixer 1 runs through Filter 1 into Amp 1, and Filter 1\u2019s output also feeds Filter 2 into Amp 2. Mixer 2 is not used. This reading of Serial 2 comes from reviews, since Korg\u2019s own diagram is only in the scanned Z1 manual.'
+  serial2: 'Mixer 1 runs through Filter 1 into Amp 1, and Filter 1 also feeds Filter 2 into Amp 2. Mixer 2 is not used.'
 };
 const EG_MODS = s => [SEL(s + '.lvlSrc', 'Level mod source', SRC_OPTS), S(s + '.lvlInt', 'Level mod intensity', -99, 99, { fmt: F.sgn }),
   SEL(s + '.tSrc', 'Time mod source', SRC_OPTS), S(s + '.tInt', 'Time mod intensity', -99, 99, { fmt: F.sgn }),
@@ -99,9 +99,9 @@ function pageProgram() {
     { title: 'Portamento', controls: [TOG('voice.porta', 'On'), TOG('voice.portaFingered', 'Fingered (legato only)'), S('voice.portaTime', 'Time', 0, 99)] },
     { title: 'Joystick pitch bend', controls: [S('voice.bendUp', 'JS +X', -60, 24, { fmt: F.semis }), S('voice.bendDown', 'JS \u2212X', -60, 24, { fmt: F.semis }),
       SEL('voice.bendStepUp', 'Step +X', BEND_STEPS, { num: true }), SEL('voice.bendStepDown', 'Step \u2212X', BEND_STEPS, { num: true })],
-      help: 'Step: the bend moves in steps of that size instead of gliding. Reed and Brass oscillators also have Jump bend (semitone jumps, like overblowing).' },
+      help: 'Step: bend in steps instead of gliding.' },
     { title: 'Output', controls: [S('out.level', 'Output level', 0, 127), S('out.pan', 'Pan', 0, 127, { fmt: F.pan })],
-      help: 'MIDI CC 70 to 76 and 79 work as on the EXB-MOSS: sustain level, resonance, release, attack, cutoff, decay, LFO speed and filter EG intensity.' },
+      help: 'CC 70–76 and 79 edit sustain, resonance, release, attack, cutoff, decay, LFO speed and filter EG.' },
     { title: 'Program memory', custom: renderMemory }
   ].concat(patch.korgInfo ? [{ title: 'Imported from ' + (patch.korgInfo && /Bank F/.test(patch.korgInfo.source || '') ? 'Triton' : 'Trinity'), custom: renderImportInfo }] : []);
 }
@@ -119,14 +119,14 @@ function pageOsc(i) {
     secs.push({ title: 'Wave', controls: [SEL(pp + 'wave', 'Main wave', [['saw', 'Saw'], ['pulse', 'Pulse']]), S(pp + 'level', 'Level', 0, 99), S(pp + 'edge', 'Wave edge', 0, 99),
       S(pp + 'tri', 'Triangle level', 0, 99), S(pp + 'sine', 'Sine level', 0, 99), S(pp + 'phase', 'Triangle/sine phase', -99, 99, { fmt: F.sgn })] });
     secs.push({ title: 'Waveform modulation', controls: [S(pp + 'wform', 'Waveform', -99, 99, { fmt: F.sgn }), SEL(pp + 'wfLfo', 'LFO', LFO_OPTS), S(pp + 'wfInt', 'LFO intensity', -99, 99, { fmt: F.sgn })],
-      help: 'Saw: +99 doubles the frequency. Pulse: 0 is a square wave and \u00b199 is silent. Triangle: bends through ramp and trapezoid shapes.' });
+      help: 'Pulse: 0 is a square wave, \u00b199 is silent.' });
     secs.push({ title: 'Wave shape', controls: [SEL(pp + 'shType', 'Table', [['clip', 'Clip'], ['reso', 'Reso']]), S(pp + 'shIn', 'Input', 0, 99), S(pp + 'shOffset', 'Offset', -99, 99, { fmt: F.sgn }),
       S(pp + 'shShape', 'Shape', 0, 99), S(pp + 'shBal', 'Balance', 0, 99)], help: 'Balance 0 bypasses the shaper; 99 is fully shaped.' });
   } else if (t === 'comb') {
     const burst = O.p.cIn === 'pulse' || O.p.cIn === 'impulse';
     secs.push({ title: 'Comb input', controls: [SEL(pp + 'cIn', 'Input', [['osc', other + ' + noise'], ['sub', 'Sub OSC + noise'], ['f1', 'Filter 1 + noise'], ['f2', 'Filter 2 + noise'], ['pulse', 'Pulse noise'], ['impulse', 'Impulse']], { rerender: true }),
       S(pp + 'cLevel', 'Input level', 0, 99), burst ? S(pp + 'cPw', 'Pulse width', 0, 99) : S(pp + 'cNoise', 'Noise level', 0, 99)],
-      help: burst ? 'Pulse noise and impulse fire once at each note-on, like a pluck.' : 'The noise comes from the noise generator, so its filter colours the comb.' });
+      help: burst ? 'Pulse noise and impulse fire once per note.' : '' });
     secs.push({ title: 'Comb filter', controls: [S(pp + 'cFb', 'Feedback', 0, 99), S(pp + 'cDamp', 'High damp', 0, 99)] });
   } else if (t === 'vpm') {
     const ext = ['osc', 'sub', 'f1', 'f2'].includes(O.p.vMod);
@@ -138,7 +138,7 @@ function pageOsc(i) {
   } else if (t === 'reso') {
     const warn = patch.osc[0].type === 'reso' && patch.osc[1].type === 'reso' && patch.osc[0].p.rIn === 'osc' && patch.osc[1].p.rIn === 'osc';
     secs.push({ title: 'Input', controls: [SEL(pp + 'rIn', 'Input', [['osc', other], ['sub', 'Sub OSC'], ['noise', 'Noise'], ['f1', 'Filter 1'], ['f2', 'Filter 2']], { rerender: true }), S(pp + 'rLevel', 'Level', 0, 99)],
-      help: warn ? 'Both oscillators feed each other here, which is unstable on the original too and may go silent.' : '' });
+      help: warn ? 'Both oscillators feed each other: it may go silent.' : '' });
     for (let b = 0; b < 4; b++) secs.push({ title: 'Band-pass ' + (b + 1), controls: [S(pp + 'r' + b + 'Lvl', 'Level', 0, 99), S(pp + 'r' + b + 'Harm', 'Harmonic', 1, 16), S(pp + 'r' + b + 'Fine', 'Fine', -99, 99, { fmt: F.sgn }), S(pp + 'r' + b + 'Reso', 'Resonance', 0, 99)] });
   } else if (t === 'ring' || t === 'cross' || t === 'sync') {
     const c = [SEL(pp + 'mIn', t === 'sync' ? 'Master (input)' : 'Modulator (input)', [['osc', other], ['sub', 'Sub OSC'], ['noise', 'Noise'], ['f1', 'Filter 1'], ['f2', 'Filter 2']]),
@@ -146,17 +146,17 @@ function pageOsc(i) {
     if (t !== 'sync') c.push(S(pp + 'mDepth', 'Depth', 0, 99));
     if (t === 'ring') c.push(SEL(pp + 'mType', 'Type', [[1, 'Type 1'], [2, 'Type 2 (brighter)']], { num: true }));
     secs.push({ title: { ring: 'Ring modulation', cross: 'Cross modulation', sync: 'Sync modulation' }[t], controls: c,
-      help: t === 'sync' ? 'The slave runs at this oscillator\u2019s pitch and restarts on each cycle of the master. Sweep it with the Mod page destination \u201cOSC ' + (i + 1) + ': slave pitch\u201d.' : '' });
+      help: t === 'sync' ? 'The slave restarts on each cycle of the master.' : '' });
   } else if (t === 'bowed') {
     secs.push({ title: 'Bow speed', controls: [SEL(pp + 'bwSpdEg', 'Speed EG', EG_OPTS), S(pp + 'bwSpdInt', 'EG intensity', -99, 99, { fmt: F.sgn }), TOG(pp + 'bwDiff', 'Differential (bow with a controller\u2019s movement)')],
-      help: 'Speed follows the EG; negative intensity bows the other way. Modulate it on the Mod page (\u201cOSC 1: bow speed\u201d).' });
+      help: 'Negative speed bows the other way.' });
     secs.push({ title: 'Bow pressure', controls: [SEL(pp + 'bwPrsEg', 'Pressure EG', EG_OPTS), S(pp + 'bwPrsInt', 'EG intensity', -99, 99, { fmt: F.sgn }), S(pp + 'bwRosin', 'Rosin', 0, 99)] });
     secs.push({ title: 'String', controls: [S(pp + 'bwPos', 'Bowing point', 0, 99), S(pp + 'bwDamp', 'Damping', 0, 99), S(pp + 'bwDampKey', 'Damping track key', 0, 127, { fmt: F.note }),
       S(pp + 'bwDampLo', 'Damping ramp low', -99, 99, { fmt: F.sgn }), S(pp + 'bwDampHi', 'Damping ramp high', -99, 99, { fmt: F.sgn }), S(pp + 'bwDisp', 'Dispersion', 0, 99), S(pp + 'bwRefl', 'Bridge reflection', 0, 99)] });
     secs.push({ title: 'Peaking EQ', controls: [S(pp + 'bwEqF', 'Frequency', 0, 49), S(pp + 'bwEqQ', 'Q', 0, 29), S(pp + 'bwEqG', 'Gain', -18, 18, { fmt: F.sgn })] });
   } else if (t === 'reed') {
     secs.push({ title: 'Instrument', controls: [SEL(pp + 'rdType', 'Inst type', REED_TYPES, { num: true }), SEL(pp + 'rdJump', 'Jump bend', [[0, 'Off (smooth)'], [1, 'JS +X'], [2, 'JS \u2212X'], [3, 'Both']], { num: true }), SEL(pp + 'rdPrsEg', 'Pressure EG', EG_OPTS), S(pp + 'rdPrsInt', 'EG intensity', -99, 99, { fmt: F.sgn }), S(pp + 'rdNoise', 'Breath noise', 0, 99)],
-      help: 'Breath noise comes from the noise generator, so its filter shapes the breath. Pressure near zero is silent; more pressure plays louder and brighter.' });
+      help: 'Pressure near zero is silent; more is louder and brighter.' });
     secs.push({ title: 'Tone', controls: [S(pp + 'rdHpf', 'High-pass', 0, 99), S(pp + 'rdHpfReso', 'High-pass resonance', 0, 99), SEL(pp + 'rdWsTable', 'Shape table', [['clip', 'Clip'], ['reso', 'Reso']]),
       S(pp + 'rdWsOff', 'Shape offset', -99, 99, { fmt: F.sgn }), S(pp + 'rdWsShape', 'Shape', 0, 99)] });
     secs.push({ title: 'Peaking EQ', controls: [S(pp + 'rdEqF', 'Frequency', 0, 49), S(pp + 'rdEqQ', 'Q', 0, 29), S(pp + 'rdEqG', 'Gain', -18, 18, { fmt: F.sgn })] });
@@ -165,27 +165,27 @@ function pageOsc(i) {
       S(pp + 'plDn', 'Curve down', 0, 99), S(pp + 'plDnVel', 'Curve down velocity', -99, 99, { fmt: F.sgn }), S(pp + 'plNoise', 'Noise level', 0, 99), S(pp + 'plNoiseVel', 'Noise velocity', -99, 99, { fmt: F.sgn })] });
     secs.push({ title: 'String', controls: [S(pp + 'plPos', 'String position', 0, 99), S(pp + 'plDisp', 'Dispersion', 0, 99), S(pp + 'plDamp', 'Damping', 0, 99), S(pp + 'plDampKt', 'Damping key track', -99, 99, { fmt: F.sgn }),
       S(pp + 'plDecay', 'Decay', 0, 99), S(pp + 'plDecayKt', 'Decay key track', -99, 99, { fmt: F.sgn }), S(pp + 'plRel', 'Release', 0, 99), S(pp + 'plHarm', 'Harmonics point', 0, 99)],
-      help: 'Harmonics point is where the string is lightly touched (50 is the middle: the octave harmonic). How firmly it is touched comes from the Mod page destination \u201cOSC 1: harmonics\u201d, for example an EG for a harmonic at the attack.' });
+      help: 'Harmonics point: where the string is touched (50 = the octave harmonic).' });
     secs.push({ title: 'Pickup and EQ', controls: [TOG(pp + 'plPickup', 'Pickup'), S(pp + 'plPickPos', 'Pickup position', 0, 99), S(pp + 'plEqF', 'Low EQ frequency', 0, 49), S(pp + 'plEqG', 'Low EQ gain', -18, 18, { fmt: F.sgn }), S(pp + 'plBoost', 'Low boost', 0, 99)] });
   } else if (t === 'organ') {
     for (let k = 0; k < 3; k++) secs.push({ title: 'Drawbar ' + (k + 1), controls: [SEL(pp + 'og' + k + 'Wave', 'Wave', ORGAN_WAVES, { num: true }), S(pp + 'og' + k + 'Harm', 'Harmonic', 1, 16, { fmt: fmtHarm }),
       S(pp + 'og' + k + 'Fine', 'Fine', -99, 99, { fmt: F.cents }), S(pp + 'og' + k + 'Lvl', 'Level', 0, 99), S(pp + 'og' + k + 'Perc', 'Percussion', 0, 99)],
-      help: k === 0 ? 'Harmonic 1 sounds one octave below the oscillator, so 2 is the oscillator\u2019s own pitch. Footages assume the oscillator is at 8\u2032. Mod page: \u201cOSC ' + (i + 1) + ': drawbar 1 level\u201d.' : '' });
+      help: k === 0 ? 'Harmonic 2 is the oscillator\u2019s own pitch.' : '' });
     secs.push({ title: 'Percussion', controls: [SEL(pp + 'ogTrig', 'Trigger', [[0, 'Single'], [1, 'Multi']], { num: true }), S(pp + 'ogDecay', 'Decay', 0, 99)],
-      help: 'Multi strikes the percussion on every note. Single strikes it only on a note played with no other key held (notes of a chord struck together all get it). The percussion level AMS on the Mod page (\u201cpercussion level\u201d) scales each drawbar\u2019s percussion.' });
+      help: 'Single: percussion only when no other key is held.' });
   } else if (t === 'epiano') {
     secs.push({ title: 'Hammer', controls: [S(pp + 'epForce', 'Force', 0, 99), S(pp + 'epCurve', 'Force velocity curve', -1, 99, { fmt: v => v < 0 ? 'Off' : String(v) }), S(pp + 'epWidth', 'Hammer width', 0, 99), S(pp + 'epClick', 'Click level', 0, 99)],
-      help: 'More force hits the tine harder: brighter and louder. Higher width means a narrower hammer: a sharper tone and click.' });
+      help: '' });
     secs.push({ title: 'Tone generator', controls: [S(pp + 'epDecay', 'Decay', 0, 99), S(pp + 'epRel', 'Release', 0, 99), S(pp + 'epOtL', 'Overtone level', 0, 99),
       S(pp + 'epOtF', 'Overtone freq', 0, 99, { fmt: v => '\u00d7' + (Math.pow(2, 1 + 2 * v / 99)).toFixed(2) }), S(pp + 'epOtD', 'Overtone decay', 0, 99)],
-      help: 'Decay and Release are the tine\u2019s own ring and damper; they only show when the Amp EG is longer. The overtone is inharmonic, which gives the bell.' });
+      help: 'Decay and Release: the tine\u2019s own ring and damper.' });
     secs.push({ title: 'Pickup and EQ', controls: [S(pp + 'epPos', 'Pickup position', 0, 99), S(pp + 'epEqF', 'Low EQ frequency', 0, 49), S(pp + 'epEqG', 'Low EQ gain', -18, 18, { fmt: F.sgn })],
-      help: 'Low settings centre the pickup on the tine: the 2nd partial takes over and the fundamental fades. Higher settings bring the fundamental in.' });
+      help: '' });
   } else if (t === 'brass') {
     secs.push({ title: 'Instrument', controls: [SEL(pp + 'brType', 'Inst type', BRASS_TYPES, { num: true }), SEL(pp + 'brJump', 'Jump bend', [[0, 'Off (smooth)'], [1, 'JS +X'], [2, 'JS \u2212X'], [3, 'Both']], { num: true }), SEL(pp + 'brPrsEg', 'Pressure EG', EG_OPTS), S(pp + 'brPrsInt', 'EG intensity', -99, 99, { fmt: F.sgn }), S(pp + 'brNoise', 'Breath noise', 0, 99)],
-      help: 'More pressure plays louder and brighter. Breath noise comes from the noise generator, so its filter shapes the breath. Mod page: \u201cOSC 1: pressure\u201d.' });
+      help: 'More pressure plays louder and brighter.' });
     secs.push({ title: 'Lips and bell', controls: [S(pp + 'brLip', 'Lip character', 0, 99), S(pp + 'brBell', 'Bell tone', 0, 99), S(pp + 'brBellRes', 'Bell resonance', 0, 99), S(pp + 'brStr', 'Strength', 0, 99)],
-      help: 'Higher lip character is firmer, harder blowing. Higher bell tone removes the low end. Strength overdrives the tone.' });
+      help: '' });
     secs.push({ title: 'Peaking EQ', controls: [S(pp + 'brEqF', 'Frequency', 0, 49), S(pp + 'brEqQ', 'Q', 0, 29), S(pp + 'brEqG', 'Gain', -18, 18, { fmt: F.sgn })] });
   }
   return secs;
@@ -199,7 +199,7 @@ function pageSubNoise() {
 function pageMixer() {
   return [0, 1].map(b => ({ title: 'Mixer ' + (b + 1), note: b === 1 && patch.filt.routing === 'serial2' ? 'Not used with Serial 2 routing' : '',
     controls: [S('mix.' + b + '.osc1', 'OSC 1', 0, 99), S('mix.' + b + '.osc2', 'OSC 2', 0, 99), S('mix.' + b + '.sub', 'Sub OSC', 0, 99), S('mix.' + b + '.noise', 'Noise', 0, 99), S('mix.' + b + '.fb', 'Feedback', 0, 99)],
-    help: b === 1 ? 'Feedback returns the amp output to the mixer. High settings distort, as on the original.' : '' }));
+    help: b === 1 ? 'High feedback distorts.' : '' }));
 }
 function pageFilter() {
   const secs = [{ title: 'Routing', controls: [SEL('filt.routing', 'Routing', [['parallel', 'Parallel'], ['serial1', 'Serial 1'], ['serial2', 'Serial 2']], { rerender: true }), TOG('filt.link', 'Link Filter 2 to Filter 1', { rerender: true })],
@@ -212,7 +212,7 @@ function pageFilter() {
     if (F2.type === 'dbpf') { c.push(S(b + 'trimB', 'B trim', 0, 99), S(b + 'freqB', 'B cutoff', 0, 99, { fmt: F.hz }), S(b + 'resoB', 'B resonance', 0, 99)); if (F2.egIntB !== undefined) c.push(S(b + 'egIntB', 'B EG intensity', -99, 99, { fmt: F.sgn })); }
     c.push(SEL(b + 'eg', 'Cutoff EG', EG_OPTS), S(b + 'egInt', 'EG intensity', -99, 99, { fmt: F.sgn }),
       S(b + 'keyLow', 'Key low', 0, 127, { fmt: F.note }), S(b + 'keyHigh', 'Key high', 0, 127, { fmt: F.note }), S(b + 'rampLow', 'Ramp low', -99, 99, { fmt: F.sgn }), S(b + 'rampHigh', 'Ramp high', -99, 99, { fmt: F.sgn }));
-    secs.push({ title: 'Filter ' + (f + 1), controls: c, help: f === 0 ? 'Keyboard tracking: Ramp low \u221250 and Ramp high +50 follow the pitch exactly. Resonance at 99 self-oscillates once a note excites it.' : '' });
+    secs.push({ title: 'Filter ' + (f + 1), controls: c, help: f === 0 ? 'Ramp low \u221250 and high +50 follow the pitch exactly.' : '' });
   }
   return secs;
 }
@@ -230,22 +230,22 @@ function pageEG() {
   return [{ title: '', seg: ['EG 1', 'EG 2', 'EG 3', 'EG 4'], segVal: egSel, segSet: v => { egSel = v; renderPage(); }, eg: b,
     controls: [S(b + '.startL', 'Start level', -99, 99, { fmt: F.sgn }), S(b + '.atkL', 'Attack level', -99, 99, { fmt: F.sgn }), S(b + '.brkL', 'Break level', -99, 99, { fmt: F.sgn }), S(b + '.susL', 'Sustain level', -99, 99, { fmt: F.sgn }), S(b + '.relL', 'Release level', -99, 99, { fmt: F.sgn })]
       .concat(DEF_EG(b)).concat([S(b + '.vel', 'Velocity to level', -99, 99, { fmt: F.sgn }), S(b + '.velTime', 'Velocity to time', -99, 99, { fmt: F.sgn })]),
-    help: 'Route EGs on the Filter, Amp and Mod pages. Time values are approximate; Korg never published the curves.' },
-  { title: 'EG ' + (egSel + 1) + ' modulation', controls: EG_MODS(b), help: 'Level mod scales the levels like velocity does. Time mods follow Korg: +16 on a full source halves the times, +99 makes them 64 times shorter.' }];
+    help: 'Times are estimates.' },
+  { title: 'EG ' + (egSel + 1) + ' modulation', controls: EG_MODS(b), help: '' }];
 }
 function pageLFO() {
   const b = 'lfo.' + lfoSel;
   return [{ title: '', seg: ['LFO 1', 'LFO 2', 'LFO 3', 'LFO 4'], segVal: lfoSel, segSet: v => { lfoSel = v; renderPage(); },
     controls: [SEL(b + '.wave', 'Waveform', LFO_WAVES), S(b + '.freq', 'Frequency', 0, 199, { fmt: F.lfo }), S(b + '.offset', 'Offset', -50, 50, { fmt: F.sgn }),
       SEL(b + '.sync', 'Key sync', [['off', 'Off'], ['timbre', 'By timbre'], ['voice', 'By voice']]), S(b + '.fade', 'Fade in', 0, 99, { fmt: F.time })],
-    help: 'Key sync by voice restarts each note\u2019s LFO; by timbre restarts all of them when you play from silence.' },
+    help: '' },
   { title: 'LFO ' + (lfoSel + 1) + ' modulation', controls: [SEL(b + '.fm1', 'Speed mod 1 source', SRC_OPTS), S(b + '.fm1Int', 'Speed mod 1 intensity', -99, 99, { fmt: F.sgn }),
       SEL(b + '.fm2', 'Speed mod 2 source', SRC_OPTS), S(b + '.fm2Int', 'Speed mod 2 intensity', -99, 99, { fmt: F.sgn }),
       SEL(b + '.am', 'Depth source', SRC_OPTS), S(b + '.amInt', 'Depth intensity', -99, 99, { fmt: F.sgn })],
-    help: 'Once a depth source is set, the LFO\u2019s depth follows it (as on the Prophecy and Z1), so a joystick can bring vibrato in from nothing.' },
+    help: 'With a depth source set, the depth starts at zero.' },
   { title: 'Tempo sync', controls: [TOG(b + '.msync', 'Sync to tempo'), SEL(b + '.mbase', 'Base note', [[0, '1/16'], [1, '1/8 triplet'], [2, '1/8'], [3, '1/4 triplet'], [4, '1/4'], [5, '1/2 triplet'], [6, '1/2'], [7, 'Whole']], { num: true }),
       S(b + '.mtimes', 'Times', 0, 15, { fmt: v => '\u00d7' + (v + 1) })],
-    help: 'Uses the program tempo on the Program page. One cycle lasts the base note times this number.' }];
+    help: 'One cycle lasts the base note times this number, at the program tempo.' }];
 }
 function pageMod() { return [{ title: 'Modulation', custom: renderMods }]; }
 // ---------------- effects (Trinity insert + master effects) ----------------
@@ -350,9 +350,7 @@ function renderFxRouting(host) {
   box.append(r1, r2, r3); host.appendChild(box);
   // size budget, as on the Trinity
   const used = ins.reduce((t, sl) => t + (sl && sl.type ? fxSize(sl.type) : 0), 0);
-  const note = used > 4 || ins.length > 3 ? 'Inserts use size ' + used + ' in ' + ins.length + ' slots. A Trinity program allows 3 inserts with a total size of 4 (a Combination 8 and 8); here you can chain up to ' + FX_MAX_INS + ' of any size.' :
-    'Inserts use size ' + used + ' of the Trinity program\u2019s 4 (3 slots). You can chain up to ' + FX_MAX_INS + ' here, of any size.';
-  host.appendChild(el('p', 'help', note + ' Tap a block to edit it.'));
+  host.appendChild(el('p', 'help', 'Inserts: size ' + used + (used > 4 || ins.length > 3 ? ' (more than a Trinity program\u2019s 4)' : ' of 4') + '. Tap a block to edit it.'));
 }
 function renderFxSlot(host) {
   const fx = patch.fx, i = Number(fxSel.slice(1)), sl = fx.ins[i];
@@ -368,7 +366,7 @@ function renderFxSlot(host) {
   mv('Later →', () => { const l = clone(fx.ins); [l[i + 1], l[i]] = [l[i], l[i + 1]]; fxSel = 'i' + (i + 1); fxSetIns(l); }, i >= fx.ins.length - 1);
   mv('Remove', () => { const l = clone(fx.ins); l.splice(i, 1); fxSel = 'i' + Math.max(0, i - 1); fxSetIns(l); });
   host.appendChild(bar);
-  if (e) host.appendChild(el('p', 'help', 'Size ' + TFX.SIZE[e.grp] + (e.grp === 'S1' ? ': mono in and out (the dry sound turns mono too, as on the Trinity).' : ': stereo.') + (sl.type === 'S4:4' ? ' The modulator is a microphone when one is allowed (the button below; the Claude page itself blocks microphones), otherwise the synth itself.' : '')));
+  if (e) host.appendChild(el('p', 'help', 'Size ' + TFX.SIZE[e.grp] + (e.grp === 'S1' ? ', mono.' : ', stereo.') + (sl.type === 'S4:4' ? ' The modulator is the microphone (button below), or else the synth.' : '')));
   if (sl.type === 'S4:4') { const b = el('button', 'hw', micStream ? 'Microphone on' : 'Use microphone as modulator'); b.type = 'button'; b.addEventListener('click', async () => { await setMic(!micStream); renderPage(); }); host.appendChild(b); }
   fxParams(host, path, sl.type);
 }
@@ -390,14 +388,14 @@ function pageFX() {
   if (!/^(i\d|m1|m2|eq)$/.test(fxSel) || (fxSel[0] === 'i' && !fx.ins[Number(fxSel.slice(1))])) fxSel = fx.ins.length ? 'i0' : 'm2';
   const secs = [{ title: 'Routing', custom: renderFxRouting, help: patch.help || '' }];
   if (fxSel[0] === 'i') secs.push({ title: 'Insert effect ' + (Number(fxSel.slice(1)) + 1), custom: renderFxSlot });
-  else if (fxSel === 'm1') secs.push({ title: 'Master Effect 1 · modulation', custom: h => renderFxMaster(h, 'm1'), help: 'Mono in, stereo out. It returns only the effect sound; Send 1 sets how much reaches it.' });
-  else if (fxSel === 'm2') secs.push({ title: 'Master Effect 2 · reverb and delay', custom: h => renderFxMaster(h, 'm2'), help: 'Mono in, stereo out. It returns only the effect sound; Send 2 sets how much reaches it.' });
-  else secs.push({ title: 'Master EQ', controls: [S('fx.eqLo', 'Low gain', -18, 18, { step: 0.5, fmt: v => F.sgn(v) + ' dB' }), S('fx.eqHi', 'High gain', -18, 18, { step: 0.5, fmt: v => F.sgn(v) + ' dB' })], help: 'Gentle shelving EQ on the final output, around ' + (fx.eqLoF || 80) + ' Hz and ' + (fx.eqHiF || 12000) / 1000 + ' kHz. Korg does not publish the exact corner frequencies, so these are estimates.' });
-  if (fxSourcesUsed().length) secs.push({ title: 'Controllers used by these effects', custom: renderFxControllers, help: 'These effects follow controllers that have no control on this screen. Move them here, or send the MIDI CC from your keyboard.' });
+  else if (fxSel === 'm1') secs.push({ title: 'Master Effect 1 · modulation', custom: h => renderFxMaster(h, 'm1'), help: 'Returns only the effect sound; Send 1 feeds it.' });
+  else if (fxSel === 'm2') secs.push({ title: 'Master Effect 2 · reverb and delay', custom: h => renderFxMaster(h, 'm2'), help: 'Returns only the effect sound; Send 2 feeds it.' });
+  else secs.push({ title: 'Master EQ', controls: [S('fx.eqLo', 'Low gain', -18, 18, { step: 0.5, fmt: v => F.sgn(v) + ' dB' }), S('fx.eqHi', 'High gain', -18, 18, { step: 0.5, fmt: v => F.sgn(v) + ' dB' })], help: 'Shelving EQ around ' + (fx.eqLoF || 80) + ' Hz and ' + (fx.eqHiF || 12000) / 1000 + ' kHz.' });
+  if (fxSourcesUsed().length) secs.push({ title: 'Controllers used by these effects', custom: renderFxControllers, help: 'Controllers these effects follow.' });
   secs.push({ title: uses ? 'After the inserts' : 'Program output', controls: uses
     ? [S('fx.ifxPan', 'Pan', 0, 127, { fmt: F.pan }), S('fx.ifxWidth', 'Width', 0, 127), S('fx.ifxSend1', 'Send 1 (to Master 1)', 0, 127), S('fx.ifxSend2', 'Send 2 (to Master 2)', 0, 127)]
     : [S('fx.send1', 'Send 1 (to Master 1)', 0, 127), S('fx.send2', 'Send 2 (to Master 2)', 0, 127)],
-    help: uses ? 'With insert effects in use, the pan, width and sends after them apply (the program’s own sends are ignored), as on the Trinity.' : 'With no insert effects, the program’s pan (Program page) and these sends apply.' });
+    help: uses ? 'With insert effects, the pan and sends after them apply.' : '' });
   return secs;
 }
 const PAGES = { program: ['Program', pageProgram], osc0: ['OSC 1', () => pageOsc(0)], osc1: ['OSC 2', () => pageOsc(1)], subnoise: ['Sub + Noise', pageSubNoise], mixer: ['Mixer', pageMixer],
@@ -437,7 +435,7 @@ function pcmPageProgram() {
     { title: 'Pitch EG', controls: [S('peg.startL', 'Start level', -99, 99, { fmt: K.sgn }), S('peg.atkT', 'Attack time', 0, 99, { fmt: K.time }), S('peg.atkL', 'Attack level', -99, 99, { fmt: K.sgn }),
       S('peg.decT', 'Decay time', 0, 99, { fmt: K.time }), S('peg.relT', 'Release time', 0, 99, { fmt: K.time }), S('peg.relL', 'Release level', -99, 99, { fmt: K.sgn }),
       S('peg.velT', 'Time by velocity', -99, 99, { fmt: K.sgn }), SEL('peg.tSrc', 'Time A.M. source', pcmAms(0)), S('peg.tInt', 'Time A.M. intensity', -99, 99, { fmt: K.sgn })],
-      help: 'Each oscillator sets how far this EG bends its pitch (OSC pages, EG intensity).' }];
+      help: 'Each oscillator sets how far this EG bends its pitch.' }];
   secs.push({ title: 'Program memory', custom: renderMemory });
   secs.push({ title: 'Imported from Trinity', custom: renderImportInfo });
   return secs;
@@ -449,7 +447,7 @@ function pcmPageOsc(i) {
   secs.push({ title: 'Multisample', controls: [SEL(b + 'msHi', 'High multisample', MS_OPTS(O.msHi, O.msLo), { num: true, rerender: true }), S(b + 'lvlHi', 'High level', 0, 127, { fmt: K.n }), TOG(b + 'offHi', 'High: offset start'),
     SEL(b + 'msLo', 'Low multisample', MS_OPTS(O.msHi, O.msLo), { num: true, rerender: true }), S(b + 'lvlLo', 'Low level', 0, 127, { fmt: K.n }), TOG(b + 'offLo', 'Low: offset start'),
     S(b + 'velSplit', 'High from velocity', 1, 127, { fmt: K.n })],
-    help: 'Plays: high → ' + msPlays(O.msHi) + '; low → ' + msPlays(O.msLo) + '.' + (korgPacks ? '' : ' Korg’s own samples are not available.') });
+    help: 'Plays: high → ' + msPlays(O.msHi) + '; low → ' + msPlays(O.msLo) + '.' });
   secs.push({ title: 'Pitch', controls: [S(b + 'octave', 'Octave', -2, 1, { fmt: K.oct }), S(b + 'transpose', 'Transpose', -12, 12, { fmt: K.semis }), S(b + 'tune', 'Tune', -1200, 1200, { fmt: K.cents }),
     S(b + 'delay', 'Delay start', -1, 5000, { fmt: K.delay, step: 2 }), S(b + 'pitch.slope', 'Pitch slope', -1, 2, { fmt: K.slope, step: 0.1 }),
     S(b + 'pitch.egInt', 'Pitch EG intensity', -12, 12, { fmt: K.pint, step: 0.01 }), S(b + 'pitch.egVel', 'EG intensity by velocity', -99, 99, { fmt: K.sgn }),
@@ -471,7 +469,7 @@ function pcmPageFilter(i) {
   const ft = [['lpf', 'Low pass'], ['hpf', 'High pass'], ['bpf', 'Band pass'], ['brf', 'Band reject']];
   const typeSel = k => ({ k: 'sel', path: b + 'ftype.' + k, label: 'Filter ' + 'AB'[k] + ' type', opts: ft, rerender: true });
   const secs = [{ title: 'Filters', controls: [SEL(b + 'route', 'Routing', [['single', 'Single (A)'], ['serial', 'Serial (A then B)'], ['parallel', 'Parallel'], ['thru', 'Through (off)']], { rerender: true }), typeSel(0), typeSel(1)],
-    help: 'Cutoff values follow the Trinity; the kHz figures are this model’s estimate (0 ≈ 250 Hz, 99 ≈ 20 kHz).' }];
+    help: 'Hz figures are estimates.' }];
   [0, 1].forEach(k => {
     if (k === 1 && O.route === 'single') return;
     const f = b + 'f.' + k + '.';
@@ -512,8 +510,67 @@ function pcmPageAmp(i) {
     .concat([SEL(e + 'tSrc', 'Time A.M.', pcmAms(i)), S(e + 'tInt', 'Time A.M. amount', -99, 99, { fmt: K.sgn })])
     .concat(['Start', 'Attack', 'Break point'].map((n, k) => S(e + 'lv.' + k, n + ' level by velocity', -99, 99, { fmt: K.sgn }))) }];
 }
+// ---- PCM Mod tab ----
+// A Trinity PCM program has no modulation matrix (MOSS programs do): each section has its own A.M. (alternate modulation)
+// slots and fixed controller amounts (joystick, ribbon, aftertouch). This tab collects them per oscillator, the same
+// parameters as on the OSC, Filter and Amp tabs, with a list of what is active.
+let pcmModOsc = 0;
+function pcmModRoutes(i) {
+  const b = 'o.' + i + '.', O = patch.o[i], R = [];
+  const am = (grp, dst, src, amt, pint, osc) => R.push({ grp, dst, src, amt, pint, osc: osc === undefined ? i : osc });
+  const by = (grp, dst, ctl, amt, min, max, fmt) => R.push({ grp, dst, by: ctl, amt, min, max, fmt });
+  am('Pitch', 'Pitch', b + 'pitch.amsSrc', b + 'pitch.amsInt', true);
+  am('Pitch', 'Pitch EG intensity', b + 'pitch.egAmsSrc', b + 'pitch.egAmsInt', true);
+  by('Pitch', 'Pitch', 'Joystick +X', b + 'pitch.jsUp', -60, 12, K.semis);
+  by('Pitch', 'Pitch', 'Joystick −X', b + 'pitch.jsDown', -60, 12, K.semis);
+  by('Pitch', 'Pitch', 'Ribbon', b + 'pitch.ribbon', -12, 12, K.semis);
+  by('Vibrato (OSC LFO)', 'Vibrato depth', 'Joystick +Y', b + 'lfoPitch.jsy', 0, 99, K.n);
+  by('Vibrato (OSC LFO)', 'Vibrato depth', 'Aftertouch', b + 'lfoPitch.at', 0, 99, K.n);
+  am('Vibrato (OSC LFO)', 'Vibrato depth', b + 'lfoPitch.amsSrc', b + 'lfoPitch.amsInt', true);
+  by('Vibrato (OSC LFO)', 'Vibrato speed', 'Joystick +Y', b + 'lfo.jsy', 0, 99, K.n);
+  am('Vibrato (OSC LFO)', 'Vibrato speed', b + 'lfo.fmSrc', b + 'lfo.fmInt');
+  for (const k of O.route === 'single' || O.route === 'thru' ? [0] : [0, 1]) {
+    const f = b + 'f.' + k + '.', n = 'Filter ' + 'AB'[k] + ' cutoff';
+    am('Filter', n, f + 'amsSrc', f + 'amsInt'); by('Filter', n, 'Joystick X', f + 'jsx', -99, 99, K.sgn); by('Filter', n, 'Aftertouch', f + 'at', 0, 99, K.n);
+  }
+  am('Filter', 'Filter EG intensity', b + 'fegAms.src', b + 'fegAms.int');
+  by('Filter', 'Filter LFO depth', 'Joystick −Y', b + 'flfoMod.jsyn', 0, 99, K.n);
+  by('Filter', 'Filter LFO depth', 'Aftertouch', b + 'flfoMod.at', 0, 99, K.n);
+  am('Filter', 'Filter LFO depth', b + 'flfoMod.amsSrc', b + 'flfoMod.amsInt');
+  am('Filter', 'Filter LFO speed', b + 'flfo.fmSrc', b + 'flfo.fmInt');
+  by('Amp and pan', 'Level', 'Aftertouch', b + 'amp.at', -99, 99, K.sgn);
+  am('Amp and pan', 'Level', b + 'amp.amsSrc', b + 'amp.amsInt');
+  am('Amp and pan', 'Pan', b + 'panSrc', b + 'panInt');
+  am('EG times', 'Pitch EG times', 'peg.tSrc', 'peg.tInt', false, 0);
+  am('EG times', 'Filter EG times', b + 'feg.tSrc', b + 'feg.tInt');
+  am('EG times', 'Amp EG times', b + 'aeg.tSrc', b + 'aeg.tInt');
+  return R;
+}
+const amsName = s => KORG_PCM.AMS_NAME[KORG_PCM.AMS.indexOf(s)] || s;
+function pcmModList(host) {
+  const on = pcmModRoutes(patch.mode === 'double' ? pcmModOsc : 0).filter(r => Number(getP(r.amt)) !== 0 && (r.by || getP(r.src) !== 'off'));
+  host.innerHTML = '';
+  if (!on.length) { host.appendChild(el('p', 'help', 'Nothing modulates this oscillator.')); return; }
+  const ul = el('ul', 'modlist');
+  for (const r of on) { const v = Number(getP(r.amt)); ul.appendChild(el('li', null, (r.by || amsName(getP(r.src))) + ' → ' + r.dst + ': ' + (r.by ? r.fmt(v) : r.pint ? K.pint(v) : K.sgn(v)))); }
+  host.appendChild(ul);
+}
+function pcmPageMod() {
+  const dbl = patch.mode === 'double', i = dbl ? pcmModOsc : 0, R = pcmModRoutes(i), refresh = () => { const h = $('#pcmmods'); if (h) pcmModList(h); };
+  const secs = [{ title: 'Active', seg: dbl ? ['OSC 1', 'OSC 2'] : null, segVal: i, segSet: k => { pcmModOsc = k; renderPage(); },
+    custom: s => { const h = el('div'); h.id = 'pcmmods'; s.appendChild(h); pcmModList(h); } }];
+  for (const g of [...new Set(R.map(r => r.grp))]) {
+    const controls = [];
+    for (const r of R.filter(x => x.grp === g)) {
+      if (r.by) controls.push(S(r.amt, r.dst + ' by ' + r.by, r.min, r.max, { fmt: r.fmt }));
+      else controls.push(SEL(r.src, r.dst + ' A.M.', pcmAms(r.osc)), S(r.amt, r.dst + ' A.M. amount', r.pint ? -12 : -99, r.pint ? 12 : 99, r.pint ? { fmt: K.pint, step: 0.01 } : { fmt: K.sgn }));
+    }
+    secs.push({ title: g, controls, onChange: refresh });
+  }
+  return secs;
+}
 const PAGES_PCM = { program: ['Program', pcmPageProgram], osc0: ['OSC 1', () => pcmPageOsc(0)], osc1: ['OSC 2', () => pcmPageOsc(1)], filter0: ['Filter 1', () => pcmPageFilter(0)], filter1: ['Filter 2', () => pcmPageFilter(1)],
-  amp0: ['Amp 1', () => pcmPageAmp(0)], amp1: ['Amp 2', () => pcmPageAmp(1)], fx: ['Effects', pageFX], scale: ['Scale', pageScale], keys: ['Keyboard', pageKeys] };
+  amp0: ['Amp 1', () => pcmPageAmp(0)], amp1: ['Amp 2', () => pcmPageAmp(1)], mod: ['Mod', pcmPageMod], fx: ['Effects', pageFX], scale: ['Scale', pageScale], keys: ['Keyboard', pageKeys] };
 // ---------------- Trinity combination pages ----------------
 let curTimbre = 0;
 const TSTAT = { int: 'On', off: 'Off', ext: 'External', both: 'Both' };
@@ -522,7 +579,8 @@ const tLabel = (t, k) => 'T' + (k + 1) + ' ' + (t.pLabel || '') + (t.pName ? ' '
 const zoneTxt = t => (t.keyBot > 0 || t.keyTop < 127 ? F.note(t.keyBot) + '–' + F.note(t.keyTop) : 'all keys');
 function combiStatus() {
   const C = patch, on = C.timbres.filter(tPlays), miss = C.timbres.filter(t => t.status !== 'off' && !t.p && !t.drum), drums = C.timbres.filter(t => t.status !== 'off' && t.drum);
-  return 'Combination: ' + on.length + (on.length === 1 ? ' timbre plays' : ' timbres play') + ' from the keyboard' + (miss.length ? '; ' + miss.length + ' use a program not in memory (silent)' : '') + (drums.length ? '; ' + drums.length + ' use a drum program (not supported, silent)' : '') + (C.timbres.some(t => t.from) ? '; some programs come from other loaded files (see the Timbres table)' : '') + '. PCM timbres play stand-in samples.';
+  const silent = [miss.length ? miss.length + ' use a program not loaded' : '', drums.length ? drums.length + ' use a drum program' : ''].filter(Boolean);
+  return !on.length ? 'No timbre plays from the keyboard.' : silent.length ? 'Silent timbres: ' + silent.join(', ') + '.' : '';
 }
 function renderTimbreTable(host) {
   const wrap = el('div', 'kitwrap'), t = el('table', 'kit'), hd = el('tr');
@@ -541,7 +599,7 @@ function renderTimbreTable(host) {
 }
 function combiPageMain() {
   return [{ title: 'Combination', controls: [{ k: 'txt', path: 'name', label: 'Name' }] },
-    { title: 'Timbres', custom: renderTimbreTable, help: 'Only timbres that are On and on the Global channel (or channel 1) answer the keyboard; a timbre on another MIDI channel waits for that channel, as on the Trinity. Tap a row to edit the timbre.' },
+    { title: 'Timbres', custom: renderTimbreTable, help: 'Tap a row to edit a timbre.' },
     { title: 'Program memory', custom: renderMemory },
     { title: 'Imported from Trinity', custom: renderImportInfo }];
 }
@@ -600,14 +658,14 @@ function combiPageTimbre() {
   const notes = [];
   if (t.pan === 'prog') notes.push('pan: the program’s'); if (t.bend === null || t.bend === undefined) notes.push('bend range: the program’s');
   if (t.send1 === 'prog' || t.send2 === 'prog') notes.push('sends: the program’s');
-  secs.push({ title: 'Mix', controls: c, help: (notes.length ? 'This timbre uses ' + notes.join(', ') + '. ' : '') + (t.chain >= 0 ? 'It plays through insert chain ' + (t.chain + 1) + ' (Effects page), whose sends apply instead of its own.' : 'It has no insert effect.') });
+  secs.push({ title: 'Mix', controls: c, help: (notes.length ? 'Uses ' + notes.join(', ') + '. ' : '') + (t.chain >= 0 ? 'Plays through insert chain ' + (t.chain + 1) + '.' : '') });
   secs.push({ title: 'Key and velocity zones', controls: [S(b + 'keyBot', 'Lowest key', 0, 127, { fmt: F.note }), S(b + 'keyTop', 'Highest key', 0, 127, { fmt: F.note }),
     S(b + 'keySlopeBot', 'Fade in above lowest key', 0, 72, { fmt: v => v + ' st' }), S(b + 'keySlopeTop', 'Fade out below highest key', 0, 72, { fmt: v => v + ' st' }),
     S(b + 'velBot', 'Lowest velocity', 1, 127, { fmt: K.n }), S(b + 'velTop', 'Highest velocity', 1, 127, { fmt: K.n }),
     S(b + 'velSlopeBot', 'Fade in above lowest velocity', 0, 120, { fmt: K.n }), S(b + 'velSlopeTop', 'Fade out below highest velocity', 0, 120, { fmt: K.n })],
-    help: 'The timbre plays only inside its zones; the fades soften it toward each edge.' });
+    help: '' });
   secs.push({ title: 'MIDI filters', controls: [TOG(b + 'rxDamper', 'Receives the damper (sustain) pedal'), TOG(b + 'rxAT', 'Receives aftertouch'), TOG(b + 'rxCC', 'Receives control changes (joystick Y, knobs, other pedals)')],
-    help: 'Switched off, this timbre ignores that message while the other timbres still get it. Pitch bend always reaches every timbre. The Trinity\u2019s program-change filter is kept in the data but this page does not change programs by MIDI.' });
+    help: 'Off: this timbre ignores that message.' });
   return secs;
 }
 function renderCombiRouting(host) {
@@ -626,7 +684,7 @@ function renderCombiRouting(host) {
   const fx = C.fx, m1 = TFX.byId(fx.m1.type), m2 = TFX.byId(fx.m2.type), r2 = el('div', 'fxrow sub');
   r2.append(el('span', 'fxarr', '↳ Send 1'), chip('Master 1', m1 ? m1.name : '?', 'm1', !fx.m1.on), el('span', 'fxarr', '↳ Send 2'), chip('Master 2', m2 ? m2.name : '?', 'm2', !fx.m2.on), arrow(), chip('EQ', (fx.eqLo || fx.eqHi) ? 'L ' + F.sgn(fx.eqLo) + ' / H ' + F.sgn(fx.eqHi) + ' dB' : 'flat', 'eq'));
   box.appendChild(r2); host.appendChild(box);
-  host.appendChild(el('p', 'help', 'A combination has 8 insert effect blocks, shared out as chains to its timbres, and the two master effects. Tap a block to edit it.'));
+  host.appendChild(el('p', 'help', 'Tap a block to edit it.'));
 }
 function renderCombiBlock(host) {
   const k = Number(fxSel.slice(1)), B = patch.blocks[k]; if (!B) return;
@@ -641,8 +699,8 @@ function pageCombiFx() {
   if (!/^(b\d|m1|m2|eq)$/.test(fxSel) || (fxSel[0] === 'b' && !C.blocks[Number(fxSel.slice(1))])) fxSel = first !== undefined ? 'b' + first : 'm2';
   const secs = [{ title: 'Routing', custom: renderCombiRouting }];
   if (fxSel[0] === 'b') secs.push({ title: 'Insert effect ' + (Number(fxSel.slice(1)) + 1), custom: renderCombiBlock });
-  else if (fxSel === 'm1') secs.push({ title: 'Master Effect 1 · modulation', custom: h => renderFxMaster(h, 'm1'), help: 'Mono in, stereo out. It returns only the effect sound.' });
-  else if (fxSel === 'm2') secs.push({ title: 'Master Effect 2 · reverb and delay', custom: h => renderFxMaster(h, 'm2'), help: 'Mono in, stereo out. It returns only the effect sound.' });
+  else if (fxSel === 'm1') secs.push({ title: 'Master Effect 1 · modulation', custom: h => renderFxMaster(h, 'm1'), help: 'Returns only the effect sound.' });
+  else if (fxSel === 'm2') secs.push({ title: 'Master Effect 2 · reverb and delay', custom: h => renderFxMaster(h, 'm2'), help: 'Returns only the effect sound.' });
   else secs.push({ title: 'Master EQ', controls: [S('fx.eqLo', 'Low gain', -18, 18, { step: 0.5, fmt: v => F.sgn(v) + ' dB' }), S('fx.eqHi', 'High gain', -18, 18, { step: 0.5, fmt: v => F.sgn(v) + ' dB' })] });
   return secs;
 }
@@ -726,7 +784,7 @@ function renderPage() {
     if (sec.custom) sec.custom(s);
     else {
       const g = el('div', 'grid');
-      for (const d of sec.controls) g.appendChild(mkCtl(d, egSvg ? () => drawEG(egSvg, sec.eg, sec.isAmp) : null));
+      for (const d of sec.controls) g.appendChild(mkCtl(d, egSvg ? () => drawEG(egSvg, sec.eg, sec.isAmp) : sec.onChange || null));
       s.appendChild(g);
     }
     if (sec.help) s.appendChild(el('p', 'help', sec.help));
@@ -761,7 +819,7 @@ function renderMods(host) {
     a.append(inp, out); r.appendChild(a); box.appendChild(r);
   });
   host.appendChild(box);
-  host.appendChild(el('p', 'help', 'Each slot is one of MOSS\u2019s per-parameter AMS routings. Pitch amounts are curved: 25 is about three-quarters of a semitone and 99 is an octave. \u201cVia\u201d multiplies the route by a second source, such as LFO 1 via JS +Y for joystick vibrato. Mod A and B change meaning with the oscillator type and are named in the destination list.'));
+  host.appendChild(el('p', 'help', '\u201cVia\u201d multiplies a route by a second source (e.g. LFO 1 via JS +Y for joystick vibrato).'));
 }
 // New program: a blank MOSS, PCM or combination program, added to the User bank
 let newOpen = false;
@@ -799,15 +857,14 @@ function renderMemory(host) {
   if (newOpen) {
     const nr = el('div', 'btnrow newprog');
     b('MOSS program', () => newProgram('moss'), nr); b('PCM program', () => newProgram('pcm'), nr); b('Combination', () => newProgram('combi'), nr);
-    host.append(nr, el('p', 'help', 'Adds a blank program to your User bank. MOSS: the modelling synth of Bank M. PCM: a sample program like banks A–D (one oscillator, A.Piano, filter open). Combination: up to 8 timbres, each playing a program; timbre 1 starts with the program you were on, and the Timbre pages choose the others.'));
+    host.append(nr, el('p', 'help', 'Adds a blank program to your User bank.'));
   }
-  if (w) host.appendChild(el('p', 'help', 'Save in place keeps your edit as ' + w.label + ' of ' + w.file + ': the bank list and every combination that uses this program play it from now on (as on the Trinity, a combination uses its own effects, not the program’s). Restore original brings back the program from the file.'));
-  host.appendChild(el('p', 'help', 'User programs and imported banks live in this browser only. Use Export to keep a copy elsewhere. Importing reads a Trinity PCG file\u2019s Bank M (MOSS) programs, its PCM programs (banks A\u2013D; Drum-mode programs are not supported), its combinations, and its user scale. Korg\u2019s free Trinity preload data can be imported the same way. Like the real synth\u2019s memory, an imported file that lacks some banks uses the ones loaded before it (earlier imports first, then the built-in files); the Timbres table shows where each program comes from.'));
+  if (w) host.appendChild(el('p', 'help', 'Save in place keeps your edit as ' + w.label + ' of ' + w.file + ', also in combinations. Restore original undoes it.'));
+  host.appendChild(el('p', 'help', 'Your programs and imported files are kept in this browser only; use Export for a copy.'));
 }
 function renderImportInfo(host) {
   if (patch.kind === 'combi') {
     const k = patch.korgInfo || {}, lines = [(k.source ? k.source + '. ' : '') + 'Trinity combination: ' + patch.timbres.filter(t => t.status !== 'off').length + ' timbres in use, ' + (patch.chains || []).length + ' insert effect chain' + ((patch.chains || []).length === 1 ? '' : 's') + '.'];
-    lines.push('Each timbre plays its program from the same PCG file (banks A\u2013D: PCM programs with stand-in samples; bank M: MOSS). Not modelled yet: a timbre\u2019s own scale (all timbres use the combination\u2019s scale). How the timbres share the insert effects follows the user files; Korg\u2019s documentation of that byte is incomplete.');
     (k.notes || []).forEach(n => lines.push(n + '.'));
     lines.forEach(t => host.appendChild(el('p', 'help', t)));
     return;
@@ -815,7 +872,6 @@ function renderImportInfo(host) {
   if (patch.kind === 'pcm') {
     const k = patch.korgInfo || {}, lines = [(k.source ? k.source + '. ' : '') + 'Trinity PCM program, ' + { single: 'Single', double: 'Double' }[patch.mode] + ' mode.'];
     patch.o.slice(0, patch.mode === 'double' ? 2 : 1).forEach((O, i) => lines.push('OSC ' + (i + 1) + ': ' + (O.msHi < 0x1000 ? PCM_MS_NAMES[O.msHi] : ramName(O.msHi)) + ' → plays: ' + msPlays(O.msHi) + '.'));
-    lines.push('Korg\u2019s sample ROM is not available, so openly licensed General MIDI recordings (MuseScore\u2019s MS General, MIT licence) and built-in waveforms stand in for the multisamples. The program\u2019s own filters, envelopes, LFOs and effects are applied to them.');
     (k.notes || []).forEach(n => lines.push(n + '.'));
     lines.forEach(t => host.appendChild(el('p', 'help', t)));
     return;

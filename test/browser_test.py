@@ -10,7 +10,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TMP = tempfile.mkdtemp()
 fails = []
 def ok(name, cond, extra=''):
-    print(('PASS ' if cond else 'FAIL ') + name + ('  ' + str(extra) if extra != '' else ''), flush=True)
+    line = ('PASS ' if cond else 'FAIL ') + name + ('  ' + str(extra) if extra != '' else '')
+    print(line.encode(sys.stdout.encoding or 'utf-8', 'backslashreplace').decode(sys.stdout.encoding or 'utf-8'), flush=True)  # any console
     if not cond: fails.append(name)
 def serve(root=ROOT, page='index.html'):
     class Quiet(http.server.SimpleHTTPRequestHandler):
@@ -191,7 +192,7 @@ async def keyboard_and_midi(pg):
     ok('MIDI mode: the monitor shows the note', 'D4' in await pg.text_content('#mmnote') and '90' in await pg.text_content('#mmnote'), await pg.text_content('#mmnote'))
     await pg.wait_for_timeout(150)
     lat = await pg.text_content('#mmlat')
-    ok('MIDI mode: the monitor shows the latency', lat.startswith('≈ ') and lat.endswith(' ms') and int(lat[2:-3]) > 0, ascii(lat))
+    ok('MIDI mode: the monitor shows the latency', lat.startswith('≈ ') and lat.endswith(' ms') and int(lat[2:-3]) > 0, lat)
     # Cutoff moves both filters by the same amount
     f0 = await pg.evaluate("(p => [p.f[0].freqA, p.f[1].freqA, p.filt.link])(window.__moss.getPatch())")
     await pg.evaluate("(() => { const r = [...document.querySelectorAll('#mmgrid .ctl')].find(c => c.textContent.startsWith('Cutoff')).querySelector('input'); r.value = Number(r.value) - 10; r.dispatchEvent(new Event('input')); })()")
@@ -289,6 +290,15 @@ async def sound_and_pages(b, url):
         await pg.evaluate('(v) => __t.load(v)', v)
         n, empty = await pg.evaluate('__t.pages()')
         ok('%s: all %d pages render' % (v, n), n > 0 and not empty, empty)
+    # PCM programs: the Mod tab gathers every modulation slot of an oscillator (the Trinity has no matrix for them)
+    await pg.evaluate("(v) => { __t.load(v); window.__moss.selectPage('mod'); }", pc)
+    ok('PCM program: a Mod tab with its modulation slots', await pg.is_visible('#tab-mod') and 'Vibrato depth A.M.' in await pg.text_content('#page'))
+    await pg.evaluate("""() => { const c = [...document.querySelectorAll('#page label.ctl')], f = t => c.find(l => l.querySelector('.nm').textContent === t);
+      const s = f('Filter A cutoff A.M.').querySelector('select'); s.value = 'at'; s.dispatchEvent(new Event('change'));
+      const r = f('Filter A cutoff A.M. amount').querySelector('input'); r.value = 30; r.dispatchEvent(new Event('input')); }""")
+    f0 = await pg.evaluate("(f => [f.amsSrc, f.amsInt])(window.__moss.getPatch().o[0].f[0])")
+    lst = await pg.text_content('#pcmmods')
+    ok('...editing there changes the program, and the list of active routes follows', f0 == ['at', 30] and 'Aftertouch → Filter A cutoff: +30' in lst, [f0, lst])
     await pg.evaluate("window.__moss.loadProgram('cb', 0); window.__moss.selectPage('timbre')")
     txt = await pg.evaluate("document.querySelector('#page').textContent")
     ok('combination Timbre page shows Delay start and the MIDI filters', 'Delay start' in txt and 'MIDI filters' in txt and 'Receives the damper' in txt)

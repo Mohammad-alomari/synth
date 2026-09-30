@@ -23,7 +23,7 @@ function pageKeys() {
       host.appendChild(g);
       const row = el('div', 'btnrow'); row.appendChild(btn('Automatic height', () => set('h', 0, true))); row.appendChild(btn('Reset all key settings', () => { for (const k of ['oct', 'kw', 'start', 'rows', 'h', 'bl', 'bw', 'hideBlack', 'labels', 'vel']) kbs[k] = clone(kbDefault[k]); kbApply(); renderPage(); toast('Keyboard reset'); }));
       host.appendChild(row);
-      host.appendChild(el('p', 'help', 'The Oct buttons still shift what the keys play; the computer keys (A W S E D …) start at the lowest C on the screen. Touch velocity “by position” plays softer near the top of a key and louder near the bottom; any other value plays every note at that velocity.'));
+      host.appendChild(el('p', 'help', 'Computer keys (A W S E D …) start at the lowest C shown.'));
     } },
     { title: 'Black keys', custom: host => {
       const pre = el('div', 'bkpre');
@@ -36,7 +36,7 @@ function pageKeys() {
         g.appendChild(rng('Length', 20, 80, kbs.bl, v => v + '%', v => set('bl', v)));
         g.appendChild(rng('Width', 25, 90, kbs.bw, v => v + '%', v => set('bw', v)));
         host.appendChild(g); }
-      host.appendChild(el('p', 'help', kbs.hideBlack ? 'Only the white keys are shown, each one wider. Sharps and flats still play from MIDI and the computer keyboard.' : 'Length and width are measured against a white key. Shorter black keys leave more of the white keys free to touch.'));
+      host.appendChild(el('p', 'help', kbs.hideBlack ? 'Sharps and flats still play from MIDI.' : 'Sizes are relative to a white key.'));
     } },
     { title: 'Controls', custom: host => {
       const g = el('div', 'grid'), setCtl = (k, v) => { kbs.ctl[k] = v; kbApply(); };
@@ -47,14 +47,14 @@ function pageKeys() {
       row.appendChild(btn('Hide all', () => { for (const [k] of CTL_ITEMS) kbs.ctl[k] = false; kbApply(); renderPage(); }));
       row.appendChild(btn('Default', () => { kbs.ctl = clone(kbDefault.ctl); kbApply(); renderPage(); }));
       host.appendChild(row);
-      host.appendChild(el('p', 'help', 'Choose what sits next to the keys (normal view and play mode). Fewer controls leave more width for the keys. The vertical sticks go at the left of the keys and spring back to the centre: the X stick bends the pitch (up +X, down −X, like the joystick left/right), the Y stick sends modulation (up +Y = CC1, down −Y = CC2).'));
+      host.appendChild(el('p', 'help', 'X stick: pitch bend. Y stick: CC1 up, CC2 down.'));
     } },
     { title: 'Play mode', custom: host => {
       const g = el('div', 'grid');
       g.appendChild(tog('Full screen and turn sideways', kbs.fullscreen, v => set('fullscreen', v)));
       host.appendChild(g);
       const row = el('div', 'btnrow'); row.appendChild(btn('Start play mode', () => { startAudio(); setPlayMode(true); })); host.appendChild(row);
-      host.appendChild(el('p', 'help', 'Play mode hides the editor so the keyboard fills the screen. Hold a phone sideways: Android browsers turn and go full screen by themselves; on an iPhone, turn it by hand (and turn off the portrait orientation lock). Exit returns to the editor.'));
+      host.appendChild(el('p', 'help', 'The keyboard fills the screen; hold a phone sideways.'));
     } },
     { title: 'MIDI program buttons', custom: host => {
       for (const [k, lab, key] of [['next', 'Next program', 'midiNext'], ['prev', 'Previous program', 'midiPrev']]) {
@@ -66,7 +66,7 @@ function pageKeys() {
       const g = el('div', 'grid');
       g.appendChild(sel('Program change messages', [['step', 'Step to the next or previous program'], ['bank', 'Pick that number in the current bank'], ['off', 'Ignore']], kbs.pc, v => { kbs.pc = v; saveKbs(); }));
       host.appendChild(g);
-      host.appendChild(el('p', 'help', 'Press Learn, then press the button on your MIDI keyboard: it can send a note, a controller or a program change. Many keyboards’ program +/− buttons send program changes; “Step” follows their direction, so they work with no learning at all. MIDI must be switched on (the MIDI button at the top).'));
+      host.appendChild(el('p', 'help', 'Press Learn, then the button on your MIDI keyboard.'));
     } }
   ];
 }
