@@ -62,7 +62,7 @@ pcmmap.js      PCM_STANDIN.ms (multisample 0-374 -> stand-in; percussion multisa
 pcgdata.js     built-in MOSS banks (base64): the user's 4 Bank M files.
 tridata.js     built-in Trinity data (base64): user's PCM banks and combinations (TRI_BUILTIN).
 userdata.js    USER_TRITON (tools/user_starters.js from a Triton PCG + its sample disk folder, here MS097007): the programs whose
-               multisamples are all on the disk (540-byte records, decoded at start-up: core.js userStarters), the file's user
+               multisamples are all on the disk (540-byte records, decoded when first played: core.js userStarters {name, make}), the file's user
                octave scales, the disk's multisamples (pack u_<kmp file>, RAM number, name, ROM stand-in) and plain programs for
                unused ones. Listed after the MOSS starters ('st' ids >= MOSS_PRESETS.length; starterPatch). Stub in --public.
 samples/       111 MP3 packs (mono 32 kHz 48 kb/s; gmNNN = GM program NNN 0-based; kit_std/elec/808/brush/orch)
@@ -84,6 +84,9 @@ Conventions / gotchas
   be classes with static methods; no module-level helpers in engine files. Add new engine classes to
   ENGINE_CLASSES, build.py, test/harness.js ORDER.
 - build.py strips lines starting with "if (typeof module !== 'undefined')" -> keep each module.exports on ONE line.
+- Audio thread: no allocation per block or per sample where avoidable (no closures, arrays, for-of or spread in process /
+  renderBlock paths; V8 boxes doubles returned from calls it does not inline). Effects rest when silent: FxRack.run skips a
+  unit whose input and output have been below -140 dB for 6 s (longer than the longest delay line, 5.46 s); a mic keeps it awake.
 - Messages to the engine: patch, set (path,v), on, off, cc, bend, at, tune, panic, pcmMap, pcmPack (zones,
   transferable buffer). Worklet posts {t:'st', v: voiceStates, need:[pack names]}.
 - Program ids in the UI: st:N starter, us:N user, pm:N MOSS bank, pc:N PCM (bank*128+i), cb:N combination.
@@ -131,7 +134,7 @@ PCM cutoff: PCM.cutHz(x) = 250 * 2^(x/15.6) Hz, clamped 30 Hz..0.45*sr. Filter E
 Filter input gain = value/99. Resonance 0..31 mapped onto MOSS resonance curve (x92/31).
 LFO: 0.03 * 1000^(v/99) Hz. EG times: MD.tsec (shared with MOSS). PCM output trim 3.3.
 Timbre level -> (level/127)^2; whole combination -3 dB. Voice caps in combis: PCM 32/(active timbres), MOSS 6.
-Output: peak limiter (ceiling 0.89, 120 ms release) + soft clip.
+Output: peak limiter (ceiling 0.89, 120 ms release) + soft clip. Effects rest after 6 s of silence (FxRack.run).
 UI: MOSS pages show "Trinity number · model estimate" (e.g. "40 · 250 ms"); pan shown Korg-style L000..C064..R127.
 
 ==============================================================================
@@ -164,6 +167,9 @@ name): one bank (list group) at a time, starting with the playing program's; the
 favourites filter lists matches from every bank. Play bar ‹ › are 58x42 px.
 Checks passed: all 2,560 PCM programs render (no NaN); 1,408 combinations render (no NaN, 1 silent by data);
 MOSS sound identical to Version 11 (regress.js); browser tests in AudioWorklet and ScriptProcessor modes; phone width.
+Speed (2026-09-29, main-context Node on the dev PC, 4-note chord): MOSS program ~10% of a core, PCM ~5%, combination
+~13%; the reverbs are the costliest code (FxReverb ~200-470 ns/sample). Idle (12 s after the last note): MOSS ~1%, PCM
+~0.6%, combinations ~0.9% (were 2.6 / 2.1 / 3.7% before effects rested).
 
 Open / ideas (not built):
 1. Combination: per-timbre (program) scale not modelled.
@@ -187,22 +193,25 @@ are not downloadable; the factory preload would also play stand-ins.
 ==============================================================================
 6. BUILD, RUN, TEST
 ==============================================================================
-Build:   python3 build.py [out.html] [--public]   (--public: without the owner's files - tridata.js and pcgdata.js.
+Build:   python3 build.py [out.html] [--public]   (--public: without the owner's files - tridata.js, pcgdata.js, userdata.js.
          Netlify publishes the --public build; test/check_public.py checks it.)
 Run:     python3 -m http.server 8765   then open http://localhost:8765/index.html (Chrome/Edge; needs http for audio,
          MIDI and samples). Web MIDI: Chrome, Edge, Firefox (not Safari).
 Lint:    npm install once, then npm run lint (also in CI).
-Tests: sh test/run_all.sh (~1 min, exit 0 = pass; FULL=1 for every program/combination, ~10 min).
+Tests: sh test/run_all.sh (~2 min, most of it the browser test; exit 0 = pass; FULL=1 for every program/combination).
   CI: .github/workflows/test.yml runs npm run lint, then build.py + run_all.sh on every push / PR.
   Checks: fxunit, fuzz, fxfix (effects), voicefix (notes), combifix (timbre delay, MIDI filters), progs (MOSS programs, every 8th), combis (every 16th,
   needs ffmpeg), browser_test.py (Playwright; starts its own server; sound in both audio modes, all pages, fx edit,
   phone width, recording, keyboard settings, play mode, search, MIDI buttons, IndexedDB storage, synth memory,
   error messages, public build: manifest, service worker, opens offline).
-  test/harness.js loads sources in a vm; test/pcmpacks.js decodes samples/ with ffmpeg; test/mkpcg.js writes a PCG
+  test/harness.js loads sources as one module of the Node process (load(files, root); NOT a vm context, where Math & co.
+  are 4-5x slower); test/pcmpacks.js decodes samples/ with ffmpeg; test/mkpcg.js writes a PCG
   from built-in data. window.__moss exposes loadProgram(bank, idx), getPatch, noteOn/noteOff, selectPage, engine()
   (script mode), importPcgFile.
-  test/tools/ (by hand, no pass/fail): regress.js / fxregress.js <older copy folder> (sample-by-sample regression;
-  env STEP, SECS, ONLY), fxfunc.js, models2.js, fxprof.js, showfx.js.
+  test/tools/ (by hand, no pass/fail): regress.js <older copy folder> (sample-by-sample regression of MOSS programs, PCM
+  programs with their stand-in packs and combinations; env KIND moss,pcm,combi, STEP, SECS, TAIL, ONLY, DRY; an older copy:
+  git archive HEAD | tar -x -C <folder>), fxregress.js (every effect), fxfunc.js, models2.js, fxprof.js, showfx.js.
+  Before/after checks of engine speed-ups: regress.js must report every render identical.
 
 ==============================================================================
 7. SOURCES AND LINKS

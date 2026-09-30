@@ -1,4 +1,4 @@
-// Checks for effect fixes: missing parameters, re-enabling an effect, Dual Delay wet with a mod source, master negative output
+// Checks for effect fixes: missing parameters, re-enabling an effect, Dual Delay wet with a mod source, resting when silent, master negative output
 const H = require('./harness.js'); const X = H.load(H.ORDER); const sr = 48000;
 const ok = (name, cond, extra) => { if (!cond) process.exitCode = 1; console.log((cond ? 'PASS ' : 'FAIL ') + name + (extra ? '  ' + extra : '')); };
 { // missing parameters: every effect type with an almost empty parameter set
@@ -33,6 +33,25 @@ const ok = (name, cond, extra) => { if (!cond) process.exitCode = 1; console.log
   const L = new Float32Array(128), R = new Float32Array(128);
   let first = 0; { const r3 = new X.FxRack(sr); for (let i = 0; i < 128; i++) L[i] = R[i] = 1; r3.process(L, R, 128, fx); first = L[0]; }
   ok('  ...dry share is 90%', Math.abs(first - 0.9) < 1e-6, 'first sample ' + first.toFixed(4));
+}
+{ // an effect rests after 6 s of silence in and out, not before its longest echo, and wakes up at once
+  const r = new X.FxRack(sr), fx = X.TFX.rack(); fx.m1.on = 0; fx.m2.on = 0;
+  const p = X.TFX.defaults('S4:17'); p.tempo = 48; p.len = 1; p.lenDiv = 1; p.fb = 0; p.wet = 50; // one echo, 5 s later (the longest line)
+  fx.ins = [{ on: 1, type: 'S4:17', p }];
+  const L = new Float32Array(128), R = new Float32Array(128), bps = sr / 128; let echoAt = -1;
+  for (let b = 0; b < 12 * bps; b++) {
+    for (let i = 0; i < 128; i++) L[i] = R[i] = b < 2 ? Math.sin(i * 0.2) * 0.5 : 0;
+    r.process(L, R, 128, fx);
+    if (b > 2 && echoAt < 0) for (let i = 0; i < 128; i++) if (Math.abs(L[i]) > 1e-3) { echoAt = b / bps; break; }
+  }
+  const u = r.ins[0];
+  ok('a 5 s echo still comes after 5 s of silence', Math.abs(echoAt - 5) < 0.1, 'echo at ' + echoAt.toFixed(2) + ' s');
+  ok('  ...then the delay rests (6 s of silence)', u.q >= 6 * sr, 'silent ' + (u.q / sr).toFixed(1) + ' s');
+  let calls = 0; const proc = u.process; u.process = function (...a) { calls++; return proc.apply(this, a); };
+  L.fill(0); R.fill(0); r.process(L, R, 128, fx);
+  ok('  ...and is not computed while resting', calls === 0);
+  for (let i = 0; i < 128; i++) L[i] = R[i] = Math.sin(i * 0.2) * 0.5; r.process(L, R, 128, fx);
+  ok('  ...and wakes up with the first sound', calls === 1 && u.q === 0 && Math.abs(L[10]) > 0.1, 'calls ' + calls + ', out ' + L[10].toFixed(3));
 }
 { // master Flanger with negative output level keeps its sign when a mod source is set
   const r = new X.FxRack(sr), u = X.FxRack.make(sr, X.TFX.byId('MM:1')); u.master = true; u.x = r.x;

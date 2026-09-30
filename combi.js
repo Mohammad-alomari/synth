@@ -11,7 +11,7 @@ class MossCombi {
   constructor(host) {
     this.host = host; this.sr = host.sr; this.patch = null;
     this.parts = []; this.racks = []; this.cfx = []; this.master = new FxRack(host.sr);
-    this.held = new Map(); // key -> [[timbre, note sent], ...]
+    this.held = new Map(); this.keys = []; // key -> [[timbre, note sent], ...]; keys: the keys held (for the effect sources)
     this.clock = 0; this.pending = []; // delayed timbre notes: { at (sample), key, k, n, v, kk, off }
     this.grow(128);
   }
@@ -52,7 +52,7 @@ class MossCombi {
     });
     this.cfx.length = (C.chains || []).length;
   }
-  stop() { for (const e of this.parts) if (e) e.handle({ t: 'panic' }); this.held.clear(); this.pending = []; }
+  stop() { for (const e of this.parts) if (e) e.handle({ t: 'panic' }); this.held.clear(); this.keys = []; this.pending = []; }
   // MIDI filters: does timbre t receive this controller message? (older stored combinations have no filter fields)
   static receives(t, m) {
     if (!t) return true;
@@ -99,7 +99,7 @@ class MossCombi {
       else e.handle({ t: 'on', n, v, k: kk });
       sent.push(k, n);
     });
-    this.held.set(note, sent);
+    this.held.set(note, sent); this.keys = [...this.held.keys()];
   }
   noteOff(note) {
     // a delayed note whose key is released before its delay has passed does not sound; key-off timbres start now
@@ -112,7 +112,7 @@ class MossCombi {
     this.pending = kept;
     const s = this.held.get(note); if (!s) return;
     for (let i = 0; i < s.length; i += 2) { const e = this.parts[s[i]]; if (e && e.patch) e.handle({ t: 'off', n: s[i + 1] }); }
-    this.held.delete(note);
+    this.held.delete(note); this.keys = [...this.held.keys()];
   }
   static get KEYOFF_S() { return 0.25; }
   // starts delayed notes that are due (at block start: within 3 ms)
@@ -139,12 +139,13 @@ class MossCombi {
     if (this.pending.length) this.runPending(n); else this.clock += n;
     const pl = this.pl, pr = this.pr, s1 = this.s1, s2 = this.s2, chains = P.chains || [];
     s1.fill(0, 0, n); s2.fill(0, 0, n);
-    const cUsed = []; for (let c = 0; c < chains.length; c++) { cUsed.push(false); this.cL[c].fill(0, 0, n); this.cR[c].fill(0, 0, n); }
-    P.timbres.forEach((t, k) => {
-      const e = this.parts[k];
-      if (!e || !e.patch) return;
-      let busy = false; for (const v of e.voices) if (v.active) { busy = true; break; }
-      if (!busy) return;
+    for (let c = 0; c < chains.length; c++) { this.cL[c].fill(0, 0, n); this.cR[c].fill(0, 0, n); }
+    const T = P.timbres;
+    for (let k = 0; k < T.length; k++) {
+      const t = T[k], e = this.parts[k];
+      if (!e || !e.patch) continue;
+      let busy = false; for (let j = 0; j < e.voices.length; j++) if (e.voices[j].active) { busy = true; break; }
+      if (!busy) continue;
       e.tuneRef = H.tuneRef + (t.detune || 0) / 100;
       e.process(pl, pr, n, null);
       const g = Math.pow((t.level === undefined ? 127 : t.level) / 127, 2);
@@ -154,22 +155,23 @@ class MossCombi {
       } else if (g !== 1) for (let i = 0; i < n; i++) { pl[i] *= g; pr[i] *= g; }
       const c = t.chain === undefined ? -1 : t.chain;
       if (c >= 0 && c < chains.length) {
-        const L = this.cL[c], R = this.cR[c]; cUsed[c] = true;
+        const L = this.cL[c], R = this.cR[c];
         for (let i = 0; i < n; i++) { L[i] += pl[i]; R[i] += pr[i]; }
-        return;
+        continue;
       }
       const pf = e.patch.fx || {}, a = (t.send1 === 'prog' ? pf.send1 || 0 : t.send1 || 0) / 127, b = (t.send2 === 'prog' ? pf.send2 || 0 : t.send2 || 0) / 127;
       for (let i = 0; i < n; i++) { outL[i] += pl[i]; outR[i] += pr[i]; const m = (pl[i] + pr[i]) * 0.5; s1[i] += m * a; s2[i] += m * b; }
-    });
+    }
     // effect modulation sources come from the host's controllers and the keys held in the combination
-    H.held = [...this.held.keys()]; H.fxSources(); H.fx.x.mic = mic || null;
-    chains.forEach((ch, c) => {
-      // chains run even when their timbres are silent, so delay and reverb tails ring out
-      const L = this.cL[c], R = this.cR[c], rk = this.racks[c]; rk.x = H.fx.x;
+    H.held = this.keys; H.fxSources(); H.fx.x.mic = mic || null;
+    for (let c = 0; c < chains.length; c++) {
+      // chains run even when their timbres are silent, so delay and reverb tails ring out (an effect rests only after
+      // 6 s of silence: FxRack.run)
+      const ch = chains[c], L = this.cL[c], R = this.cR[c], rk = this.racks[c]; rk.x = H.fx.x;
       rk.process(L, R, n, this.cfx[c]);
       const a = ch.send1 / 127, b = ch.send2 / 127;
       for (let i = 0; i < n; i++) { outL[i] += L[i]; outR[i] += R[i]; const m = (L[i] + R[i]) * 0.5; s1[i] += m * a; s2[i] += m * b; }
-    });
+    }
     // layered timbres add up: the combination sits 3 dB below a single program (estimate)
     for (let i = 0; i < n; i++) { outL[i] *= 0.708; outR[i] *= 0.708; s1[i] *= 0.708; s2[i] *= 0.708; }
     this.master.x = H.fx.x;

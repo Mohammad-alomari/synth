@@ -56,10 +56,11 @@ class PcmLFO {
   constructor(seed) { this.ph = 0; this.seed = seed | 0 || 1; this.r0 = 0; this.r1 = 0; this.cur = 0; this.hold = 1; this.t = 0; }
   rnd() { let x = this.seed; x ^= x << 13; x ^= x >>> 17; x ^= x << 5; this.seed = x; return (x >>> 0) / 4294967296 * 2 - 1; }
   reset() { this.ph = 0; this.t = 0; this.r0 = this.rnd(); this.r1 = this.rnd(); this.hold = 1; }
+  static tri(q) { q = q - Math.floor(q); return q < 0.25 ? q * 4 : q < 0.75 ? 2 - q * 4 : q * 4 - 4; }
   step(hz, dt, w) {
     const prev = this.ph; this.ph += hz * dt; let wrap = false;
     if (this.ph >= 1) { this.ph -= Math.floor(this.ph); wrap = true; }
-    const p = this.ph, tri = q => { q = q - Math.floor(q); return q < 0.25 ? q * 4 : q < 0.75 ? 2 - q * 4 : q * 4 - 4; };
+    const p = this.ph, tri = PcmLFO.tri;
     switch (w) {
       case 'tri0': return tri(p); case 'tri90': return tri(p + 0.25); case 'tri180': return tri(p + 0.5); case 'tri270': return tri(p + 0.75);
       case 'sawup0': return p * 2 - 1; case 'sawup180': return ((p + 0.5) % 1) * 2 - 1;
@@ -182,9 +183,11 @@ class PcmVoice {
   constructor(sr, idx) {
     this.sr = sr; this.idx = idx; this.active = false; this.gate = false; this.note = 60; this.vel = 1; this.age = 0; this.sustained = false;
     this.peg = new PcmEG(); this.seed = 7777 + idx * 131;
-    this.o = [0, 1].map(k => ({ on: false, z: null, pk: null, pos: 0, root: 60, rate: 1, gain: 0, feg: new PcmEG(), aeg: new PcmEG(), lfo: new PcmLFO(900 + idx * 17 + k), flfo: new PcmLFO(500 + idx * 29 + k),
+    this.o = [0, 1].map(k => ({ on: false, z: null, pk: 0, pos: 0, root: 60, rate: 1, gain: 0, feg: new PcmEG(), aeg: new PcmEG(), lfo: new PcmLFO(900 + idx * 17 + k), flfo: new PcmLFO(500 + idx * 29 + k),
       sa: new Float64Array(2), sb: new Float64Array(2), ca: new Float64Array(4), cb: new Float64Array(4), xa: NaN, xb: NaN, ra: NaN, rb: NaN,
-      g: 0, pl: 0, pr: 0, wait: 0, keyOff: false, lfoOn: true, flfoOn: true, lfoT: 0, flfoT: 0, lvl: 1, filt: true, key: 60, velA: 1, sv: new Float64Array(8) }));
+      g: 0, pl: 0, pr: 0, wait: 0, keyOff: false, lfoOn: true, flfoOn: true, lfoT: 0, flfoT: 0, lvl: 1, filt: true, key: 60, velA: 1, sv: new Float64Array(8),
+      // set while playing; declared here so every oscillator keeps one object shape (no allocation per block)
+      kind: 'ms', id: 0, off: 0, startNow: false, relLater: 0, lv: 0, fv: 0, sgain: 1 }));
     this.pitch = 60; this.target = 60; this.glideSpan = 0; this.detune = 0; this.rnd = 0; this.silent = 0; this.fading = false; this.fadeG = 1;
   }
   noise() { let x = this.seed | 0; x ^= x << 13; x ^= x >>> 17; x ^= x << 5; this.seed = x; return (x >>> 0) / 4294967296 * 2 - 1; }
@@ -200,7 +203,7 @@ class PcmVoice {
       const O = P.o[i], o = this.o[i];
       o.on = P.mode !== 'drum' && (i === 0 || (P.mode === 'double' && vel * 127 >= P.osc2Vel)); // Drum mode: silent
       if (!o.on) continue;
-      o.pos = 0; o.sa.fill(0); o.sb.fill(0); o.xa = NaN; o.xb = NaN; o.ra = NaN; o.rb = NaN; o.g = 0; o.lfoT = 0; o.flfoT = 0;
+      o.pos = 0; o.sa.fill(0); o.sb.fill(0); o.xa = NaN; o.xb = NaN; o.ra = NaN; o.rb = NaN; o.g = 0; o.lfoT = 0; o.flfoT = 0; o.relLater = 0; o.startNow = false;
       const hi = vel * 127 >= O.velSplit;
       let id = hi ? O.msHi : O.msLo;
       const lvl = (hi ? O.lvlHi : O.lvlLo) / 127, off = hi ? O.offHi : O.offLo;
@@ -251,6 +254,12 @@ class PcmVoice {
     this.relAt = 1;
   }
   kill() { this.active = false; this.gate = false; for (const o of this.o) { o.on = false; o.aeg.kill(); o.feg.kill(); } this.peg.kill(); }
+  // filter cutoff (parameter units) of filter Fp of oscillator i: cutoff + EG, LFO, controllers, key track, A.M.
+  fcut(eng, Fp, i, feg, fv, flInt, feInt) {
+    const c = eng.ctl;
+    return Fp.cut + feg * PCM.EGK * (Fp.egInt * (1 + Fp.egVel / 99 * (this.vel - 1)) + feInt) + fv * (Fp.lfoInt + flInt) + c.jsx * Fp.jsx + c.at * Fp.at
+      + MossVoice.trk(this.note, Fp.lowKey, Fp.highKey, Fp.lowRamp, Fp.highRamp) + (Fp.amsInt ? Fp.amsInt * this.ams(eng, Fp.amsSrc, i) : 0) + eng.ccOff.cutoff;
+  }
   renderBlock(eng, L, R, off, n) {
     const P = eng.patch, sr = this.sr, dt = n / sr, c = eng.ctl, store = eng.store;
     // mono legato moves the pitch at once (PCM programs have no portamento); the voice-wide pitch EG
@@ -323,13 +332,11 @@ class PcmVoice {
       // filter LFO intensity grows with joystick -Y, aftertouch and its A.M.; filter EG intensity with its A.M.
       const flInt = O.flfoMod.jsyn * c.jsyn + O.flfoMod.at * c.at + (O.flfoMod.amsInt ? O.flfoMod.amsInt * this.ams(eng, O.flfoMod.amsSrc, i) : 0);
       const feInt = O.fegAms.int ? O.fegAms.int * this.ams(eng, O.fegAms.src, i) : 0;
-      const fcut = (Fp) => Fp.cut + feg * PCM.EGK * (Fp.egInt * (1 + Fp.egVel / 99 * (this.vel - 1)) + feInt) + fv * (Fp.lfoInt + flInt) + c.jsx * Fp.jsx + c.at * Fp.at
-        + MossVoice.trk(this.note, Fp.lowKey, Fp.highKey, Fp.lowRamp, Fp.highRamp) + (Fp.amsInt ? Fp.amsInt * this.ams(eng, Fp.amsSrc, i) : 0) + eng.ccOff.cutoff;
       if (rc) {
-        const xa = fcut(O.f[0]), ra = O.f[0].reso + O.f[0].resoVel / 99 * 31 * (this.vel - 1) + eng.ccOff.reso / 3;
+        const xa = this.fcut(eng, O.f[0], i, feg, fv, flInt, feInt), ra = O.f[0].reso + O.f[0].resoVel / 99 * 31 * (this.vel - 1) + eng.ccOff.reso / 3;
         if (xa !== o.xa || ra !== o.ra) { o.xa = xa; o.ra = ra; MossVoice.svfCoef(PCM.cutHz(xa, sr), PCM.kReso(ra), sr, o.ca); }
         if (rc > 1) {
-          const xb = fcut(O.f[1]), rb = O.f[1].reso + O.f[1].resoVel / 99 * 31 * (this.vel - 1) + eng.ccOff.reso / 3;
+          const xb = this.fcut(eng, O.f[1], i, feg, fv, flInt, feInt), rb = O.f[1].reso + O.f[1].resoVel / 99 * 31 * (this.vel - 1) + eng.ccOff.reso / 3;
           if (xb !== o.xb || rb !== o.rb) { o.xb = xb; o.rb = rb; MossVoice.svfCoef(PCM.cutHz(xb, sr), PCM.kReso(rb), sr, o.cb); }
         }
       }

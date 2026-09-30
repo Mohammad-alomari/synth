@@ -1351,10 +1351,8 @@ class MossEngine {
         this.lfoAmp[i] = 1;
         this.glfoVal[i] = this.glfo[i].step(this.lfoRate[i], dtb, L.wave);
       }
-      for (const v of this.voices) if (v.active) {
-        // per-voice LFO rate modulation
-        v.renderBlock(this, outL, outR, off, bn);
-      }
+      const vs = this.voices;
+      for (let k = 0; k < vs.length; k++) if (vs[k].active) vs[k].renderBlock(this, outL, outR, off, bn);
       off += bn;
     }
     this.time += n / this.sr;

@@ -37,6 +37,7 @@ class FXBQ {
   run(x) { const y = this.b0 * x + this.z1; this.z1 = this.b1 * x - this.a1 * y + this.z2; this.z2 = this.b2 * x - this.a2 * y; return y; }
   flush() { if (!(Math.abs(this.z1) > 1e-20)) this.z1 = 0; if (!(Math.abs(this.z2) > 1e-20)) this.z2 = 0; }
   reset() { this.z1 = 0; this.z2 = 0; }
+  static flushAll(a) { for (let k = 0; k < a.length; k++) a[k].flush(); }
 }
 
 // shared helpers
@@ -72,7 +73,7 @@ class FxBase {
     this.sr = sr; this.e = e; this.id = e.id; this.v = e.v; this.grp = e.grp;
     this.mono = e.grp === 'S1'; this.master = e.grp === 'MM' || e.grp === 'MR'; this.big = e.grp === 'S4';
     this.pre = [new FXBQ(), new FXBQ(), new FXBQ(), new FXBQ()]; this.preLo = NaN; this.preHi = NaN;
-    this.ph = 0; this.env = 0; this.rs = { r: (e.idx * 7919 + 17) >>> 0 }; this.x = null;
+    this.ph = 0; this.env = 0; this.rs = { r: (e.idx * 7919 + 17) >>> 0 }; this.x = null; this.q = 0; // q: samples of silence in and out (FxRack.run)
     this.wSigned = e.params.some(q => q[0] === 'wet' && q[2] < 0); this.oSigned = e.params.some(q => q[0] === 'out' && q[2] < 0);
   }
   // input stage shared by many Korg effects: "EQ Trim" then pre low/high shelving EQ
@@ -97,7 +98,7 @@ class FxBase {
     if (this.master) { L[i] = wl * this.G; R[i] = wr * this.G; }
     else { L[i] = dl * this.A + wl * this.W; R[i] = dr * this.A + wr * this.W; }
   }
-  flushAll() { for (const b of this.pre) b.flush(); }
+  flushAll() { FXBQ.flushAll(this.pre); }
   reset() {}
 }
 
@@ -341,7 +342,7 @@ class FxReverb extends FxBase {
       { const y1_ = wl, y2_ = wr; if (MS_) { L[i] = y1_ * G_; R[i] = y2_ * G_; } else { L[i] = (this.mono ? (dl + dr) * 0.5 : dl) * A_ + y1_ * W_; R[i] = (this.mono ? (dl + dr) * 0.5 : dr) * A_ + y2_ * W_; } }
     }
     for (let q = 0; q < 8; q++) if (!(Math.abs(lp[q]) > 1e-20)) lp[q] = 0;
-    this.flushAll(); for (const b of this.post) b.flush();
+    this.flushAll(); FXBQ.flushAll(this.post);
   }
   // Early Reflections effect: Sharp, Loose, Modulated or Reverse reflection patterns over the ER time
   procER(L, R, n, p) {
@@ -450,7 +451,7 @@ class FxMod extends FxBase {
         this.dA.push(hl + this.fb[0] * fbk); if (st) this.dB.push(hr + this.fb[1] * fbk);
         { const y1_ = ll * lo + yl * hi, y2_ = lr * lo + yr * hi; if (MS_) { L[i] = y1_ * G_; R[i] = y2_ * G_; } else { L[i] = (il) * A_ + y1_ * W_; R[i] = (ir) * A_ + y2_ * W_; } }
       }
-      for (const b of this.xo) b.flush();
+      FXBQ.flushAll(this.xo);
     } else if (v === 'ens' || v === 'stens') {
       const dep = (p.depth || 0) / 100 * 4, sh = (p.shimmer || 0) / 100 * 0.45, inc6 = 6.1 / sr;
       // the three modulated delay times are computed every 8 samples and interpolated in between
@@ -773,7 +774,7 @@ class FxFilt extends FxBase {
       }
     }
     for (let k = 0; k < 8; k++) { if (!(Math.abs(this.sv[k]) > 1e-20)) this.sv[k] = 0; if (!(Math.abs(this.lp[k]) > 1e-20)) this.lp[k] = 0; }
-    for (const b of this.bq) b.flush(); this.flushAll();
+    FXBQ.flushAll(this.bq); this.flushAll();
   }
   // Talking Modulator: formant filters morph through Voice Bottom -> Center -> Top as the voice control moves
   talk(L, R, n, p, x) {
@@ -812,7 +813,7 @@ class FxFilt extends FxBase {
       const y = bq[0].run(m) * amp[0] + bq[1].run(m) * amp[1] + bq[2].run(m) * amp[2] + bq[3].run(m) * amp[3];
       { const y1_ = y, y2_ = y; if (MS_) { L[i] = y1_ * G_; R[i] = y2_ * G_; } else { L[i] = (dl) * A_ + y1_ * W_; R[i] = (dr) * A_ + y2_ * W_; } }
     }
-    for (const b of bq) b.flush();
+    FXBQ.flushAll(bq);
   }
   // Piano Body/Damper: sound-board resonances, plus open-string sympathetic resonance while the damper pedal is down
   piano(L, R, n, p, x) {
@@ -828,11 +829,11 @@ class FxFilt extends FxBase {
       const dl = L[i], dr = R[i], m = (dl + dr) * 0.5;
       let body = 0; for (let k = 0; k < 8; k++) body += bq[k].run(m) * (1 - k * 0.08);
       let sym = 0;
-      for (const c of this.cmb) { const y = c.d.tap(c.t); c.s += kd * (y - c.s); c.d.push(m * 0.2 + c.s * fbc); sym += y; }
+      for (let k = 0; k < this.cmb.length; k++) { const c = this.cmb[k], y = c.d.tap(c.t); c.s += kd * (y - c.s); c.d.push(m * 0.2 + c.s * fbc); sym += y; }
       const add = body * board + sym * dmp;
       { const y1_ = bq[8].run(dl + add), y2_ = bq[9].run(dr + add); if (MS_) { L[i] = y1_ * G_; R[i] = y2_ * G_; } else { L[i] = (dl) * A_ + y1_ * W_; R[i] = (dr) * A_ + y2_ * W_; } }
     }
-    for (const b of bq) b.flush(); for (const c of this.cmb) if (!(Math.abs(c.s) > 1e-20)) c.s = 0;
+    FXBQ.flushAll(bq); for (let k = 0; k < this.cmb.length; k++) if (!(Math.abs(this.cmb[k].s) > 1e-20)) this.cmb[k].s = 0;
   }
   // Vocoder: 16 bands; the modulator is the microphone when one is connected, otherwise the input itself
   vocoder(L, R, n, p, x) {
@@ -848,7 +849,7 @@ class FxFilt extends FxBase {
       y = y * 9 * vc + car * (1 - vc) + bq[32].run(mod) * hm;
       { const y1_ = y, y2_ = y; if (MS_) { L[i] = y1_ * G_; R[i] = y2_ * G_; } else { L[i] = (dl) * A_ + y1_ * W_; R[i] = (dr) * A_ + y2_ * W_; } }
     }
-    for (const b of bq) b.flush();
+    FXBQ.flushAll(bq);
   }
 }
 
@@ -890,7 +891,7 @@ class FxEQ extends FxBase {
       if (!st) yr = yl;
       { const y1_ = yl, y2_ = yr; if (MS_) { L[i] = y1_ * G_; R[i] = y2_ * G_; } else { L[i] = (st ? dl : (dl + dr) * 0.5) * A_ + y1_ * W_; R[i] = (st ? dr : (dl + dr) * 0.5) * A_ + y2_ * W_; } }
     }
-    for (const q of b) q.flush();
+    FXBQ.flushAll(b);
   }
 }
 
@@ -930,7 +931,7 @@ class FxDyn extends FxBase {
         }
         { const y1_ = yl, y2_ = yr; if (MS_) { L[i] = y1_ * G_; R[i] = y2_ * G_; } else { L[i] = (il) * A_ + y1_ * W_; R[i] = (ir) * A_ + y2_ * W_; } }
       }
-      for (const b of this.xo) b.flush();
+      FXBQ.flushAll(this.xo);
     } else if (v === 'gate') {
       const T = FXL.db(-80 + (p.thr === undefined ? 30 : p.thr) * 0.8), kE = FXL.k(200, sr);
       const kA = 1 - Math.exp(-1 / (FXL.tc(p.atk, 0.0002, 0.05) * sr)), kR = 1 - Math.exp(-1 / (FXL.tc(p.rel, 0.005, 1.5) * sr));
@@ -1002,7 +1003,7 @@ class FxDrive extends FxBase {
         { const y1_ = this.s[0], y2_ = st ? this.s[1] : this.s[0]; if (MS_) { L[i] = y1_ * G_; R[i] = y2_ * G_; } else { L[i] = (il) * A_ + y1_ * W_; R[i] = (ir) * A_ + y2_ * W_; } }
       }
     }
-    for (const q of b) q.flush(); for (let k = 0; k < 8; k++) if (!(Math.abs(this.s[k]) > 1e-20)) this.s[k] = 0; for (let k = 0; k < 4; k++) if (!(Math.abs(this.sv[k]) > 1e-20)) this.sv[k] = 0;
+    FXBQ.flushAll(b); for (let k = 0; k < 8; k++) if (!(Math.abs(this.s[k]) > 1e-20)) this.s[k] = 0; for (let k = 0; k < 4; k++) if (!(Math.abs(this.sv[k]) > 1e-20)) this.sv[k] = 0;
   }
 }
 
@@ -1037,7 +1038,7 @@ class FxPitch extends FxBase {
         const lo = this.shift(0, rl, W, base) * gl, hi = this.shift(1, rL, W, base) * gh;
         { const y1_ = lo * s0 + hi * s1, y2_ = hi * s0 + lo * s1; if (MS_) { L[i] = y1_ * G_; R[i] = y2_ * G_; } else { L[i] = (dl) * A_ + y1_ * W_; R[i] = (dr) * A_ + y2_ * W_; } }
       }
-      for (const b of this.xo) b.flush();
+      FXBQ.flushAll(this.xo);
       return;
     }
     const inc = (p.lfoF || 1) / sr, dep = (p.depth || 0) / 100, pan = v === 'psmod' ? (p.pan === undefined ? 50 : p.pan) / 100 : 0.5;
@@ -1101,6 +1102,17 @@ class FxRack {
     return u;
   }
   reset() { this.ins = []; this.mu = [null, null]; this.insOn = []; this.muOn = [false, false]; for (const b of this.eq) b.reset(); }
+  static quiet(L, R, n) { for (let k = 0; k < n; k++) { const l = L[k], r = R[k]; if (!(l < 1e-7 && l > -1e-7 && r < 1e-7 && r > -1e-7)) return false; } return true; }
+  // one effect unit. A unit whose input and output have both been silent (below -140 dB) for 6 s rests: it is not
+  // computed until sound comes in again (then it goes on at once). No echo can come back after that: the longest delay
+  // line holds 5.46 s (a slow Tempo Delay at 48 kHz). A connected microphone (vocoder) keeps it awake. Saves the CPU
+  // (and a phone's battery) while nothing is played.
+  run(u, L, R, n, p, x) {
+    const still = FxRack.quiet(L, R, n) && !(x && x.mic);
+    if (still && u.q >= 6 * this.sr) { if (u.master) { L.fill(0, 0, n); R.fill(0, 0, n); } return; } // a master effect returns only its effect sound
+    u.process(L, R, n, p, x);
+    u.q = still && FxRack.quiet(L, R, n) ? u.q + n : 0;
+  }
   process(L, R, n, fx) {
     if (!fx || !Array.isArray(fx.ins)) return;
     if (n > this.cap) this.grow(n);
@@ -1115,7 +1127,7 @@ class FxRack {
       this.insOn[i] = !!s.on;
       const u = this.unit(this.ins, i, s.type);
       if (!u) continue;
-      if (s.on) u.process(L, R, n, this.fill(s), x);
+      if (s.on) this.run(u, L, R, n, this.fill(s), x);
       else if (u.mono) for (let k = 0; k < n; k++) { const m = (L[k] + R[k]) * 0.5; L[k] = m; R[k] = m; } // a bypassed size-1 effect still passes mono
     }
     if (this.ins.length > list.length) this.ins.length = list.length;
@@ -1144,13 +1156,13 @@ class FxRack {
       if (b1) for (let k = 0; k < n; k++) { aL[k] = aR[k] = b1[k]; bL[k] = b2[k]; }
       else for (let k = 0; k < n; k++) { const m = (L[k] + R[k]) * 0.5; aL[k] = aR[k] = m * s1; bL[k] = m * s2; }
       if (u1) {
-        u1.process(aL, aR, n, this.fill(m1), x);
+        this.run(u1, aL, aR, n, this.fill(m1), x);
         const r = (m1.ret === undefined ? 127 : m1.ret) / 127, cas = !!m1.cascade && !!u2, cl = m1.casLvl === undefined ? r : m1.casLvl / 127;
         for (let k = 0; k < n; k++) { L[k] += aL[k] * r; R[k] += aR[k] * r; if (cas) bL[k] += (aL[k] + aR[k]) * 0.5 * cl; }
       }
       if (u2) {
         for (let k = 0; k < n; k++) bR[k] = bL[k];
-        u2.process(bL, bR, n, this.fill(m2), x);
+        this.run(u2, bL, bR, n, this.fill(m2), x);
         const r = (m2.ret === undefined ? 127 : m2.ret) / 127;
         for (let k = 0; k < n; k++) { L[k] += bL[k] * r; R[k] += bR[k] * r; }
       }
@@ -1162,7 +1174,7 @@ class FxRack {
       const fl = fx.eqLoF || 80, fh = fx.eqHiF || 12000, ek = this.eqK;
       if (ek[0] !== lo || ek[1] !== hi || ek[2] !== fl || ek[3] !== fh) { ek[0] = lo; ek[1] = hi; ek[2] = fl; ek[3] = fh; this.eq[0].set('ls', fl, 0.5, lo, this.sr); this.eq[1].set('ls', fl, 0.5, lo, this.sr); this.eq[2].set('hs', fh, 0.5, hi, this.sr); this.eq[3].set('hs', fh, 0.5, hi, this.sr); }
       for (let k = 0; k < n; k++) { L[k] = this.eq[2].run(this.eq[0].run(L[k])); R[k] = this.eq[3].run(this.eq[1].run(R[k])); }
-      for (const b of this.eq) b.flush();
+      FXBQ.flushAll(this.eq);
     }
     // a runaway or broken state never reaches the speakers: silence the block and rebuild the effects
     let chk = 0; for (let k = 0; k < n; k += 7) chk += L[k] + R[k];

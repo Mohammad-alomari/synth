@@ -1,11 +1,7 @@
 // Combinations of the built-in PCG files: resolve their timbres' programs, play a chord, check for NaN, runaway
 // levels and CPU. Usage: node test/combis.js [name filter] [max count]
 // Quick by default (every 16th combination); FULL=1 plays all of them. Env: STEP.
-const fs = require('fs'), path = require('path'), dir = path.join(__dirname, '..');
-const src = ['fxcat.js', 'patches.js', 'engine.js', 'pcm.js', 'combi.js', 'fxdsp.js', 'pcmmap.js', 'korg.js', 'pcgdata.js', 'tridata.js']
-  .map(f => fs.readFileSync(path.join(dir, f), 'utf8').replace(/if \(typeof module !== 'undefined'\)[^\n]*\n/g, '')).join('\n;\n') +
-  '\nmodule.exports={MossEngine,korgDecodePcm,korgDecodeCombi,korgDecodeMoss,TRI_BUILTIN,MOSS_PCG_BUILTIN,PCM_STANDIN};';
-const m = new module.constructor(); m._compile(src, path.join(dir, 'bundle_combis.js')); const X = m.exports;
+const H = require('./harness.js'); const X = H.load(H.ORDER);
 const PK = require('./pcmpacks.js');
 const sr = 48000, N = 128, only = process.argv[2] || '', max = +(process.argv[3] || 1e9), step = +(process.env.STEP || (process.env.FULL || only ? 1 : 16));
 let seen = 0;
