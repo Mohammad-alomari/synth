@@ -235,7 +235,7 @@ function combiPatch(idx) {
 }
 // ---------------- starter programs from the owner's own samples (userdata.js, private build only) ----------------
 // Programs of a Triton sample disk (tools/user_starters.js) after the MOSS starters: RAM multisample n plays the disk's
-// pack (samples/user/, key u_<file>, see pcmMap), or a Trinity ROM stand-in where that pack is not here.
+// pack (samples/user/, key u_<file>, see pcmMap), or the fallback (PCM_FALLBACK) where that pack is not here.
 const USER_SET = typeof USER_TRITON !== 'undefined' && USER_TRITON ? USER_TRITON : null;
 // the list needs only the names: each program is decoded when it is first played (make), which keeps start-up quick
 const userStarters = (() => {
@@ -384,9 +384,9 @@ registerProcessor('moss', MossProc);`;
 // samples/korg/packs.json (optional, only in the owner's own copy: Korg's recordings, see PCM_KORG in pcmmap.js) adds
 // packs that replace the stand-ins of the multisamples they cover; pcmMap is the map in use.
 // The owner's own samples (samples/user/, USER_SET) are the RAM multisamples of the starters from userdata.js; until their
-// packs are here, each plays its Trinity ROM stand-in.
+// packs are here, each plays the fallback (PCM_FALLBACK): never a sound picked by its name.
 let packsReq = null, engineUp = false, korgPacks = 0, userPacks = 0; const packState = {};
-function baseMap() { const ms = Object.assign({}, PCM_STANDIN.ms); if (USER_SET) for (const k in USER_SET.ms) ms[k] = PCM_STANDIN.ms[USER_SET.ms[k].rom] || PCM_STANDIN.ms[0]; return { ms }; }
+function baseMap() { const ms = Object.assign({}, PCM_STANDIN.ms); if (USER_SET) for (const k in USER_SET.ms) ms[k] = PCM_STANDIN.ms[PCM_FALLBACK]; return { ms }; }
 let pcmMap = baseMap();
 function packIndex() {
   if (!packsReq) {
@@ -396,7 +396,10 @@ function packIndex() {
     packsReq = Promise.all([gm, opt(PCM_KORG_BUILT, 'samples/korg/packs.json'), opt(PCM_USER_BUILT && USER_SET, 'samples/user/packs.json')]).then(([a, b, c]) => {
       const ms = baseMap().ms;
       for (const n in PCM_KORG.ms) { const e = PCM_KORG.ms[n]; if (b.packs[e.p]) { ms[n] = e; korgPacks++; } }
-      if (USER_SET) for (const k in USER_SET.ms) if (c.packs[k]) { ms[k] = { p: k, u: 1, f: USER_SET.ms[k].name, g: -6 }; userPacks++; } // -6 dB: these recordings are hotter than Korg's (median level of the starters ~ -18 dB, as the MOSS programs)
+      if (USER_SET) for (const k in USER_SET.ms) {
+        if (c.packs[k]) { ms[k] = { p: k, u: 1, f: USER_SET.ms[k].name, g: -6 }; userPacks++; } // -6 dB: these recordings are hotter than Korg's (median level of the starters ~ -18 dB, as the MOSS programs)
+        else ms[k] = ms[PCM_FALLBACK]; // not built here: whatever the fallback multisample plays (Korg's own recording, when this copy has it)
+      }
       if (korgPacks || userPacks) { pcmMap = { ms }; if (engineUp) { send({ t: 'pcmMap', map: pcmMap }); pcmPrepare(patch); } }
       return { packs: Object.assign({}, a.packs, b.packs, c.packs) };
     });

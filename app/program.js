@@ -94,9 +94,10 @@ function loadProgram(bank, idx, fromRecent) {
 }
 // what a PCM program plays, for the status line
 function pcmStatus(P) {
-  const own = Object.values(P.ramMap || {}).filter(v => typeof v === 'string'), tri = P.korgInfo && P.korgInfo.fmt === 'triton' ? 'Triton program' : 'Trinity PCM program';
-  if (own.length) return tri + ': plays your own samples' + (own.some(k => !(pcmMap.ms[k] || {}).u) ? ' where they are here, stand-ins for the rest' : '') + ' (see the Program page).';
-  return tri + ': ' + (korgPacks ? 'Korg’s own recordings where this copy has them, stand-in recordings for the rest' : 'Korg’s samples are not available, so stand-in recordings play') + ' (see the Program page).';
+  const rm = Object.values(P.ramMap || {}), own = rm.filter(v => typeof v === 'string'), tri = P.korgInfo && P.korgInfo.fmt === 'triton' ? 'Triton program' : 'Trinity PCM program';
+  const fb = 'the fallback (' + korgFallbackName() + ')', ram = rm.some(v => typeof v === 'number') ? '; samples that were loaded into the synth are not in the file: ' + fb + ' plays them' : '';
+  if (own.length) return tri + ': plays your own samples' + (own.some(k => !(pcmMap.ms[k] || {}).u) ? ' where they are here, ' + fb + ' for the rest' : '') + ram + ' (see the Program page).';
+  return tri + ': ' + (korgPacks ? 'Korg’s own recordings where this copy has them, stand-in recordings for the rest' : 'Korg’s samples are not available, so stand-in recordings play') + ram + ' (see the Program page).';
 }
 // previous / next program; with a search, only through its results
 function stepProgram(dir) {

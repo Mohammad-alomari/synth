@@ -51,7 +51,8 @@ korg.js        PCG reader; decoders: korgDecodeMoss (521 B), korgTrinitySections
                korgTritonSections (PBK1 PCM banks A-E + GLB1 user scales), korgDecodeTritonPcm (540 B, TRITON MIDI Implementation
                TABLE 1 -> the Trinity PCM model; RAM multisample n -> ramMap via a callback; Triton ROM multisamples NOT mapped yet).
 pcmmap.js      PCM_STANDIN.ms (multisample 0-374 -> stand-in; percussion multisamples 333-374 use the kit_* packs),
-               PCM_RAMGUESS (RAM/Flash samples guessed from program name), PCM_MS_NAMES (Korg names 0-374),
+               PCM_FALLBACK (multisample 0, A.Piano: plays every sound the file names but the synth lacks - RAM/Flash samples,
+               unmapped Triton multisamples, unbuilt sample-disk packs; korgFallback()), PCM_MS_NAMES (Korg names 0-374),
                PCM_KORG.ms (multisample -> Korg KMP file + pack k_<file>; s:1 = similar recording, else the ROM multisample
                itself). Used instead of PCM_STANDIN when samples/korg/packs.json exists (app/core.js packIndex -> pcmMap).
 private/       optional built-in banks of a local copy (NOT committed, .gitignore); build.py reads them:
@@ -59,7 +60,7 @@ private/       optional built-in banks of a local copy (NOT committed, .gitignor
   tridata.js   TRI_BUILTIN: Trinity files' PCM banks and combinations ({name, scale, pcm/combis: [{bank, m}]}; "s":1 = has a Bank S).
   userdata.js  USER_TRITON (tools/user_starters.js from a Triton PCG + its sample disk folder): the programs whose
                multisamples are all on the disk (540-byte records, decoded when first played: core.js userStarters {name, make}), the file's user
-               octave scales, the disk's multisamples (pack u_<kmp file>, RAM number, name, ROM stand-in) and plain programs for
+               octave scales, the disk's multisamples (pack u_<kmp file>, RAM number, name; an old 'rom' field is ignored) and plain programs for
                unused ones. Listed after the MOSS starters ('st' ids >= MOSS_PRESETS.length; starterPatch).
 test/fixtures.js  made-up banks in the same three formats, written byte by byte after the Korg layouts from a seeded random
                generator (same bytes everywhere) into test/fixtures/ (NOT committed): TestSet1 (PCM A-D, combis A-D, Bank M:
@@ -181,10 +182,12 @@ tasks, queued tasks wait 0.1 ms at p99. Compatibility mode (ScriptProcessor, 102
 Open / ideas (not built):
 1. Combination: per-timbre (program) scale not modelled.
 2. Bank S (Solo-TRI board) not modelled; timbres pointing to S are silent.
-3. RAM/Flash samples (0x1000|n) guessed by program name (PCM_RAMGUESS) - the audio only lived in the user's synth.
+3. RAM/Flash samples (0x1000|n) play the fallback (PCM_FALLBACK) - the audio only lived in the user's synth.
 4. Timbre ifx rule inferred; calibration constants are estimates.
 Decisions by the owner (do NOT propose these again):
 - Never limit combinations to one MOSS program (the real Trinity's limit is deliberately not copied).
+- Never pick a sound by the program's name (the old PCM_RAMGUESS / user_starters EXTRA lists are gone): a program plays
+  the multisample its file names, or the fallback. test/decodefix.js checks it.
 - Drum kits are removed and stay removed (no drum-sample list / kit fixes).
 - No "export edits back to PCG" for now.
 Synth memory (app/core.js memoryFor): an IMPORTED file uses its own PCM banks / Bank M first; what it lacks

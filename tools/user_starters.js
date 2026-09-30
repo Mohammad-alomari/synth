@@ -13,18 +13,15 @@ if (!pcgPath) { console.error('usage: node tools/user_starters.js <file.PCG> [ou
 const disk = path.join(path.dirname(pcgPath), path.basename(pcgPath, path.extname(pcgPath)));
 const packName = f => 'u_' + f.toLowerCase().replace(/[^a-z0-9_-]/g, '_'); // same rule as build_korg.py
 
-// name patterns -> Trinity ROM multisample that stands in when a pack is missing (after the general guess list, PCM_RAMGUESS)
-const EXTRA = [[/string|kronos|watar|pro_s|strng/i, 149], [/keman|kaman|violin/i, 152], [/saz|baglam|cumbu|bozok|elic|elekt|salah|_sala/i, 215],
-  [/mey|duduk/i, 106], [/shbab|shaco|flute|nay/i, 94], [/rbab|z1_rb/i, 158], [/kanun|kanon|em-50/i, 210], [/zurna|zorna|zmr|zamr/i, 106]];
 // the multisamples on the disk: RAM number (from the KMP file name) -> pack, name; empty ones (only skipped samples) are left out
+// (where a pack is not built, the page plays the fallback, PCM_FALLBACK: no sound is picked by its name)
 const ms = {}, byRam = {};
 for (const f of fs.readdirSync(disk).filter(f => /\.KMP$/i.test(f))) {
   const b = fs.readFileSync(path.join(disk, f)), stem = f.slice(0, -4), n = Number(stem.slice(-3));
   const name = b.subarray(8, 24).toString('latin1').replace(/[^\x20-\x7e]/g, ' ').trim().replace(/\s+/g, ' ');
   const dir = path.join(disk, stem), ksf = fs.existsSync(dir) ? fs.readdirSync(dir).filter(x => /\.KSF$/i.test(x)).length : 0;
   if (!ksf || isNaN(n)) { console.log('skipped (no samples):', f, name); continue; }
-  const g = X.PCM_RAMGUESS.find(e => e[0].test(name)) || EXTRA.find(e => e[0].test(name + ' ' + stem));
-  ms[packName(stem)] = { name, ram: n, rom: g ? g[1] : 0 };
+  ms[packName(stem)] = { name, ram: n };
   byRam[n] = packName(stem);
 }
 
@@ -53,7 +50,7 @@ const plain = Object.keys(ms).filter(k => !used.has(k));
 const data = { name: path.basename(pcgPath, path.extname(pcgPath)), scales: T.glb.scales, ms, progs, plain };
 fs.writeFileSync(out, '// Starter programs from the owner\'s own sample disk (tools/user_starters.js from ' + path.basename(pcgPath) + '): the Triton programs whose\n' +
   '// multisamples are all on the disk, as their 540-byte records (m, base64), the file\'s user octave scales, and the disk\'s multisamples\n' +
-  '// (pack in samples/user/, RAM number, name, Trinity ROM stand-in when the pack is missing). Left out of the public build.\n' +
+  '// (pack in samples/user/, RAM number, name). Left out of the public build.\n' +
   'const USER_TRITON = ' + JSON.stringify(data) + ';\n' +
   "if (typeof module !== 'undefined') module.exports = { USER_TRITON };\n");
 console.log('multisamples', Object.keys(ms).length, 'in programs', used.size, '| starter programs', progs.length, '+ plain', plain.length, plain.join(' '));

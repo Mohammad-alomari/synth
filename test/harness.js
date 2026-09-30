@@ -11,7 +11,7 @@ const DATA = ['pcgdata.js', 'tridata.js', 'userdata.js'];
 const DATA_DIR = process.env.OWN ? path.join(dir, 'private') : require('./fixtures.js').ensure();
 // the top-level names the tests use (a name the loaded files do not declare comes back undefined)
 const NAMES = ['TFX', 'FxRack', 'MossEngine', 'MD', 'mossPreset', 'mossDefaultPatch', 'mossLoad', 'MOSS_PRESETS', 'korgDecodeMoss', 'korgParsePCG', 'KORG', 'MOSS_PCG_BUILTIN',
-  'korgTritonToTrinity', 'KORG_PCM', 'korgTrinitySections', 'korgDecodePcm', 'korgDecodeCombi', 'PCM', 'PcmVoice', 'PcmStore', 'TRI_BUILTIN', 'PCM_STANDIN', 'PCM_RAMGUESS',
+  'korgTritonToTrinity', 'KORG_PCM', 'korgTrinitySections', 'korgDecodePcm', 'korgDecodeCombi', 'PCM', 'PcmVoice', 'PcmStore', 'TRI_BUILTIN', 'PCM_STANDIN', 'PCM_FALLBACK',
   'PCM_MS_NAMES', 'MossCombi', 'korgCombiChains', 'KORG_TRITON_PCM', 'korgTritonSections', 'korgDecodeTritonPcm'];
 let serial = 0;
 // files: source files in page order; root: the source tree (default: this one; the regression tools load an older
