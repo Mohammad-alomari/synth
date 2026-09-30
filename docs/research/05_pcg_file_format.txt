@@ -45,11 +45,11 @@ Bank configurations (Trinity guide, All-Data-Dump note #16):
   PCG Tools consistency rule: modeled bank with 64 programs -> 2 PCM banks + 2 combi banks; with 128 -> 4 + 4.
 
 User files (verified):
-  Hadi2024.PCG            4 PCM banks, 4 combi banks, 24 kits, global, M bank (128)       -> V3 w/ Flash
-  KJ4TRINI / TRIN-2KJ / TRIN_3KJ  4 PCM banks, 1 combi bank (A only), 24 kits, global, M bank (128)
-  TRINI-1-KJ.PCG          2 PCM banks, S bank (64), 2 combi banks, 12 kits, global         -> Trinity plus/pro
-  (arabic-named).PCG      2 PCM banks, 2 combi banks, 12 kits, global
-  NOTE: some KJ4TRINI programs (bank B 16-21, bank D 42-50) and drum kits 1..23 contain garbage/non-Trinity
+  file 1 (.PCG)           4 PCM banks, 4 combi banks, 24 kits, global, M bank (128)       -> V3 w/ Flash
+  files 2-4               4 PCM banks, 1 combi bank (A only), 24 kits, global, M bank (128)
+  file 5 (.PCG)           2 PCM banks, S bank (64), 2 combi banks, 12 kits, global         -> Trinity plus/pro
+  file 6 (.PCG)           2 PCM banks, 2 combi banks, 12 kits, global
+  NOTE: some programs of file 2 (bank B 16-21, bank D 42-50) and drum kits 1..23 contain garbage/non-Trinity
   data -- a parser should tolerate out-of-range values.
 
 Field quick-reference used by PCG Tools (all agree with the Korg tables):

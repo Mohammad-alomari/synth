@@ -1,5 +1,6 @@
 # Browser test of the built page (Chromium via Playwright). Starts its own http server; exit code 0 = all passed.
-# Usage: python3 test/browser_test.py            (run python3 build.py first; needs node for test/mkpcg.js)
+# Usage: python3 test/browser_test.py   (needs node: it builds _test.html with the made-up test banks, test/fixtures.js, and
+# writes PCG files from them with test/mkpcg.js; nobody's own files are needed)
 # Covers: sound of MOSS / PCM / combination programs in both audio modes, drum programs left out, every page renders, effects editing,
 # phone width, keyboard settings, play mode, MIDI program buttons and SW1/SW2, recording, imported-PCG storage (IndexedDB, reload, migration, removal), synth memory, error messages,
 # and the public (Netlify) build.
@@ -11,14 +12,14 @@ fails = []
 def ok(name, cond, extra=''):
     print(('PASS ' if cond else 'FAIL ') + name + ('  ' + str(extra) if extra != '' else ''), flush=True)
     if not cond: fails.append(name)
-def serve(root=ROOT):
+def serve(root=ROOT, page='index.html'):
     class Quiet(http.server.SimpleHTTPRequestHandler):
         def log_message(self, *a): pass
     h = functools.partial(Quiet, directory=root)
     srv = http.server.ThreadingHTTPServer(('127.0.0.1', 0), h)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
-    return 'http://127.0.0.1:%d/index.html' % srv.server_address[1]
-def pcg(name, out, which=None):  # a PCG file made from built-in data, as base64
+    return 'http://127.0.0.1:%d/%s' % (srv.server_address[1], page)
+def pcg(name, out, which=None):  # a PCG file made from a test bank file (test/fixtures.js), as base64
     subprocess.run(['node', os.path.join(ROOT, 'test', 'mkpcg.js'), name, os.path.join(TMP, out)] + ([which] if which else []), check=True, capture_output=True)
     return base64.b64encode(open(os.path.join(TMP, out), 'rb').read()).decode()
 
@@ -242,14 +243,14 @@ async def sound_and_pages(b, url):
     pc = await pg.evaluate("__t.find(/^pc:\\d+ A\\d+ (?!Initl)/)")
     pk = await pg.evaluate("(v) => __t.play('pc', +v.split(':')[1], [48, 60, 64], 1500)", pc)
     ok('PCM program %s plays (stand-in samples)' % pc, pk > 0.005, round(pk, 3))
-    if os.path.exists(os.path.join(ROOT, 'samples', 'korg', 'packs.json')):  # only in the owner's copy (tools/samples/build_korg.py)
+    if os.path.exists(os.path.join(ROOT, 'samples', 'korg', 'packs.json')):  # only where samples/korg/ was built (tools/samples/build_korg.py)
         info = await pg.evaluate("__moss.pcmInfo()")
         ok('Korg multisamples replace their stand-ins', info['korg'] > 50 and info['map']['ms']['215']['p'] == 'k_bouzo069', info['korg'])
         kp = await pg.evaluate("__t.find(/^pc:\\d+ \\w\\d+ .*piano/i)")
         pk = await pg.evaluate("(v) => __t.play('pc', +v.split(':')[1], [48, 60, 64], 1500)", kp)
         st = await pg.evaluate("__moss.pcmInfo().state")
         ok('a piano program %s plays Korg\'s A.Piano' % kp, pk > 0.005 and st.get('k_a_pia000') == 'ok', (round(pk, 3), {k: v for k, v in st.items() if k.startswith('k_')}))
-    ok('drum programs are not in the program list', await pg.evaluate("__t.find(/Mega-Mix/)") is None)  # a TRINI-1-KJ drum program
+    ok('drum programs are not in the program list', await pg.evaluate("__t.find(/Test Drum Kit/)") is None)  # TestSet3's drum programs
     pk = await pg.evaluate("__t.play('cb', 0, [48, 60, 64], 1500)")
     ok('combination cb:0 plays', pk > 0.005, round(pk, 3))
     for v in ['st:17', pc, 'cb:0']:
@@ -281,15 +282,15 @@ async def sound_and_pages(b, url):
     await pg.close()
 
 async def storage_and_memory(b, url):
-    full, combis, pcm = pcg('Hadi2024', 'Full.pcg'), pcg('TRIN-2KJ', 'Combis.pcg', 'combi'), pcg('TRINI-1-KJ', 'Pcm.pcg', 'pcm')
+    full, combis, pcm = pcg('TestSet1', 'Full.pcg'), pcg('TestSet2', 'Combis.pcg', 'combi'), pcg('TestSet3', 'Pcm.pcg', 'pcm')
     ctx = await b.new_context(); pg = await ctx.new_page(); pg.errs = []
     pg.on('pageerror', lambda e: pg.errs.append(str(e)))
     await pg.add_init_script(JS); await pg.goto(url); await pg.wait_for_timeout(500)
-    # a combination-only file with nothing imported before it: the built-in files fill in (Hadi2024 first)
+    # a combination-only file with nothing imported before it: the built-in files fill in (TestSet1 first)
     st = await pg.evaluate('([b, n]) => __t.import(b, n)', [combis, 'Combis.PCG'])
     ok('combination-only file is accepted', '128 combinations' in st, st)
     T = await pg.evaluate('__t.timbres()')
-    ok('...its timbres come from the built-in Hadi2024', T and all(t[2] == 'Hadi2024' for t in T if t[1]), T[:3])
+    ok('...its timbres come from the built-in TestSet1', T and all(t[2] == 'TestSet1' for t in T if t[1]), T[:3])
     st = await pg.evaluate('([b, n]) => __t.import(b, n)', [full, 'Full.PCG'])
     ok('full file imported', 'Imported from Full' in st and 'refused' not in st, st)
     await pg.evaluate('([b, n]) => __t.import(b, n)', [combis, 'Combis2.PCG'])
@@ -299,15 +300,15 @@ async def storage_and_memory(b, url):
     ok("memory: a file's own banks come first", all(t[2] == '' for t in await pg.evaluate('__t.timbres()')))
     await pg.evaluate('([b, n]) => __t.import(b, n)', [pcm, 'PcmOnly.PCG'])
     n = len(await pg.evaluate("__t.inGroup(/\(PCM\) from PcmOnly/)"))
-    ok('drum programs of an imported file are left out', 0 < n < 256, n)  # TRINI-1-KJ has 8 drum programs in banks A-B
-    n = await pg.evaluate("() => { let n = 0; for (const e of __t.inGroup(/^Combinations . from (Hadi2024|TRINI-1-KJ)$/)) { __t.load(e.v); n += __t.timbres().filter(t => t[2]).length; } return n; }")
+    ok('drum programs of an imported file are left out', 0 < n < 256, n)  # TestSet3 has 4 drum programs in each of banks A-B
+    n = await pg.evaluate("() => { let n = 0; for (const e of __t.inGroup(/^Combinations . from (TestSet1|TestSet3)$/)) { __t.load(e.v); n += __t.timbres().filter(t => t[2]).length; } return n; }")
     ok('built-in files only use their own banks', n == 0, n)
     # storage: everything is still there after a reload
     await pg.reload(); await pg.wait_for_timeout(1200)
     ok('imports kept after reload (IndexedDB)', await pg.evaluate("__t.group('from Full')") == 9 and await pg.evaluate("__t.group('from Combis2')") == 1)
     ok('...memory order kept', all(t[2] == 'Full' for t in await pg.evaluate("() => { __t.load(__t.firstIn('from Combis2')); return __t.timbres(); }") if t[1]))
     # a timbre's program edited and saved in place: the combination plays the edit, also after a reload; Restore original undoes it
-    cv = await pg.evaluate("__t.firstIn('Combinations A from Hadi2024')")
+    cv = await pg.evaluate("__t.firstIn('Combinations A from TestSet1')")
     click = "(re) => { window.__moss.selectPage('program'); const b = [...document.querySelectorAll('button')].find(b => new RegExp(re).test(b.textContent)); if (b) b.click(); return !!b; }"
     pid = await pg.evaluate("(v) => { __t.load(v); const t = window.__moss.getPatch().timbres.find(t => t.pId); return t && t.pId; }", cv)
     # the same combination saved to the User bank twice: as now, and as older versions stored it (no t.src)
@@ -349,7 +350,7 @@ async def storage_and_memory(b, url):
     await ctx.close()
 
 async def public_page(b):
-    # the Netlify page: built with --public (no owner files); importing a PCG still works
+    # the Netlify page: built with --public (no built-in banks); importing a PCG still works
     # laid out as netlify.toml publishes it: the page, the samples and the app files (manifest, service worker, icons)
     d = tempfile.mkdtemp()
     for f in ['samples', 'icons', 'manifest.webmanifest', 'sw.js']: os.symlink(os.path.join(ROOT, f), os.path.join(d, f))
@@ -360,10 +361,10 @@ async def public_page(b):
     await pg.add_init_script(JS); await pg.goto(url); await pg.wait_for_timeout(500)
     await pg.click('#power'); await pg.wait_for_timeout(800)
     groups = await pg.evaluate("__t.groups()")
-    ok('public page: none of the owner\'s files are listed', not any(n in ' '.join(groups) for n in ['Hadi2024', 'KJ4TRINI', 'TRIN', 'from ', 'Korg factory']), groups)
+    ok('public page: no built-in banks are listed', not any(n in ' '.join(groups) for n in ['TestSet', 'from ', 'Korg factory']), groups)
     ok('public page: starter program plays', await pg.evaluate("__t.play('st', 0, [60])") > 0.005)
-    ok("public page: no starters from the owner's samples", await pg.evaluate("__t.find(/Zorna PA80/)") is None)
-    st = await pg.evaluate('([b, n]) => __t.import(b, n)', [pcg('Hadi2024', 'Pub.pcg'), 'Mine.PCG'])
+    ok("public page: no starters from a sample disk", await pg.evaluate("__t.find(/Test Zurna/)") is None)
+    st = await pg.evaluate('([b, n]) => __t.import(b, n)', [pcg('TestSet1', 'Pub.pcg'), 'Mine.PCG'])
     ok('public page: importing a PCG works', 'Imported from Mine' in st, st)
     v = await pg.evaluate("__t.firstIn('(PCM) from Mine')")
     pk = await pg.evaluate("(v) => __t.play('pc', +v.split(':')[1], [48, 60, 64], 1500)", v) if v else 0
@@ -387,7 +388,7 @@ async def public_page(b):
 async def last_program(b, url):
     pg = await open_page(b, url)
     cur = "() => { const P = window.__moss.getPatch(); return [document.querySelector('#pnum').textContent, P.name, document.querySelector('#pname').textContent.endsWith(' *')]; }"
-    cb = await pg.evaluate("__t.firstIn('Combinations A from Hadi2024')")
+    cb = await pg.evaluate("__t.firstIn('Combinations A from TestSet1')")
     pid = await pg.evaluate("(v) => { __t.load(v); return window.__moss.getPatch().timbres.find(t => t.pId).pId; }", cb)
     combi = await pg.evaluate(cur)
     await pg.evaluate("(p) => __t.load(p)", pid)
@@ -447,28 +448,29 @@ async def new_programs(b, url):
     await pg.close()
 
 async def user_starters(b, url):
-    # starter programs from the owner's Triton sample disk (userdata.js): their own samples when samples/user/ is built here, else stand-ins
+    # starter programs from a Triton sample disk (userdata.js; here the test banks' made-up disk, whose samples are not here: stand-ins)
     pg = await open_page(b, url)
-    n = await pg.evaluate("window.__moss.progEntries().filter(e => e.b === 'st').length")
-    v = await pg.evaluate("__t.find(/^st:\d+ \d+ Zorna PA80$/)")
-    ok('starters from your samples are listed after the MOSS starters', n > 60 and v is not None, [n, v])
+    n = await pg.evaluate("MOSS_PRESETS.length")
+    v = await pg.evaluate("__t.find(/^st:\d+ \d+ Test Zurna$/)")
+    ok('starters from a sample disk are listed after the MOSS starters', v is not None and int(v[3:]) >= n, [n, v])
     pk = await pg.evaluate("(v) => __t.play('st', +v.split(':')[1], [60, 64], 1500)", v)
     P = await pg.evaluate("() => { const P = window.__moss.getPatch(); return [P.kind, P.korgInfo.fmt, P.scale.type, JSON.stringify(P.ramMap)]; }")
-    ok('...a Triton starter decodes (PCM, Triton, its maqam user scale) and plays', pk > 0.005 and P[:3] == ['pcm', 'triton', 'user'] and 'u_zorna112' in P[3], [round(pk, 3), P])
-    own = os.path.exists(os.path.join(ROOT, 'samples', 'user', 'packs.json'))
-    info = await pg.evaluate("() => { const i = window.__moss.pcmInfo(); return [i.state.u_zorna112 || '', !!(i.map.ms.u_zorna112 || {}).u, document.querySelector('#status').textContent]; }")
-    ok('...it plays ' + ('your own sample (samples/user/)' if own else 'a stand-in (no samples/user/ here)'), (info[0] == 'ok' and info[1]) if own else (not info[1] and 'stand-ins' in info[2]), info)
+    ok('...a Triton starter decodes (PCM, Triton, its maqam user scale) and plays', pk > 0.005 and P[:3] == ['pcm', 'triton', 'user'] and 'u_testzurna112' in P[3], [round(pk, 3), P])
+    info = await pg.evaluate("() => { const i = window.__moss.pcmInfo(); return [!!(i.map.ms.u_testzurna112 || {}).u, document.querySelector('#status').textContent]; }")
+    ok('...it plays a stand-in (the disk\'s samples are not here)', not info[0] and 'stand-ins' in info[1], info)
     await pg.evaluate("() => window.__moss.selectPage('osc0')")
     help_ = await pg.evaluate("document.querySelector('#page').textContent")
-    ok('...the OSC page names the sample', 'ZORNA122' in help_ and ('your sample' in help_ if own else True), help_[:0])
+    ok('...the OSC page names the sample', 'TEST ZURNA 112' in help_, help_[:0])
     n2, empty = await pg.evaluate('__t.pages()')
     ok('...every page of it shows', not empty, empty)
-    ok('no page errors (starters from your samples)', not pg.errs, pg.errs[:5])
+    ok('no page errors (starters from a sample disk)', not pg.errs, pg.errs[:5])
     await pg.close()
 
 async def main():
-    if not os.path.exists(os.path.join(ROOT, 'index.html')): sys.exit('index.html missing: run python3 build.py')
-    url = serve()
+    # the page with the made-up test banks (never your own files, so the results are the same everywhere)
+    subprocess.run(['node', os.path.join(ROOT, 'test', 'fixtures.js')], cwd=ROOT, check=True, capture_output=True)
+    subprocess.run([sys.executable, 'build.py', '_test.html', '--data', os.path.join('test', 'fixtures')], cwd=ROOT, check=True, capture_output=True)
+    url = serve(page='_test.html')
     async with async_playwright() as p:
         b = await p.chromium.launch(args=['--autoplay-policy=no-user-gesture-required'])
         await sound_and_pages(b, url)

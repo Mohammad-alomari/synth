@@ -9,23 +9,17 @@ A browser model of the Korg Trinity V3 (with the DSP-MOSS-TRI board). One self-c
   - MOSS programs (Bank M): 13 oscillator models, filters, EGs, LFOs, mod matrix, Trinity effects.
   - PCM ("ACCESS") programs (Banks A-D): Single/Double mode, own filters/EGs/LFOs/effects.
     Korg's sample ROM is NOT available -> stand-in recordings (General MIDI, MIT licence) or built-in waves.
-    In the owner's own copy, ~140 multisamples play Korg recordings instead (samples/korg/, see build_korg.py).
+    In a local build with samples/korg/ (from Korg libraries you own), ~140 multisamples play Korg recordings (build_korg.py).
   - Drum kits / Drum-mode programs: REMOVED on purpose (owner's decision). Drum programs are left out of the
     lists; combination timbres that use one are silent ("drum program, not supported"). PCG kit sections are skipped.
   - Combinations (8 timbres, zones, mix, insert chains, master effects).
 
-Owner: Mohammad Alomari (GitHub: Mohammad-alomari). Plays Arabic music (mijwiz, zurna, rababa, oud,
-kanun, darbuka...). Owns a Trinity V3 with MOSS. His PCG files are built in (Hadi2024, KJ4TRINI, TRIN-2KJ,
-TRIN_3KJ, TRINI-1-KJ, an Arabic-named file). Timezone Europe/Berlin.
-Working preferences: do ONE task at a time and finish it; answer questions briefly; ask before building
-big new features.
-
-Live published page (claude.ai artifact, private): https://claude.ai/artifact/NfWhX8WGhgjyWaUww83WsU
-(last published: Version 15). GitHub: private repo Mohammad-alomari/synth (project files at the repo root).
-Keep the repo PRIVATE: pcgdata.js and tridata.js contain the user's own files.
-Korg's factory EXB-MOSS bank was removed (licence); the owner imports it himself: https://www.korg.com/us/support/download/software/1/270/3183/
-("EXB-MOSS - MOSS Factory Preload Data", MOSS_EXT.PCG, Triton format -> bank F). The public Netlify site (moss-synth) is built with
---public, without the owner's files.
+Focus: Arabic music (mijwiz, zurna, rababa, oud, kanun, darbuka...): the maqam scales and starter programs reflect it.
+Public repository (MIT licence; README has the legal notes). No PCG files of anybody are committed: a local copy's own
+built-in banks live in private/ (ignored by git; never commit them), the tests use made-up banks (test/fixtures.js).
+Korg's factory EXB-MOSS bank is not included (licence); users import it themselves: https://www.korg.com/us/support/download/software/1/270/3183/
+("EXB-MOSS - MOSS Factory Preload Data", MOSS_EXT.PCG, Triton format -> bank F). The public Netlify site
+(https://moss-synth.netlify.app) is built with --public: no built-in banks.
 
 ==============================================================================
 2. FILES
@@ -33,7 +27,8 @@ Korg's factory EXB-MOSS bank was removed (licence); the owner imports it himself
 index.html     built page (not committed, .gitignore; build with build.py). Loads samples/ at run time.
 ui.html        template: layout + CSS; sources are inserted at %%FONTS%% %%PATCHES%% %%ENGINE%% %%KORG%% %%PCG%% %%APP%%
 build.py       parts = PATCHES: fxcat.js patches.js | ENGINE: engine.js pcm.js combi.js fxdsp.js |
-               KORG: pcmmap.js korg.js | PCG: pcgdata.js tridata.js | APP: app/*.js (APP_FILES order, wrapped in ONE
+               KORG: pcmmap.js korg.js | PCG: pcgdata.js tridata.js userdata.js (from private/ or --data DIR; an empty stub
+               when missing or with --public) | APP: app/*.js (APP_FILES order, wrapped in ONE
                function scope by build.py) | FONTS: fonts/*.woff2 inlined as base64 @font-face (fonts/fonts.json).
 app/           UI, split by section (was app.js): core.js (storage, PCG banks, synth memory, audio start-up, sample
                loader), pages.js (all editor pages), program.js (program list + search, LCD, flow, scope), scale.js,
@@ -59,12 +54,18 @@ pcmmap.js      PCM_STANDIN.ms (multisample 0-374 -> stand-in; percussion multisa
                PCM_RAMGUESS (RAM/Flash samples guessed from program name), PCM_MS_NAMES (Korg names 0-374),
                PCM_KORG.ms (multisample -> Korg KMP file + pack k_<file>; s:1 = similar recording, else the ROM multisample
                itself). Used instead of PCM_STANDIN when samples/korg/packs.json exists (app/core.js packIndex -> pcmMap).
-pcgdata.js     built-in MOSS banks (base64): the user's 4 Bank M files.
-tridata.js     built-in Trinity data (base64): user's PCM banks and combinations (TRI_BUILTIN).
-userdata.js    USER_TRITON (tools/user_starters.js from a Triton PCG + its sample disk folder, here MS097007): the programs whose
+private/       optional built-in banks of a local copy (NOT committed, .gitignore); build.py reads them:
+  pcgdata.js   MOSS_PCG_BUILTIN: Bank M files ({name, scale, m: base64 of 128 x 521 B}).
+  tridata.js   TRI_BUILTIN: Trinity files' PCM banks and combinations ({name, scale, pcm/combis: [{bank, m}]}; "s":1 = has a Bank S).
+  userdata.js  USER_TRITON (tools/user_starters.js from a Triton PCG + its sample disk folder): the programs whose
                multisamples are all on the disk (540-byte records, decoded when first played: core.js userStarters {name, make}), the file's user
                octave scales, the disk's multisamples (pack u_<kmp file>, RAM number, name, ROM stand-in) and plain programs for
-               unused ones. Listed after the MOSS starters ('st' ids >= MOSS_PRESETS.length; starterPatch). Stub in --public.
+               unused ones. Listed after the MOSS starters ('st' ids >= MOSS_PRESETS.length; starterPatch).
+test/fixtures.js  made-up banks in the same three formats, written byte by byte after the Korg layouts from a seeded random
+               generator (same bytes everywhere) into test/fixtures/ (NOT committed): TestSet1 (PCM A-D, combis A-D, Bank M:
+               fills in for imports), TestSet2 (PCM A-B, combis A, Bank M), TestSet3 (PCM A-B with 4 drum programs each, combis
+               A-B, "s":1), and a Triton program from a made-up sample disk. Every MOSS model, Single/Double/Drum, RAM samples,
+               effects of every size, key/velocity splits, delay start, MIDI filters, insert chains.
 samples/       111 MP3 packs (mono 32 kHz 48 kb/s; gmNNN = GM program NNN 0-based; kit_std/elec/808/brush/orch)
                + packs.json {packs:{name:{file,rate,sync,search,heal,s:[[start,len,loopStart,loopEnd,gainDb,
                [[lo,hi,root,tune]]]]}}}. A sync click at the start aligns decode offsets; loop seams healed 64 frames.
@@ -181,9 +182,9 @@ Decisions by the owner (do NOT propose these again):
 - Drum kits are removed and stay removed (no drum-sample list / kit fixes).
 - No "export edits back to PCG" for now.
 Synth memory (app/core.js memoryFor): an IMPORTED file uses its own PCM banks / Bank M first; what it lacks
-comes from earlier imports (newest first), then the built-in files in list order (Hadi2024 first). Built-in files
+comes from earlier imports (newest first), then the built-in files in list order. Built-in files
 only use their own data (unchanged behaviour). A file with a Bank S (imports: from the PCG; built-ins: "s":1 in
-tridata.js, TRINI-1-KJ) never takes a Bank M: bank 4 = Solo-TRI there (silent). Timbres record t.from (source file
+tridata.js) never takes a Bank M: bank 4 = Solo-TRI there (silent). Timbres record t.from (source file
 name, shown in the Timbres table) and t.src (lasting address = bankEdits key; stored combinations - User bank,
 program kept over a reload - re-read their timbre programs by it: refreshTimbres). Combination-only and Bank-M-only
 Trinity files are accepted (every Trinity import makes a tri set, so it has a place in the memory order).
@@ -193,8 +194,8 @@ are not downloadable; the factory preload would also play stand-ins.
 ==============================================================================
 6. BUILD, RUN, TEST
 ==============================================================================
-Build:   python3 build.py [out.html] [--public]   (--public: without the owner's files - tridata.js, pcgdata.js, userdata.js.
-         Netlify publishes the --public build; test/check_public.py checks it.)
+Build:   python3 build.py [out.html] [--public] [--data DIR]   (built-in banks from private/ or DIR, a stub for each missing
+         file; --public: none. Netlify publishes the --public build; test/check_public.py checks it.)
 Run:     python3 -m http.server 8765   then open http://localhost:8765/index.html (Chrome/Edge; needs http for audio,
          MIDI and samples). Web MIDI: Chrome, Edge, Firefox (not Safari).
 Lint:    npm install once, then npm run lint (also in CI).
@@ -204,9 +205,12 @@ Tests: sh test/run_all.sh (~2 min, most of it the browser test; exit 0 = pass; F
   needs ffmpeg), browser_test.py (Playwright; starts its own server; sound in both audio modes, all pages, fx edit,
   phone width, recording, keyboard settings, play mode, search, MIDI buttons, IndexedDB storage, synth memory,
   error messages, public build: manifest, service worker, opens offline).
-  test/harness.js loads sources as one module of the Node process (load(files, root); NOT a vm context, where Math & co.
-  are 4-5x slower); test/pcmpacks.js decodes samples/ with ffmpeg; test/mkpcg.js writes a PCG
-  from built-in data. window.__moss exposes loadProgram(bank, idx), getPatch, noteOn/noteOff, selectPage, engine()
+  The tests play the made-up banks (test/fixtures.js; run_all.sh writes them, harness.js ensure() too), never private/:
+  the same results on every machine and in CI. browser_test.py builds its own page, _test.html (--data test/fixtures).
+  OWN=1 makes harness.js / mkpcg.js read private/ instead (progs.js, combis.js, test/tools/ on your own banks).
+  test/harness.js loads sources as one module of the Node process (load(files, root); the bank files always come from
+  this tree; NOT a vm context, where Math & co. are 4-5x slower); test/pcmpacks.js decodes samples/ with ffmpeg;
+  test/mkpcg.js <bank file name> writes a PCG from the test banks (TestSet1-3). window.__moss exposes loadProgram(bank, idx), getPatch, noteOn/noteOff, selectPage, engine()
   (script mode), importPcgFile.
   test/tools/ (by hand, no pass/fail): regress.js <older copy folder> (sample-by-sample regression of MOSS programs, PCM
   programs with their stand-in packs and combinations; env KIND moss,pcm,combi, STEP, SECS, TAIL, ONLY, DRY; an older copy:

@@ -1,4 +1,4 @@
-// Renders the built-in programs (starter programs and the owner's Bank M files) with their effects; reports NaN, level, CPU.
+// Renders the starter programs and the Bank M programs of the test banks (OWN=1: your own, private/) with their effects; reports NaN, level, CPU.
 // Quick by default (every 8th program, 1 s each); FULL=1 renders every program for 2.5 s. Env: STEP, SECS, ONLY, DRY, VERBOSE.
 const H = require('./harness.js'); const X = H.load(H.ORDER);
 const sr = 48000, N = 128;

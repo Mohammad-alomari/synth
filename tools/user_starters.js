@@ -4,11 +4,11 @@
 // the synth's RAM, which is how the PCG's programs refer to them. Programs whose every audible multisample is on the disk
 // become starter programs; they play the packs tools/samples/build_korg.py --all --prefix u_ builds into samples/user/.
 // userdata.js holds the programs' own bytes (decoded at start-up by korgDecodeTritonPcm) and the file's user scales; it
-// is left out of the public build, like the other files of the owner.
-// Usage: node tools/user_starters.js "<folder>/MS097007.PCG" [out=userdata.js]
+// lives in private/ (never committed) and is left out of the public build.
+// Usage: node tools/user_starters.js "<folder>/<disk>.PCG" [out=private/userdata.js]
 const fs = require('fs'), path = require('path');
 const H = require('../test/harness.js'), X = H.load(H.ORDER);
-const pcgPath = process.argv[2], out = process.argv[3] || path.join(__dirname, '..', 'userdata.js');
+const pcgPath = process.argv[2], out = process.argv[3] || path.join(__dirname, '..', 'private', 'userdata.js');
 if (!pcgPath) { console.error('usage: node tools/user_starters.js <file.PCG> [out.js]'); process.exit(1); }
 const disk = path.join(path.dirname(pcgPath), path.basename(pcgPath, path.extname(pcgPath)));
 const packName = f => 'u_' + f.toLowerCase().replace(/[^a-z0-9_-]/g, '_'); // same rule as build_korg.py

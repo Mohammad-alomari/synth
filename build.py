@@ -1,25 +1,30 @@
 # Assembles the single-file synth: ui.html template + sources and fonts inlined as <script> / <style> blocks
-# Usage: python3 build.py [out.html] [--public]
-#   --public  leaves out the owner's own files (tridata.js, pcgdata.js, userdata.js); used for the
-#             Netlify site. Visitors import their own PCG files instead.
+# Usage: python3 build.py [out.html] [--public] [--data DIR]
+#   Built-in banks (pcgdata.js, tridata.js, userdata.js) are optional: your own go in private/ (ignored by git); a file
+#   that is not there means no built-in banks of that kind.
+#   --data DIR  takes them from DIR instead (the browser test builds with the made-up test banks, test/fixtures)
+#   --public    no built-in banks at all; used for the Netlify site. Visitors import their own PCG files instead.
 import base64, json, os, re, sys
-args = [a for a in sys.argv[1:] if not a.startswith('--')]
-public = '--public' in sys.argv
+argv = sys.argv[1:]
+data = 'private'
+if '--data' in argv: i = argv.index('--data'); data = argv[i + 1]; del argv[i:i + 2]
+args = [a for a in argv if not a.startswith('--')]
+public = '--public' in argv
 out = args[0] if args else 'index.html'
+DATA = {'pcgdata.js': 'const MOSS_PCG_BUILTIN = [];', 'tridata.js': 'const TRI_BUILTIN = [];', 'userdata.js': 'const USER_TRITON = null;'}
 # the user interface, in this order (later files use what earlier ones declare; boot.js starts the page)
 APP_FILES = ['core.js', 'pages.js', 'program.js', 'scale.js', 'keyboard.js', 'record.js', 'midi.js', 'midimode.js', 'boot.js']
 
 def source(f):
+    if f in DATA:
+        p = os.path.join(data, f)
+        if public or not os.path.exists(p): return DATA[f] + ' // no built-in banks of this kind\n'
+        return open(p, encoding='utf-8').read()
     code = open(f, encoding='utf-8').read()
-    if public and f == 'tridata.js':
-        return 'const TRI_BUILTIN = []; // public build: no built-in Trinity files\n'
-    if public and f == 'pcgdata.js':
-        return 'const MOSS_PCG_BUILTIN = []; // public build: no built-in Bank M files\n'
-    if public and f == 'userdata.js':
-        return 'const USER_TRITON = null; // public build: no starters from the owner\'s samples\n'
-    if f == 'pcmmap.js' and not public:  # the owner's Korg recordings and own sample disks (build_korg.py), when built here
+    if f == 'pcmmap.js' and not public:  # Korg recordings and your own sample disks (build_korg.py), when built here
         if os.path.exists('samples/korg/packs.json'): code = code.replace('const PCM_KORG_BUILT = false;', 'const PCM_KORG_BUILT = true;')
-        if os.path.exists('samples/user/packs.json'): code = code.replace('const PCM_USER_BUILT = false;', 'const PCM_USER_BUILT = true;')
+        # samples/user/ holds the multisamples of your own userdata.js (private/), not those of other data
+        if data == 'private' and os.path.exists('samples/user/packs.json'): code = code.replace('const PCM_USER_BUILT = false;', 'const PCM_USER_BUILT = true;')
     return code
 
 ui = open('ui.html', encoding='utf-8').read()
@@ -38,4 +43,5 @@ for k, files in parts.items():
     assert ui.count(tag) == 1, k
     ui = ui.replace(tag, code.rstrip('\n'))
 open(out, 'w', encoding='utf-8').write(ui)
-print('built', out, len(ui), 'bytes' + (' (public: without the owner\'s files)' if public else ''))
+own = [f for f in DATA if not public and os.path.exists(os.path.join(data, f))]
+print('built', out, len(ui), 'bytes', '(public: no built-in banks)' if public else '(built-in banks from %s: %s)' % (data, ', '.join(own)) if own else '(no built-in banks)')

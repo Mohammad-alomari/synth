@@ -2,13 +2,13 @@
 # Source: TR-Rack Ctrlr panel (github.com/FRDTom/TR-Rack-Editor, Lua progNameList/progNames), hand-typed from
 #   Korg's TR-Rack Voice Name List -> some OCR-style typos (e.g. "Plano" for "Piano", "Hil!" for "Hit!").
 # Suffix in the panel: (S)=Single osc, (D)=Double osc, (d)=Drum program.
-# Evidence A/B == Trinity factory: in the user file TRINI-1-KJ.PCG (Trinity plus/pro, user-edited) 41 of 128 bank-A
+# Evidence A/B == Trinity factory: in user file 5 (Trinity plus/pro, user-edited) 41 of 128 bank-A
 #   and 59 of 128 bank-B program names are identical at the same slot; 95 of those 100 also have the same osc mode.
 # Banks C/D are TR-Rack factory data (may use TR-Rack-only multisamples 375-414); the Trinity Flash-ROM C/D
 #   banks shipped empty/with other data -- do not assume equality.
 # NOTE: Korg also publishes a separate "Voice Name List for V3" (scanned PDF, not transcribed); V3 preloads
 #   (e.g. V3_PLOAD.PCG named in PCG Tools notes) may differ from this list, at least for the M bank.
-# Columns: bank<TAB>no<TAB>name<TAB>osc_mode<TAB>same_name_in_TRINI-1-KJ.PCG(osc mode there)
+# Columns: bank<TAB>no<TAB>name<TAB>osc_mode<TAB>same_name_in_user_file_5(osc mode there)
 A	000	Tsunami Warning	Double	
 A	001	Acoustic Piano	Single	yes(Single)
 A	002	Alto Sax	Double	yes(Double)

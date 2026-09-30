@@ -1,13 +1,13 @@
-// Writes a Trinity .PCG file from the built-in data, for import tests.
-// Usage: node test/mkpcg.js <built-in file name> <out.pcg> [sections]   sections: any of pcm,combi,moss (default all)
-const fs = require('fs'), path = require('path'), dir = path.join(__dirname, '..');
+// Writes a Trinity .PCG file from the test banks (test/fixtures.js; with OWN=1 your own files in private/), for import tests.
+// Usage: node test/mkpcg.js <bank file name> <out.pcg> [sections]   sections: any of pcm,combi,moss (default all)
+const fs = require('fs'), path = require('path'), dir = process.env.OWN ? path.join(__dirname, '..', 'private') : require('./fixtures.js').ensure();
 const TRI = (() => { const m = new module.constructor(); m._compile(fs.readFileSync(path.join(dir, 'tridata.js'), 'utf8') + '\nmodule.exports = TRI_BUILTIN;', 'tri'); return m.exports; })();
 const MOSS = (() => { const m = new module.constructor(); m._compile(fs.readFileSync(path.join(dir, 'pcgdata.js'), 'utf8') + '\nmodule.exports = MOSS_PCG_BUILTIN;', 'pcg'); return m.exports; })();
 const [name, out, which] = process.argv.slice(2);
 if (!name || !out) { console.error('usage: node test/mkpcg.js <name> <out.pcg> [pcm,combi,moss]\nnames: ' + TRI.map(t => t.name).join(', ')); process.exit(2); }
 const want = new Set((which || 'pcm,combi,moss').split(','));
 const T = TRI.find(t => t.name === name), M = MOSS.find(b => b.name === name && b.fmt !== 'triton');
-if (!T) { console.error('no built-in file named ' + name); process.exit(2); }
+if (!T) { console.error('no bank file named ' + name); process.exit(2); }
 const b64 = s => Buffer.from(s, 'base64'), u16 = v => Buffer.from([v >> 8, v & 255]);
 const L = { A: 0, B: 1, C: 2, D: 3 }, dirs = [], secs = [];
 function add(type, count, body) { dirs.push([type, count, body.length]); secs.push(body); }

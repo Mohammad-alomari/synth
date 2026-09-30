@@ -7,7 +7,9 @@ fail=0
 log=$(mktemp)
 run() { printf '== %s\n' "$*"; if "$@" > "$log" 2>&1; then tail -n 1 "$log"; else cat "$log"; echo "FAILED: $*"; fail=1; fi; }
 
-# build index.html from the sources (it is not committed); the browser test uses it
+# the tests play made-up test banks (test/fixtures.js), never your own files: the same results on every machine and in CI
+run node test/fixtures.js
+# index.html builds from the sources (with your own banks from private/, if you have any); the browser test builds its own page
 run python3 build.py
 run python3 test/check_public.py
 

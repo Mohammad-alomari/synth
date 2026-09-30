@@ -1,4 +1,4 @@
-// Combinations of the built-in PCG files: resolve their timbres' programs, play a chord, check for NaN, runaway
+// Combinations of the test banks (OWN=1: your own, private/): resolve their timbres' programs, play a chord, check for NaN, runaway
 // levels and CPU. Usage: node test/combis.js [name filter] [max count]
 // Quick by default (every 16th combination); FULL=1 plays all of them. Env: STEP.
 const H = require('./harness.js'); const X = H.load(H.ORDER);
