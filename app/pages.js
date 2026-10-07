@@ -406,6 +406,8 @@ const PAGES = { program: ['Program', pageProgram], osc0: ['OSC 1', () => pageOsc
 const K = {
   n: v => String(v), sgn: v => (v > 0 ? '+' : '') + v,
   time: v => F.time(v),
+  // the PCM envelopes' own time law (PCM.tsec); portamento and LFO delay keep the shared one
+  egt: v => v + ' · ' + (t => t === 0 ? '0 ms' : t < 1 ? Math.round(t * 1000) + ' ms' : t.toFixed(t < 10 ? 2 : 1) + ' s')(PCM.tsec(v)),
   cut: v => { const h = PCM.cutHz(v, 48000); return v + ' · ' + (h < 1000 ? Math.round(h) + ' Hz' : (h / 1000).toFixed(1) + ' kHz'); },
   lfo: v => { const h = PCM.lfoHz(v); return v + ' · ' + (h < 10 ? h.toFixed(2) : h.toFixed(1)) + ' Hz'; },
   pint: v => (v >= 0 ? '+' : '') + Number(v).toFixed(2),
@@ -434,8 +436,8 @@ function pcmPageProgram() {
       SEL('random', 'Random pitch', [[0, 'Off'], [1 / 64, '±1/64'], [1 / 32, '±1/32'], [1 / 16, '±1/16'], [1 / 8, '±1/8'], [1 / 4, '±1/4'], [1 / 2, '±1/2'], [1, '±1']], { num: true })] },
     { title: 'Portamento', controls: [TOG('voice.porta', 'On'), TOG('voice.portaFingered', 'Fingered (legato only)'), S('voice.portaTime', 'Time', 0, 99, { fmt: K.time })],
       help: 'An extra: Trinity PCM programs have no portamento, so it starts off.' },
-    { title: 'Pitch EG', controls: [S('peg.startL', 'Start level', -99, 99, { fmt: K.sgn }), S('peg.atkT', 'Attack time', 0, 99, { fmt: K.time }), S('peg.atkL', 'Attack level', -99, 99, { fmt: K.sgn }),
-      S('peg.decT', 'Decay time', 0, 99, { fmt: K.time }), S('peg.relT', 'Release time', 0, 99, { fmt: K.time }), S('peg.relL', 'Release level', -99, 99, { fmt: K.sgn }),
+    { title: 'Pitch EG', controls: [S('peg.startL', 'Start level', -99, 99, { fmt: K.sgn }), S('peg.atkT', 'Attack time', 0, 99, { fmt: K.egt }), S('peg.atkL', 'Attack level', -99, 99, { fmt: K.sgn }),
+      S('peg.decT', 'Decay time', 0, 99, { fmt: K.egt }), S('peg.relT', 'Release time', 0, 99, { fmt: K.egt }), S('peg.relL', 'Release level', -99, 99, { fmt: K.sgn }),
       S('peg.velT', 'Time by velocity', -99, 99, { fmt: K.sgn }), SEL('peg.tSrc', 'Time A.M. source', pcmAms(0)), S('peg.tInt', 'Time A.M. intensity', -99, 99, { fmt: K.sgn })],
       help: 'Each oscillator sets how far this EG bends its pitch.' }];
   secs.push({ title: 'Program memory', custom: renderMemory });
@@ -482,9 +484,9 @@ function pcmPageFilter(i) {
       SEL(f + 'amsSrc', 'Cutoff A.M.', pcmAms(i)), S(f + 'amsInt', 'Cutoff A.M. amount', -99, 99, { fmt: K.sgn })] });
   });
   const e = b + 'feg.';
-  secs.push({ title: 'Filter EG', eg: b + 'feg', controls: [S(e + 'startL', 'Start level', -99, 99, { fmt: K.sgn }), S(e + 'atkT', 'Attack time', 0, 99, { fmt: K.time }), S(e + 'atkL', 'Attack level', -99, 99, { fmt: K.sgn }),
-    S(e + 'decT', 'Decay time', 0, 99, { fmt: K.time }), S(e + 'brkL', 'Break point level', -99, 99, { fmt: K.sgn }), S(e + 'slpT', 'Slope time', 0, 99, { fmt: K.time }), S(e + 'susL', 'Sustain level', -99, 99, { fmt: K.sgn }),
-    S(e + 'relT', 'Release time', 0, 99, { fmt: K.time }), S(e + 'relL', 'Release level', -99, 99, { fmt: K.sgn })] });
+  secs.push({ title: 'Filter EG', eg: b + 'feg', controls: [S(e + 'startL', 'Start level', -99, 99, { fmt: K.sgn }), S(e + 'atkT', 'Attack time', 0, 99, { fmt: K.egt }), S(e + 'atkL', 'Attack level', -99, 99, { fmt: K.sgn }),
+    S(e + 'decT', 'Decay time', 0, 99, { fmt: K.egt }), S(e + 'brkL', 'Break point level', -99, 99, { fmt: K.sgn }), S(e + 'slpT', 'Slope time', 0, 99, { fmt: K.egt }), S(e + 'susL', 'Sustain level', -99, 99, { fmt: K.sgn }),
+    S(e + 'relT', 'Release time', 0, 99, { fmt: K.egt }), S(e + 'relL', 'Release level', -99, 99, { fmt: K.sgn })] });
   secs.push({ title: 'Filter EG modulation', controls: ['Attack', 'Decay', 'Slope', 'Release'].map((n, k) => S(e + 'kt.' + k, n + ' time by key', -99, 99, { fmt: K.sgn }))
     .concat(['Attack', 'Decay', 'Slope', 'Release'].map((n, k) => S(e + 'vt.' + k, n + ' time by velocity', -99, 99, { fmt: K.sgn })))
     .concat([SEL(e + 'tSrc', 'Time A.M.', pcmAms(i)), S(e + 'tInt', 'Time A.M. amount', -99, 99, { fmt: K.sgn })])
@@ -504,9 +506,9 @@ function pcmPageAmp(i) {
   return [{ title: 'Amp', controls: [S(a + 'level', 'Level', 0, 127, { fmt: K.n }), S(a + 'vel', 'Level by velocity', -99, 99, { fmt: K.sgn }), S(a + 'at', 'Level by aftertouch', -99, 99, { fmt: K.sgn }),
     SEL(a + 'amsSrc', 'Level A.M.', pcmAms(i)), S(a + 'amsInt', 'Level A.M. amount', -99, 99, { fmt: K.sgn }),
     S(a + 'lowKey', 'Key track low key', 0, 127, { fmt: F.note }), S(a + 'highKey', 'Key track high key', 0, 127, { fmt: F.note }), S(a + 'lowRamp', 'Lower ramp', -99, 99, { fmt: K.sgn }), S(a + 'highRamp', 'Higher ramp', -99, 99, { fmt: K.sgn })] },
-  { title: 'Amp EG', eg: b + 'aeg', isAmp: true, controls: [S(e + 'startL', 'Start level', 0, 99, { fmt: K.n }), S(e + 'atkT', 'Attack time', 0, 99, { fmt: K.time }), S(e + 'atkL', 'Attack level', 0, 99, { fmt: K.n }),
-    S(e + 'decT', 'Decay time', 0, 99, { fmt: K.time }), S(e + 'brkL', 'Break point level', 0, 99, { fmt: K.n }), S(e + 'slpT', 'Slope time', 0, 99, { fmt: K.time }), S(e + 'susL', 'Sustain level', 0, 99, { fmt: K.n }),
-    S(e + 'relT', 'Release time', 0, 99, { fmt: K.time })] },
+  { title: 'Amp EG', eg: b + 'aeg', isAmp: true, controls: [S(e + 'startL', 'Start level', 0, 99, { fmt: K.n }), S(e + 'atkT', 'Attack time', 0, 99, { fmt: K.egt }), S(e + 'atkL', 'Attack level', 0, 99, { fmt: K.n }),
+    S(e + 'decT', 'Decay time', 0, 99, { fmt: K.egt }), S(e + 'brkL', 'Break point level', 0, 99, { fmt: K.n }), S(e + 'slpT', 'Slope time', 0, 99, { fmt: K.egt }), S(e + 'susL', 'Sustain level', 0, 99, { fmt: K.n }),
+    S(e + 'relT', 'Release time', 0, 99, { fmt: K.egt })] },
   { title: 'Amp EG modulation', controls: ['Attack', 'Decay', 'Slope', 'Release'].map((n, k) => S(e + 'kt.' + k, n + ' time by key', -99, 99, { fmt: K.sgn }))
     .concat(['Attack', 'Decay', 'Slope', 'Release'].map((n, k) => S(e + 'vt.' + k, n + ' time by velocity', -99, 99, { fmt: K.sgn })))
     .concat([SEL(e + 'tSrc', 'Time A.M.', pcmAms(i)), S(e + 'tInt', 'Time A.M. amount', -99, 99, { fmt: K.sgn })])
@@ -806,7 +808,7 @@ function renderPage() {
   }
 }
 function drawEG(svg, path, isAmp) {
-  const e = getP(path), T = v => 0.12 + Math.log10(1 + MD.tsec(v) * 40);
+  const e = getP(path), sec = patch.kind === 'pcm' ? PCM.tsec : MD.tsec, T = v => 0.12 + Math.log10(1 + sec(v) * 40);
   const pts = []; let x = 0;
   pts.push([x, isAmp ? 0 : e.startL]); x += T(e.atkT); pts.push([x, e.atkL]); x += T(e.decT); pts.push([x, e.brkL]); x += T(e.slpT); pts.push([x, e.susL]);
   x += 0.9; pts.push([x, e.susL]); x += T(e.relT); pts.push([x, isAmp ? 0 : e.relL]);

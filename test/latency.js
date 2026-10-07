@@ -1,5 +1,7 @@
 // Note-on latency of the engine: a note-on (as a MIDI note-on arrives) must be heard in the same audio block.
 // For every program whose amp envelope starts at once (attack under 5 ms, no oscillator / timbre delay), the first
+// (PCM programs: played with the amp EG's attack time at 0; their time law makes 1 a 17 ms ramp already, and what is
+// timed here is the engine, not the program's own fade-in)
 // output sample above -120 dBFS must come within 1 ms of the note-on (the Reed, Brass and Bowed models: 10 ms, their
 // sound builds up in the tube or on the string first, part of the model). Effects are switched off (a delay effect or a
 // reverb's pre-delay is part of a sound, not latency). What the page adds on top (the main thread, one 128-frame block,
@@ -39,7 +41,7 @@ X.TRI_BUILTIN.forEach(T => {
 const clean = P => !(P.korgInfo && P.korgInfo.notes && P.korgInfo.notes.some(t => /out-of-range|invalid/.test(t)));
 function immediate(P) {
   if (!clean(P)) return false;
-  if (P.kind === 'pcm') return P.mode !== 'drum' && P.o.every((O, k) => (k === 1 && P.mode !== 'double') || (fast(O.aeg.atkT) && O.delay === 0));
+  if (P.kind === 'pcm') return P.mode !== 'drum' && P.o.every((O, k) => (k === 1 && P.mode !== 'double') || O.delay === 0);
   if (P.kind === 'combi') { const T = P.timbres.filter(t => t.p && t.status === 'int' && (t.ch === 16 || t.ch === 0) && t.keyBot <= 60 && t.keyTop >= 60 && t.velBot <= 100 && t.velTop >= 100);
     return T.length > 0 && T.every(t => t.delay === 0 && immediate(t.p)); }
   return fast(P.ampEG.atkT) && P.amp.every(A => A.eg === 'amp');
@@ -49,6 +51,7 @@ for (const [id, P0] of list) {
   const P = JSON.parse(JSON.stringify(P0));
   if (!immediate(P)) continue;
   dryFx(P.fx); if (P.kind === 'combi') { P.chains = []; for (const t of P.timbres) if (t.p) dryFx(t.p.fx); }
+  for (const Q of P.kind === 'pcm' ? [P] : P.kind === 'combi' ? P.timbres.map(t => t.p).filter(q => q && q.kind === 'pcm') : []) for (const O of Q.o) O.aeg.atkT = 0;
   const f = onset(P);
   if (f < 0) continue; // silent on middle C (a key or velocity zone, a filter shut): nothing to time
   n++; worst = Math.max(worst, f);

@@ -50,7 +50,7 @@ function mmMacros() {
     return [{ label: 'Level', paths: osc.map(i => 'o.' + i + '.amp.level'), min: 0, max: 127, fmt: K.n },
       { label: 'Cutoff', paths: fp('cut'), min: 0, max: 99, fmt: K.cut }, { label: 'Resonance', paths: fp('reso'), min: 0, max: 31, fmt: K.n },
       { label: 'Filter EG', paths: fp('egInt'), min: -99, max: 99, fmt: K.sgn },
-      { label: 'Attack', paths: osc.map(i => 'o.' + i + '.aeg.atkT'), min: 0, max: 99, fmt: K.time }, { label: 'Release', paths: osc.map(i => 'o.' + i + '.aeg.relT'), min: 0, max: 99, fmt: K.time }];
+      { label: 'Attack', paths: osc.map(i => 'o.' + i + '.aeg.atkT'), min: 0, max: 99, fmt: K.egt }, { label: 'Release', paths: osc.map(i => 'o.' + i + '.aeg.relT'), min: 0, max: 99, fmt: K.egt }];
   }
   const fp = k => (P.filt && P.filt.link ? [0] : [0, 1]).map(i => 'f.' + i + '.' + k);
   return [{ label: 'Level', paths: ['out.level'], min: 0, max: 127, fmt: String },
