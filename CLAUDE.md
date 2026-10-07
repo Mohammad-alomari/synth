@@ -130,14 +130,33 @@ Timbre ifx byte (UNVERIFIED, inferred from user files; Korg doc incomplete): 0 n
   order; with 2 chains and both halves used, first = blocks 1-4, second = 5-8. (korgCombiChains)
 
 ==============================================================================
-4. CALIBRATION (estimates - verify against real hardware when possible)
+4. CALIBRATION
 ==============================================================================
-PCM cutoff: PCM.cutHz(x) = 250 * 2^(x/15.6) Hz, clamped 30 Hz..0.45*sr. Filter EG factor EGK = 2.
-Filter input gain = value/99. Resonance 0..31 mapped onto MOSS resonance curve (x92/31).
-LFO: 0.03 * 1000^(v/99) Hz. EG times: MD.tsec (shared with MOSS). PCM output trim 3.3.
-Timbre level -> (level/127)^2; whole combination -3 dB. Voice caps in combis: PCM 32/(active timbres), MOSS 6.
+PCM laws MEASURED against KORG Collection TRINITY 1.1.4 (2026-10: the same factory programs with the same values played
+there and here, rendered audio compared; black box). test/pcmlaws.js holds the numbers, pcm.js the comments.
+  Cutoff: PCM.cutHz(x) = 19.6 * 2^(x*10/99) Hz when the oscillator sounds middle C (ten octaves over 0-99), up to 0.45*sr.
+  Filter key tracking (PCM.ftrack): the cutoff follows the SOUNDING pitch (key + timbre transpose + octave + transpose) by
+    43/105 octave per octave on every key; a ramp adds ramp/105 beyond its key (low ramp below the low key, high ramp above
+    the high key).
+  Filter EG reach: 10 octaves x level/100 x intensity/100 (EGK 0.98 cutoff steps); intensity = EG Int + EG Velocity Int x
+    velocity/127.
+  Resonance 0..31 -> Q by table (PCM.kReso: 0.5 at 0, 1.8 at 8, 4.4 at 16, 8.8 at 20, 19 at 24; extrapolated above 28,
+    where Korg's filter sounds by itself). The filter's two states stop at 0.95 of full scale (PCM.FSAT): Korg's filter
+    overloads there (a full-level sine gains at most about 4 dB from resonance).
+  EG times (pitch, filter and amp EG): PCM.tsec = 2^((v-60)/10) s up to 80, a table from 81 (99 = 92 s); 0 = at once.
+  EG shapes (PcmEG): a rise is a straight line; a fall is an exponential that arrives at its time; an amp EG falling to 0
+    passes -20 dB at 0.55 x its time and is silent at 1.65 x. A fall of time 0 takes 16 ms.
+  Levels: Amp Level v/127 and amp EG levels v/99, both linear; amp velocity (1 - Int/99 x (1 - velocity/127))^3; an EG
+    level's velocity sensitivity is added to it (level + sens x velocity/127). One voice at full settings = -14.2 dBFS
+    (PCM.GAIN 0.61 x the output trim 3.3). Timbre level -> (level/127)^2.
+Still estimates: filter input gain = value/99; LFO: 0.03 * 1000^(v/99) Hz; portamento and LFO delay/fade times (MD.tsec,
+shared with MOSS); multisample level (squared); EG time key/velocity sensitivities; high-pass, band-pass and band-reject use
+the low-pass's numbers; the MOSS and effect constants (not compared with anything yet). Not modelled: Korg holds a note-off about 18 ms before the
+release starts, and moves its envelopes in 16 ms steps.
+Whole combination -3 dB. Voice caps in combis: PCM 32/(active timbres), MOSS 6.
 Output: peak limiter (ceiling 0.89, 120 ms release) + soft clip. Effects rest after 6 s of silence (FxRack.run).
-UI: MOSS pages show "Trinity number · model estimate" (e.g. "40 · 250 ms"); pan shown Korg-style L000..C064..R127.
+UI: the pages show "Trinity number · model estimate" (e.g. "40 · 250 ms"; PCM cutoff in Hz at middle C, PCM envelope times
+by PCM.tsec); pan shown Korg-style L000..C064..R127.
 
 ==============================================================================
 5. CURRENT STATE AND OPEN ITEMS
@@ -192,7 +211,7 @@ Open / ideas (not built):
 1. Combination: per-timbre (program) scale not modelled.
 2. Bank S (Solo-TRI board) not modelled; timbres pointing to S are silent.
 3. RAM/Flash samples (0x1000|n) play the fallback (PCM_FALLBACK) - the audio only lived in the user's synth.
-4. Timbre ifx rule inferred; calibration constants are estimates.
+4. Timbre ifx rule inferred; calibration constants not listed as measured in section 4 are estimates.
 Decisions by the owner (do NOT propose these again):
 - Never limit combinations to one MOSS program (the real Trinity's limit is deliberately not copied).
 - Never pick a sound by the program's name (the old PCM_RAMGUESS / user_starters EXTRA lists are gone): a program plays
@@ -225,7 +244,8 @@ Tests: sh test/run_all.sh (~2 min, most of it the browser test; exit 0 = pass; F
   CI: .github/workflows/test.yml runs npm run lint, then build.py + run_all.sh on every push / PR.
   Checks: fxunit, fuzz, fxfix (effects), voicefix (notes), combifix (timbre delay, MIDI filters), progs (MOSS programs, every 8th),
   latency (note-on to first sample: <= 1 ms for every program with a fast amp attack, effects off; Reed/Brass/Bowed 10 ms;
-  damaged records skipped), combis (every 16th,
+  PCM programs with their amp attack time at 0, as their envelopes rise in a straight line; damaged records skipped),
+  pcmlaws (the measured PCM laws: by value, and heard through the engine on a built-in sine), combis (every 16th,
   needs ffmpeg), browser_test.py (Playwright; starts its own server; sound in both audio modes, MIDI latency through
   onMidi with a probe worklet on the output (main thread < 2 ms, sound within the next blocks), all pages, fx edit,
   phone width, recording, keyboard settings, play mode, search, MIDI buttons, IndexedDB storage, synth memory,

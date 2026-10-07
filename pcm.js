@@ -7,23 +7,55 @@
 
 class PCM {
   static lfoHz(v) { return 0.03 * Math.pow(1000, (v < 0 ? 0 : v > 140 ? 140 : v) / 99); } // 0: 0.03 Hz, 50: 1 Hz, 75: 5.4 Hz, 99: 30 Hz
-  // Filter cutoff 0..99 -> Hz. Estimated from the user's programs (acoustic sounds sit at low values and open with the
-  // filter EG): 0 = 250 Hz, 99 = 20 kHz; the filter EG reaches twice as far as a cutoff step (EGK)
-  static cutHz(x, sr) { const f = 250 * Math.pow(2, x / 15.6); return f < 30 ? 30 : f > sr * 0.45 ? sr * 0.45 : f; }
-  static get EGK() { return 2; }
+  // The laws below marked "measured" come from playing the same factory programs here and in KORG Collection
+  // TRINITY 1.1.4 with the same values (black box: rendered audio and Korg's manual; 2026-10).
+  // Filter cutoff 0..99 -> Hz (measured, five programs within 1 %): ten octaves, 19.6 Hz .. 20 kHz when the
+  // oscillator sounds middle C; the keyboard tracking (ftrack) is added to x in the same steps (9.9 per octave)
+  static cutHz(x, sr) { const f = 19.6 * Math.pow(2, x * 0.1010101); return f > sr * 0.45 ? sr * 0.45 : f; }
+  // Filter EG reach (measured): 10 octaves x level/100 x intensity/100 = 0.98 steps per intensity step at level 99
+  static get EGK() { return 0.98; }
+  // Filter keyboard tracking in cutoff steps (measured): the cutoff follows the sounding pitch p (note number: key +
+  // transposes + octave) by 43/105 octave per octave on every key; a ramp adds ramp/105 beyond its breakpoint.
+  // Korg's manual says the same in its own words: ramp +62 = as the pitch, -43 = none.
+  static ftrack(p, kl, kh, rl, rh) { return (43 * (p - 60) + (p > kh ? rh * (p - kh) : 0) - (p < kl ? rl * (kl - p) : 0)) * 0.00785714; } // x 9.9 / (105 x 12)
   // bend STEP list (Korg): 0 continuous, 1 = 1/8 semitone, 2 = 1/4, 3 = 1/2, 4 = 1 ... 15 = 12 semitones
   static stepSemis(v) { return !(v > 0) ? 0 : v < 4 ? [0.125, 0.25, 0.5][v - 1] : v - 3; }
-  static kReso(r) { return MD.kReso((r < 0 ? 0 : r > 31 ? 31 : r) / 31 * 92); }
+  // Resonance 0..31 -> filter damping k = 1/Q (measured on the low-pass: Q 0.5 at 0, 1.8 at 8, 4.4 at 16, 8.8 at 20,
+  // 19 at 24; from 28-30 Korg's filter sounds by itself, here Q ends at 100 and the filter's limit (PcmVoice) holds it)
+  static kReso(r) {
+    const Q = PCM.QT || (PCM.QT = new Float64Array([0.5, 0.61, 0.74, 0.86, 0.99, 1.13, 1.30, 1.52, 1.77, 1.96, 2.16, 2.36, 2.58, 2.96, 3.39, 3.88, 4.45, 5.25, 6.2, 7.4, 8.78, 10.6, 12.9, 15.7, 19.2, 23.6, 29, 37, 47, 60, 77, 100]));
+    r = r < 0 ? 0 : r > 31 ? 31 : r; const i = r | 0, f = r - i;
+    return 1 / (i >= 31 ? Q[31] : Q[i] + (Q[i + 1] - Q[i]) * f);
+  }
+  // EG time 0..99 -> seconds (measured on the amp EG, the filter EG keeps it): 2^((v - 60) / 10), so 60 = 1 s and
+  // +10 doubles; above 80 it grows faster, up to 92 s at 99. 0 = at once (PcmEG: a fall still takes 16 ms).
+  static tsec(v) {
+    if (!(v > 0)) return 0;
+    if (v <= 80) return Math.pow(2, (v - 60) / 10);
+    const T = PCM.TT || (PCM.TT = new Float64Array([4, 4.33, 4.69, 5.11, 5.60, 6.16, 6.85, 7.66, 8.69, 9.94, 11.49, 13.45, 15.99, 19.36, 23.98, 30.65, 39.40, 52.54, 68.95, 91.95]));
+    const x = (v > 99 ? 99 : v) - 80, i = x | 0;
+    return i >= 19 ? T[19] : T[i] + (T[i + 1] - T[i]) * (x - i);
+  }
+  // level of a PCM voice against the stored output trim (set when the level laws became linear; see CLAUDE.md section 4)
+  static get GAIN() { return 0.61; }
   static ramp(n, kl, kh, rl, rh) { return n < kl ? (kl - n) / 12 * rl / 99 * 12 : n > kh ? (n - kh) / 12 * rh / 99 * 12 : 0; } // in parameter units per octave
+  // The filter's limit (measured: a full-level sine at resonance 16+ comes out at most 3.9 dB above its level, with
+  // harmonics; Korg's manual: "if the sound is distorting ... lower Trim"). The filter's two states stop at this
+  // level (a full-scale sample is 1; 0.95 fits the measured gains best).
+  static get FSAT() { return 0.95; }
   // EG time multiplier from keyboard track (center C4) and velocity: +99 halves the time per octave / at full velocity
   static tmul(kt, vt, note, v) { return Math.pow(2, -(kt / 99) * (note - 60) / 12 - (vt / 99) * (v * 2 - 1)); }
   // a tiny deterministic noise source for the stand-in noise waves
   static hash(i) { let x = (i * 374761393) | 0; x = (x ^ (x >>> 13)) * 1274126177 | 0; return ((x ^ (x >>> 16)) >>> 0) / 4294967296 * 2 - 1; }
 }
 
-// ---- envelope: start > attack > (decay > break) > (slope > sustain) > release; up linear, down exponential ----
+// ---- envelope: start > attack > (decay > break) > (slope > sustain) > release ----
+// Shapes as measured (see PCM): a rise is a straight line that takes the segment's time T. A fall is exponential,
+// e^(-4.2 t/T), shifted so that it arrives exactly at T. An amp EG (zero = true) falling to silence is the one
+// exception: 1.001 e^(-4.2 t/T) - 0.001 of the way, -20 dB at 0.55 T, -37 dB at T, silent at 1.65 T. A segment ends
+// when it arrives. A time of 0 is at once for a rise and 16 ms (the law's value at 0) for a fall.
 class PcmEG {
-  constructor() { this.stage = 0; this.val = 0; this.from = 0; this.t = 0; this.L = new Float64Array(5); this.T = new Float64Array(4); this.hold = false; }
+  constructor(zero) { this.stage = 0; this.val = 0; this.from = 0; this.t = 0; this.L = new Float64Array(5); this.T = new Float64Array(4); this.hold = false; this.zero = !!zero; }
   // levels: [start, attack, break, sustain, release] in -1..1 ; times: [attack, decay, slope, release] seconds
   start(L0, L1, L2, L3, L4, T0, T1, T2, T3) {
     const L = this.L, T = this.T; L[0] = L0; L[1] = L1; L[2] = L2; L[3] = L3; L[4] = L4; T[0] = T0; T[1] = T1; T[2] = T2; T[3] = T3;
@@ -38,12 +70,19 @@ class PcmEG {
       const st = this.stage;
       if (st === 0 || st === 6) return this.val;
       if (st === 4) { this.val = this.L[3]; return this.val; }
-      const T = st === 5 ? this.T[3] : this.T[st - 1], tg = st === 5 ? this.L[4] : this.L[st];
-      if (T <= 0) { this.val = tg; this.adv(); continue; }
+      let T = st === 5 ? this.T[3] : this.T[st - 1]; const tg = st === 5 ? this.L[4] : this.L[st];
+      if (tg >= this.from) { // a rise
+        if (T <= 0) { this.val = tg; this.adv(); continue; }
+        this.t += dt;
+        if (this.t >= T) { this.val = tg; this.adv(); return this.val; }
+        this.val = this.from + (tg - this.from) * (this.t / T);
+        return this.val;
+      }
+      if (T <= 0) T = 0.015625;
       this.t += dt;
-      if (this.t >= T) { this.val = tg; this.adv(); return this.val; }
-      const r = this.t / T;
-      this.val = tg >= this.from ? this.from + (tg - this.from) * r : tg + (this.from - tg) * Math.exp(-5 * r) * (1 - r * 0.0067);
+      const e = Math.exp(-4.2 * this.t / T), h = this.zero && tg === 0 ? 1.001 * e - 0.001 : (e - 0.0149956) * 1.0152239;
+      if (h <= 0) { this.val = tg; this.adv(); return this.val; }
+      this.val = tg + (this.from - tg) * h;
       return this.val;
     }
     return this.val;
@@ -183,7 +222,7 @@ class PcmVoice {
   constructor(sr, idx) {
     this.sr = sr; this.idx = idx; this.active = false; this.gate = false; this.note = 60; this.vel = 1; this.age = 0; this.sustained = false;
     this.peg = new PcmEG(); this.seed = 7777 + idx * 131;
-    this.o = [0, 1].map(k => ({ on: false, z: null, pk: 0, pos: 0, root: 60, rate: 1, gain: 0, feg: new PcmEG(), aeg: new PcmEG(), lfo: new PcmLFO(900 + idx * 17 + k), flfo: new PcmLFO(500 + idx * 29 + k),
+    this.o = [0, 1].map(k => ({ on: false, z: null, pk: 0, pos: 0, root: 60, rate: 1, gain: 0, feg: new PcmEG(), aeg: new PcmEG(true), lfo: new PcmLFO(900 + idx * 17 + k), flfo: new PcmLFO(500 + idx * 29 + k),
       sa: new Float64Array(2), sb: new Float64Array(2), ca: new Float64Array(4), cb: new Float64Array(4), xa: NaN, xb: NaN, ra: NaN, rb: NaN,
       g: 0, pl: 0, pr: 0, wait: 0, keyOff: false, lfoOn: true, flfoOn: true, lfoT: 0, flfoT: 0, lvl: 1, filt: true, key: 60, velA: 1, sv: new Float64Array(8),
       // set while playing; declared here so every oscillator keeps one object shape (no allocation per block)
@@ -198,7 +237,7 @@ class PcmVoice {
     if (legato && this.active) return; // mono legato: the new pitch glides in; nothing restarts
     this.rnd = (P.random || 0) * this.noise();
     const G = P.peg, v = vel, tm = Math.pow(2, -(G.velT / 99) * (v * 2 - 1)) * this.amsTime(eng, G.tSrc, G.tInt, 0);
-    this.peg.start(G.startL / 99, G.atkL / 99, 0, 0, G.relL / 99, MD.tsec(G.atkT) * tm, MD.tsec(G.decT) * tm, 0, MD.tsec(G.relT) * tm);
+    this.peg.start(G.startL / 99, G.atkL / 99, 0, 0, G.relL / 99, PCM.tsec(G.atkT) * tm, PCM.tsec(G.decT) * tm, 0, PCM.tsec(G.relT) * tm);
     for (let i = 0; i < 2; i++) {
       const O = P.o[i], o = this.o[i];
       o.on = P.mode !== 'drum' && (i === 0 || (P.mode === 'double' && vel * 127 >= P.osc2Vel)); // Drum mode: silent
@@ -212,14 +251,15 @@ class PcmVoice {
       o.key = note + O.octave * 12 + O.transpose;
       o.z = null; o.wait = O.delay < 0 ? -1 : O.delay / 1000; o.keyOff = O.delay < 0; o.off = off;
       o.velA = PcmVoice.velAmp(O.amp.vel, vel);
-      // EGs (time mods by key, velocity and A.M.; level mods by velocity)
-      const F = O.feg, A = O.aeg, fk = PCM.tmul, lv = (base, m) => MD.clamp(base + m * (vel - 1), -99, 99) / 99;
+      // EGs (time mods by key, velocity and A.M.). A level velocity sensitivity is added to the start, attack and
+      // break point levels in proportion to velocity (measured on both EGs: level + sensitivity x velocity / 127)
+      const F = O.feg, A = O.aeg, fk = PCM.tmul, lv = (base, m) => MD.clamp(base + m * vel, -99, 99) / 99;
       const fam = this.amsTime(eng, F.tSrc, F.tInt, i), aam = this.amsTime(eng, A.tSrc, A.tInt, i);
       o.feg.start(lv(F.startL, F.lv[0]), lv(F.atkL, F.lv[1]), lv(F.brkL, F.lv[2]), F.susL / 99, F.relL / 99,
-        MD.tsec(F.atkT) * fk(F.kt[0], F.vt[0], note, vel) * fam, MD.tsec(F.decT) * fk(F.kt[1], F.vt[1], note, vel) * fam, MD.tsec(F.slpT) * fk(F.kt[2], F.vt[2], note, vel) * fam, MD.tsec(F.relT) * fk(F.kt[3], F.vt[3], note, vel) * fam);
-      const al = (base, m) => MD.clamp(base + m * (vel - 1), 0, 99) / 99;
+        PCM.tsec(F.atkT) * fk(F.kt[0], F.vt[0], note, vel) * fam, PCM.tsec(F.decT) * fk(F.kt[1], F.vt[1], note, vel) * fam, PCM.tsec(F.slpT) * fk(F.kt[2], F.vt[2], note, vel) * fam, PCM.tsec(F.relT) * fk(F.kt[3], F.vt[3], note, vel) * fam);
+      const al = (base, m) => MD.clamp(base + m * vel, 0, 99) / 99;
       o.aeg.start(al(A.startL, A.lv[0]), al(A.atkL, A.lv[1]), al(A.brkL, A.lv[2]), A.susL / 99, 0,
-        MD.tsec(A.atkT) * fk(A.kt[0], A.vt[0], note, vel) * aam, MD.tsec(A.decT) * fk(A.kt[1], A.vt[1], note, vel) * aam, MD.tsec(A.slpT) * fk(A.kt[2], A.vt[2], note, vel) * aam, MD.tsec(A.relT) * fk(A.kt[3], A.vt[3], note, vel) * aam);
+        PCM.tsec(A.atkT) * fk(A.kt[0], A.vt[0], note, vel) * aam, PCM.tsec(A.decT) * fk(A.kt[1], A.vt[1], note, vel) * aam, PCM.tsec(A.slpT) * fk(A.kt[2], A.vt[2], note, vel) * aam, PCM.tsec(A.relT) * fk(A.kt[3], A.vt[3], note, vel) * aam);
       if (o.keyOff) { o.aeg.kill(); o.feg.kill(); }
       // LFOs
       if (O.lfo.sync || !this.active) o.lfo.reset(); if (O.flfo.sync || !this.active) o.flfo.reset();
@@ -227,8 +267,9 @@ class PcmVoice {
     }
     this.active = true; this.age = eng.clock++;
   }
-  // amp velocity intensity: +99 = level follows velocity fully, -99 = softer playing is louder
-  static velAmp(k, v) { if (!k) return 1; const x = MD.clamp(k / 99, -1, 1), c = Math.pow(v, 1.6); return x >= 0 ? 1 - x + x * c : 1 + x - x * c; }
+  // amp Velocity Int (measured at +35, +50, +60 within 0.1 dB): level = (1 - Int/99 x (1 - velocity))^3, so +99 follows
+  // velocity fully; a negative value by the same rule the other way round (softer playing is louder; not measured)
+  static velAmp(k, v) { if (!k) return 1; const x = MD.clamp(k / 99, -1, 1), b = x >= 0 ? 1 - x * (1 - v) : 1 + x * v; return b * b * b; }
   amsTime(eng, src, int, i) { if (!int || src === 'off') return 1; const s = this.ams(eng, src, i); return Math.pow(2, -(int / 99) * s * 2); }
   // alternate modulation source value (unipolar sources 0..1, bipolar -1..1)
   ams(eng, src, i) {
@@ -255,10 +296,12 @@ class PcmVoice {
   }
   kill() { this.active = false; this.gate = false; for (const o of this.o) { o.on = false; o.aeg.kill(); o.feg.kill(); } this.peg.kill(); }
   // filter cutoff (parameter units) of filter Fp of oscillator i: cutoff + EG, LFO, controllers, key track, A.M.
+  // The EG's intensity is EG Int plus EG Velocity Int in proportion to velocity (measured: PCM); the tracking follows
+  // the pitch the oscillator sounds (its key with octave and transpose), not the key played.
   fcut(eng, Fp, i, feg, fv, flInt, feInt) {
     const c = eng.ctl;
-    return Fp.cut + feg * PCM.EGK * (Fp.egInt * (1 + Fp.egVel / 99 * (this.vel - 1)) + feInt) + fv * (Fp.lfoInt + flInt) + c.jsx * Fp.jsx + c.at * Fp.at
-      + MossVoice.trk(this.note, Fp.lowKey, Fp.highKey, Fp.lowRamp, Fp.highRamp) + (Fp.amsInt ? Fp.amsInt * this.ams(eng, Fp.amsSrc, i) : 0) + eng.ccOff.cutoff;
+    return Fp.cut + feg * PCM.EGK * (Fp.egInt + Fp.egVel * this.vel + feInt) + fv * (Fp.lfoInt + flInt) + c.jsx * Fp.jsx + c.at * Fp.at
+      + PCM.ftrack(this.o[i].key, Fp.lowKey, Fp.highKey, Fp.lowRamp, Fp.highRamp) + (Fp.amsInt ? Fp.amsInt * this.ams(eng, Fp.amsSrc, i) : 0) + eng.ccOff.cutoff;
   }
   renderBlock(eng, L, R, off, n) {
     const P = eng.patch, sr = this.sr, dt = n / sr, c = eng.ctl, store = eng.store;
@@ -276,9 +319,9 @@ class PcmVoice {
       const O = P.o[i];
       if (o.startNow) { // key-off sample begins: its EGs run from the start, then release on their own
         o.startNow = false; const A = O.aeg, F = O.feg;
-        o.aeg.start(A.startL / 99, A.atkL / 99, A.brkL / 99, A.susL / 99, 0, MD.tsec(A.atkT), MD.tsec(A.decT), MD.tsec(A.slpT), MD.tsec(A.relT));
-        o.feg.start(F.startL / 99, F.atkL / 99, F.brkL / 99, F.susL / 99, F.relL / 99, MD.tsec(F.atkT), MD.tsec(F.decT), MD.tsec(F.slpT), MD.tsec(F.relT));
-        o.aeg.release(); o.aeg.stage = 1; o.relLater = MD.tsec(A.atkT) + MD.tsec(A.decT);
+        o.aeg.start(A.startL / 99, A.atkL / 99, A.brkL / 99, A.susL / 99, 0, PCM.tsec(A.atkT), PCM.tsec(A.decT), PCM.tsec(A.slpT), PCM.tsec(A.relT));
+        o.feg.start(F.startL / 99, F.atkL / 99, F.brkL / 99, F.susL / 99, F.relL / 99, PCM.tsec(F.atkT), PCM.tsec(F.decT), PCM.tsec(F.slpT), PCM.tsec(F.relT));
+        o.aeg.release(); o.aeg.stage = 1; o.relLater = PCM.tsec(A.atkT) + PCM.tsec(A.decT);
         o.pos = 0; o.z = null;
       }
       if (o.wait !== 0) {
@@ -349,10 +392,11 @@ class PcmVoice {
       const ga = O.f[0].gain / 99, gb = O.f[1].gain / 99 * (rc === 3 ? 0.7 : 1), gpa = rc === 3 ? ga * 0.7 : ga;
       // amp: level, key track (dB), velocity, aftertouch, A.M., amp EG
       const A = O.amp, kdb = PCM.ramp(this.note, A.lowKey, A.highKey, A.lowRamp, A.highRamp);
-      let amp = MD.lvl(A.level * 99 / 127) * o.lvl * o.velA * Math.pow(10, MD.clamp(kdb, -60, 24) / 20) * o.sgain;
+      // (Amp Level and the amp EG's levels are plain amplitude, measured: 64 of 127 = -6 dB, an EG level of 50 = -6 dB)
+      let amp = A.level / 127 * o.lvl * o.velA * Math.pow(10, MD.clamp(kdb, -60, 24) / 20) * o.sgain * PCM.GAIN;
       if (A.at) amp *= MD.clamp(1 + A.at / 99 * c.at, 0, 2);
       if (A.amsInt) amp *= MD.clamp(1 + A.amsInt / 99 * this.ams(eng, A.amsSrc, i), 0, 2);
-      const ae = aeg < 0 ? 0 : aeg, gt = amp * ae * ae * this.fadeG;
+      const ae = aeg < 0 ? 0 : aeg, gt = amp * ae * this.fadeG;
       // pan
       let pan = O.pan; if (pan < 0) pan = 64;
       let pn = (pan - 64) / 63; if (O.panInt) pn += O.panInt / 99 * this.ams(eng, O.panSrc, i);
@@ -362,7 +406,7 @@ class PcmVoice {
       let pos = o.pos, g = o.g, gl = o.pl, gr = o.pr; const gs = (gt - g) / n, pls = (pl - gl) / n, prs = (pr - gr) / n;
       const ca = o.ca, cb = o.cb, a0 = ca[0], a1 = ca[1], a2 = ca[2], ka = ca[3], b0 = cb[0], b1 = cb[1], b2 = cb[2], kb = cb[3];
       const ta = O.ftn[0], tb = O.ftn[1], kba = ka > 0.08 ? ka * 1.4 : 0.112, kbb = kb > 0.08 ? kb * 1.4 : 0.112;
-      let sa0 = o.sa[0], sa1 = o.sa[1], sb0 = o.sb[0], sb1 = o.sb[1];
+      let sa0 = o.sa[0], sa1 = o.sa[1], sb0 = o.sb[0], sb1 = o.sb[1]; const FS = PCM.FSAT;
       let ended = false;
       for (let s = 0; s < n; s++) {
         const ip = pos | 0, f = pos - ip, x0 = d[ip], xm1 = ip > 0 ? d[ip - 1] : x0, x1 = d[ip + 1], x2 = d[ip + 2];
@@ -374,12 +418,14 @@ class PcmVoice {
           // filter A
           const xa = y * gpa, v3 = xa - sa1, v1 = a0 * sa0 + a1 * v3, v2 = sa1 + a1 * sa0 + a2 * v3;
           sa0 = 2 * v1 - sa0; sa1 = 2 * v2 - sa1;
+          if (sa0 > FS) sa0 = FS; else if (sa0 < -FS) sa0 = -FS; if (sa1 > FS) sa1 = FS; else if (sa1 < -FS) sa1 = -FS;
           const ya = ta === 0 ? v2 : ta === 1 ? xa - ka * v1 - v2 : ta === 2 ? v1 * kba : xa - ka * v1;
           if (rc === 1) y = ya;
           else {
             // filter B: after A (serial) or beside it (parallel)
             const xb = rc === 2 ? ya * gb : y * gb, w3 = xb - sb1, w1 = b0 * sb0 + b1 * w3, w2 = sb1 + b1 * sb0 + b2 * w3;
             sb0 = 2 * w1 - sb0; sb1 = 2 * w2 - sb1;
+            if (sb0 > FS) sb0 = FS; else if (sb0 < -FS) sb0 = -FS; if (sb1 > FS) sb1 = FS; else if (sb1 < -FS) sb1 = -FS;
             const yb = tb === 0 ? w2 : tb === 1 ? xb - kb * w1 - w2 : tb === 2 ? w1 * kbb : xb - kb * w1;
             y = rc === 2 ? yb : ya + yb;
           }
