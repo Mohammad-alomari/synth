@@ -17,6 +17,15 @@ near('pitch 12, below the high key 32', hz(40, 12, 0, 32, 0, -5), 104.1, 1.0);
 near('pitch 48, high key 32, ramp -5', hz(40, 48, 0, 32, 0, -5), 231.6, 2.3);
 near('pitch 55, low key 60, ramp +50', hz(40, 55, 60, 60, 50, 56), 251, 3);
 near('pitch 36, low key 48, ramp -60, Frequency 55', hz(55, 36, 48, 48, -60, -40), 777, 8);
+// amp keyboard tracking: gain measured on three programs (dB at the pitch sounded), the low key tested first
+const tdb = (p, kl, kh, rl, rh) => 20 * Math.log10(P.atrack(p, kl, kh, rl, rh));
+near('amp: 5 below the low key 65, ramp -65, dB', tdb(60, 65, 0, -65, 0), 1.1, 0.1);
+near('amp: 29 below, dB', tdb(36, 65, 0, -65, 0), 5.1, 0.1);
+near('amp: never more than double, dB', tdb(24, 65, 0, -65, 0), 6.0, 0.05);
+near('amp: 20 below the low key 60, ramp -50, dB', tdb(40, 60, 60, -50, -10), 3.0, 0.1);
+near('amp: 15 above the high key 48, ramp -35, dB', tdb(63, 60, 48, 0, -35), -2.1, 0.1);
+near('amp: 43 above, dB', tdb(91, 60, 48, 0, -35), -8.8, 0.3);
+near('amp: below a low key that lies above the high key, the low ramp (0) counts, dB', tdb(59, 60, 48, 0, -35), 0, 1e-9);
 // resonance (Q) and envelope times
 [[0, 0.5], [8, 1.77], [16, 4.45], [20, 8.78], [24, 19.2]].forEach(([r, q]) => near('Q at resonance ' + r, 1 / P.kReso(r), q, q * 0.02));
 [[0, 0], [20, 0.0625], [40, 0.25], [60, 1], [80, 4], [90, 11.49], [99, 91.95]].forEach(([v, t]) => near('EG time ' + v + ', s', P.tsec(v), t, t * 0.005 + 1e-9));
@@ -62,6 +71,11 @@ near('amp EG level 50 against 99, dB', level(sine(O => { O.aeg.startL = O.aeg.at
 const vel50 = sine(O => { O.amp.vel = 50; });
 near('Velocity Int +50: velocity 64 against 127, dB', level(vel50, 64) - level(vel50, 127), -7.5, 0.15);
 near('Velocity Int +50: velocity 8 against 127, dB', level(vel50, 8) - level(vel50, 127), -16.7, 0.2);
+// the amp's ceiling: on a key the tracking makes 5 dB louder, full velocity gains nothing and velocity 40 keeps its 5 dB
+const trk5 = sine(O => { O.amp.vel = 50; O.amp.lowKey = 89; O.amp.lowRamp = -65; }), vel5 = sine(O => { O.amp.vel = 50; });
+near('louder key at velocity 127: no gain, dB', level(trk5, 127) - level(vel5, 127), 0, 0.05);
+near('louder key at velocity 40: +5.1 dB', level(trk5, 40) - level(vel5, 40), 5.1, 0.15);
+near('with Amp Level 64 the ceiling stays, dB', level(sine(O => { O.amp.vel = 50; O.amp.lowKey = 89; O.amp.lowRamp = -65; O.amp.level = 64; }), 127) - level(vel5, 127), -5.95, 0.1);
 // the sine is at 261.63 Hz; a low-pass of Q 0.5 set to that frequency passes half (-6.02 dB), an octave below it a fifth (-13.98 dB)
 const at = Math.log2(261.63 / 19.6) * 9.9;
 near('low-pass at the sine, dB', level(sine(O => { O.f[0].cut = at; })) - full, -6.02, 0.15);

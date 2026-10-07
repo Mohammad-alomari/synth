@@ -36,9 +36,14 @@ class PCM {
     const x = (v > 99 ? 99 : v) - 80, i = x | 0;
     return i >= 19 ? T[19] : T[i] + (T[i + 1] - T[i]) * (x - i);
   }
-  // level of a PCM voice against the stored output trim (set when the level laws became linear; see CLAUDE.md section 4)
-  static get GAIN() { return 0.61; }
-  static ramp(n, kl, kh, rl, rh) { return n < kl ? (kl - n) / 12 * rl / 99 * 12 : n > kh ? (n - kh) / 12 * rh / 99 * 12 : 0; } // in parameter units per octave
+  // Level of a PCM voice against the stored output trim (measured: a full-scale sine at full settings leaves Korg's
+  // plugin at -14.2 dBFS; three of Korg's recordings played from the local packs then sit within about 2 dB of it)
+  static get GAIN() { return 0.29; }
+  // Amp keyboard tracking -> gain (measured on three programs; Korg's manual gives the directions): below the low key
+  // a positive ramp makes the sound softer and a negative one louder, above the high key a positive ramp louder and a
+  // negative one softer, by ramp/100 of the level per two octaves, as amplitude; never more than double. p is the
+  // pitch the oscillator sounds (as ftrack); the low key is tested first (it may lie above the high key).
+  static atrack(p, kl, kh, rl, rh) { const g = p < kl ? 1 - rl * (kl - p) / 2400 : p > kh ? 1 + rh * (p - kh) / 2400 : 1; return g < 0 ? 0 : g > 2 ? 2 : g; }
   // The filter's limit (measured: a full-level sine at resonance 16+ comes out at most 3.9 dB above its level, with
   // harmonics; Korg's manual: "if the sound is distorting ... lower Trim"). The filter's two states stop at this
   // level (a full-scale sample is 1; 0.95 fits the measured gains best).
@@ -390,10 +395,11 @@ class PcmVoice {
       }
       // filter input gain: 99 = unity (most programs), lower values attenuate the signal going into the filter
       const ga = O.f[0].gain / 99, gb = O.f[1].gain / 99 * (rc === 3 ? 0.7 : 1), gpa = rc === 3 ? ga * 0.7 : ga;
-      // amp: level, key track (dB), velocity, aftertouch, A.M., amp EG
-      const A = O.amp, kdb = PCM.ramp(this.note, A.lowKey, A.highKey, A.lowRamp, A.highRamp);
+      // amp: level, velocity x key track, aftertouch, A.M., amp EG. Velocity and key track together cannot lift the
+      // amp above its full level (measured: a louder key gains nothing at full velocity, whatever Amp Level is)
+      const A = O.amp; let vk = o.velA * PCM.atrack(o.key, A.lowKey, A.highKey, A.lowRamp, A.highRamp); if (vk > 1) vk = 1;
       // (Amp Level and the amp EG's levels are plain amplitude, measured: 64 of 127 = -6 dB, an EG level of 50 = -6 dB)
-      let amp = A.level / 127 * o.lvl * o.velA * Math.pow(10, MD.clamp(kdb, -60, 24) / 20) * o.sgain * PCM.GAIN;
+      let amp = A.level / 127 * o.lvl * vk * o.sgain * PCM.GAIN;
       if (A.at) amp *= MD.clamp(1 + A.at / 99 * c.at, 0, 2);
       if (A.amsInt) amp *= MD.clamp(1 + A.amsInt / 99 * this.ams(eng, A.amsSrc, i), 0, 2);
       const ae = aeg < 0 ? 0 : aeg, gt = amp * ae * this.fadeG;

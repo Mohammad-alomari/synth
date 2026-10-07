@@ -147,10 +147,15 @@ there and here, rendered audio compared; black box). test/pcmlaws.js holds the n
   EG shapes (PcmEG): a rise is a straight line; a fall is an exponential that arrives at its time; an amp EG falling to 0
     passes -20 dB at 0.55 x its time and is silent at 1.65 x. A fall of time 0 takes 16 ms.
   Levels: Amp Level v/127 and amp EG levels v/99, both linear; amp velocity (1 - Int/99 x (1 - velocity/127))^3; an EG
-    level's velocity sensitivity is added to it (level + sens x velocity/127). One voice at full settings = -14.2 dBFS
-    (PCM.GAIN 0.61 x the output trim 3.3). Timbre level -> (level/127)^2.
+    level's velocity sensitivity is added to it (level + sens x velocity/127). Timbre level -> (level/127)^2.
+  Amp key tracking (PCM.atrack): by the sounding pitch, as amplitude: below the low key the gain is 1 - low ramp/100 x
+    semitones/24 (a positive low ramp is softer, a negative one louder), above the high key 1 + high ramp/100 x
+    semitones/24; at most double; the low key is tested first. Velocity x key tracking cannot exceed 1 (the amp's
+    ceiling: a louder key gains nothing at full velocity, at any Amp Level).
+  One voice of a full-scale sample at full settings = -14.2 dBFS (PCM.GAIN 0.29 x the output trim 3.3).
 Still estimates: filter input gain = value/99; LFO: 0.03 * 1000^(v/99) Hz; portamento and LFO delay/fade times (MD.tsec,
-shared with MOSS); multisample level (squared); EG time key/velocity sensitivities; high-pass, band-pass and band-reject use
+shared with MOSS); multisample level (squared); EG time key/velocity sensitivities; where amp aftertouch and A.M. stand
+against the amp's ceiling; high-pass, band-pass and band-reject use
 the low-pass's numbers; the MOSS and effect constants (not compared with anything yet). Not modelled: Korg holds a note-off about 18 ms before the
 release starts, and moves its envelopes in 16 ms steps.
 Whole combination -3 dB. Voice caps in combis: PCM 32/(active timbres), MOSS 6.
