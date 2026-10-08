@@ -77,6 +77,11 @@ const PCM_STANDIN = (() => {
 const PCM_KORG_BUILT = false;
 // PCM_USER_BUILT: the same for samples/user/packs.json (the owner's own sample disks, tools/samples/build_korg.py --all)
 const PCM_USER_BUILT = false;
+// PCM_FLASH: the sample sets this copy has in samples/flash/ (tools/samples/build_flash.py; never committed, never in the
+// public build): set name -> its multisamples in the order of the set's KSC file, [{ p: pack, name }]. build.py fills it
+// in from samples/flash/packs.json. A Trinity PCG never holds audio; its RAM/Flash multisample n (0x1000 | n) is the n-th
+// multisample of the set loaded with it. A file named after a set (TFD-1S.PCG -> set TFD-1S) plays that set.
+const PCM_FLASH = null;
 const PCM_KORG = (() => {
   const ms = {}, K = (f, extra) => Object.assign({ p: 'k_' + f.split('/').pop().toLowerCase(), f, g: 8 }, extra || {});
   const put = (list, lib, extra) => list.trim().split(/\s+/).forEach(x => { const [n, f] = x.split(':'); ms[n] = K(lib + '/' + f, extra); });

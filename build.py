@@ -25,6 +25,11 @@ def source(f):
         if os.path.exists('samples/korg/packs.json'): code = code.replace('const PCM_KORG_BUILT = false;', 'const PCM_KORG_BUILT = true;')
         # samples/user/ holds the multisamples of your own userdata.js (private/), not those of other data
         if data == 'private' and os.path.exists('samples/user/packs.json'): code = code.replace('const PCM_USER_BUILT = false;', 'const PCM_USER_BUILT = true;')
+        # samples/flash/: the sample sets of Trinity PCG files (build_flash.py): the list of each set's multisamples
+        if os.path.exists('samples/flash/packs.json'):
+            sets = json.load(open('samples/flash/packs.json', encoding='utf-8')).get('sets', {})
+            flash = {k: [{'p': e.get('p'), 'name': e.get('name', '')} for e in v] for k, v in sets.items()}
+            if flash: code = code.replace('const PCM_FLASH = null;', 'const PCM_FLASH = ' + json.dumps(flash, separators=(',', ':')) + ';')
     return code
 
 ui = open('ui.html', encoding='utf-8').read()

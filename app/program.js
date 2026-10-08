@@ -95,8 +95,9 @@ function loadProgram(bank, idx, fromRecent) {
 }
 // what a PCM program plays, for the status line
 function pcmStatus(P) {
-  const rm = Object.values(P.ramMap || {}), own = rm.filter(v => typeof v === 'string');
+  const rm = Object.values(P.ramMap || {}), fl = rm.filter(v => typeof v === 'string' && (pcmMap.ms[v] || {}).fl), own = rm.filter(v => typeof v === 'string' && !fl.includes(v));
   const fb = 'the fallback (' + korgFallbackName() + ')';
+  if (fl.length) return 'Plays the ' + pcmMap.ms[fl[0]].fl + ' sample set' + (rm.some(v => typeof v === 'number') ? '; the rest play ' + fb : '') + '.';
   if (own.length) return 'Plays your samples' + (own.some(k => !(pcmMap.ms[k] || {}).u) ? '; the rest play ' + fb : '') + '.';
   return rm.some(v => typeof v === 'number') ? 'Some samples are not in the file: ' + fb + ' plays them.' : '';
 }

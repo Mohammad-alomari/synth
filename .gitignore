@@ -16,3 +16,5 @@ samples/korg/
 # local copies of Korg material
 New folder/
 samples/user/
+# sample sets that Trinity PCG files play as RAM/Flash multisamples (tools/samples/build_flash.py): never committed
+samples/flash/
