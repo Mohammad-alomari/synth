@@ -7,10 +7,10 @@ function index() { return INDEX || (INDEX = JSON.parse(fs.readFileSync(path.join
 function zonesFrom(meta, x) {
   let k = 0, m = 0; for (let i = 0; i < Math.min(x.length, meta.sync + meta.search); i++) { const a = Math.abs(x[i]); if (a > m) { m = a; k = i; } }
   const off = k - meta.sync, zones = [];
-  for (const [st, len, ls, le, gdb, zs] of meta.s) {
+  for (const [st, len, ls, le, gdb, zs, s2] of meta.s) {
     const s = st + off, a = ls >= 0 ? ls + off : -1, e = le >= 0 ? le + off : -1;
-    if (a > 0 && e > a) { const n = Math.min(meta.heal || 64, a, e - a); for (let i = 0; i < n; i++) { const t = (i + 0.5) / n; x[e - n + i] = x[e - n + i] * (1 - t) + x[a - n + i] * t; } }
-    for (const [lo, hi, root, tune] of zs) zones.push({ lo, hi, root: root - tune / 100, rate: meta.rate, data: x, ls: a, le: e, end: s + len, start: s, gain: Math.pow(10, gdb / 20) });
+    if (a > 0 && e > a) { const n = Math.min(meta.heal ?? 64, a, e - a); for (let i = 0; i < n; i++) { const t = (i + 0.5) / n; x[e - n + i] = x[e - n + i] * (1 - t) + x[a - n + i] * t; } }
+    for (const [lo, hi, root, tune] of zs) zones.push({ lo, hi, root: root - tune / 100, rate: meta.rate, data: x, ls: a, le: e, end: s + len, start: s, s2: s2 > 0 ? s2 + off : -1, gain: Math.pow(10, gdb / 20) });
   }
   return zones;
 }

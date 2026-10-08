@@ -40,7 +40,7 @@ The page must be served over http, because audio, MIDI and the samples need it.
 
 - This is an independent, non-commercial project. It is not affiliated with, endorsed by or supported by Korg Inc. Korg, Trinity, Triton, MOSS and other product names are trademarks of their owners and are used here only to describe what the software works with.
 - The sound engine is an original implementation. It is based on publicly available documentation and open-source projects, plus estimates. It contains no Korg firmware, program code, sample data or factory sound banks. Users load their own files, which stay in their browser.
-- The tools that convert sample libraries you own (`tools/samples/build_korg.py`) are for personal use. Their output is not part of this repository.
+- The tools that convert sample libraries you own (`tools/samples/build_korg.py`, `tools/samples/build_flash.py`) are for personal use. Their output is not part of this repository.
 - Third-party content keeps its own licence:
   - Stand-in samples: MuseScore's MS General SoundFont (FluidR3 by Frank Wen, FluidR3Mono by Michael Cowgill, MS General by S. Christian Collins), MIT.
   - Fonts: Barlow and VT323, SIL Open Font License 1.1 (`fonts/`).

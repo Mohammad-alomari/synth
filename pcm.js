@@ -340,8 +340,8 @@ class PcmVoice {
         if (!o.z || !s.pending) {
           o.z = PcmStore.pick(s.zones, s.key >= 0 ? s.key : o.key); o.pk = s.pending ? 1 : 0; o.sgain = s.gain * (o.z.gain || 1);
           o.root = (s.key >= 0 ? 60 - s.key + o.z.root : o.z.root) - (s.shift || 0); // a percussion stand-in (one drum sound) sounds at its own pitch at note 60
-          const st = o.z.start || 0; // offset start: skip the attack
-          o.pos = o.off ? Math.min(o.z.le > 0 ? o.z.ls : o.z.data.length * 0.3, st + o.z.rate * 0.03) : st;
+          const st = o.z.start || 0; // offset start: Korg's 2nd start where the pack has it, else skip 30 ms of the attack
+          o.pos = !o.off ? st : o.z.s2 > 0 ? o.z.s2 : Math.min(o.z.le > 0 ? o.z.ls : o.z.data.length * 0.3, st + o.z.rate * 0.03);
         }
       }
       const z = o.z;
