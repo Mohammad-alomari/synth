@@ -15,6 +15,9 @@ Processing per sample:
     oneshot : (drums) cut where the tail falls below --floor dB re peak (max --maxlen), fade out, no loop.
     auto    : (Korg multisamples) a sample with an authored loop keeps it whatever its length; one without
               plays once, like oneshot.
+  --exact (with auto): nothing is trimmed, cut, faded or moved: every sample goes in from its first frame to its
+              loop end (or its last frame), the loop points as authored. A zone's `start2` (Korg's 2nd start, the
+              frame an oscillator with Start Offset begins at) is kept in the map.
   normalise each sample to -1 dBFS peak and store the gain in the map (so velocity/level stays authored).
 
 Stream layout (mono, --rate):  [sync click][gap][s0 ... s0.loop tail pad][gap][s1 ...]...
@@ -307,7 +310,7 @@ def zones_from_sf(path):
     for z in meta['zones']:
         x, sr = sf.read(os.path.join(d, z['wav']), dtype='float32', always_2d=True)
         zs.append(dict(x=x.mean(1), sr=sr, rootKey=z['rootKey'], keyRange=z['keyRange'], tuneCents=z['tuneCents'],
-                       loop=z['loop'] if z['looped'] else None, name=z['sampleName'],
+                       loop=z['loop'] if z['looped'] else None, name=z['sampleName'], start2=z.get('start2', 0),
                        gainDb=-z['attenuation_cB'] / 10 * 0.4, id=z['wav']))  # 0.4: EMU/FluidSynth cB scaling
     # dedupe identical samples used by several key ranges (keep one entry per wav, union the ranges)
     return meta, zs
@@ -321,7 +324,7 @@ def zones_from_notes(d):
         lo = 0 if i == 0 else (keys[i - 1] + k) // 2 + 1
         hi = 127 if i == len(keys) - 1 else (k + keys[i + 1]) // 2
         x, sr = sf.read(os.path.join(d, f'{k}.wav'), dtype='float32', always_2d=True)
-        zs.append(dict(x=x.mean(1), sr=sr, rootKey=k, keyRange=[lo, hi], tuneCents=0, loop=None,
+        zs.append(dict(x=x.mean(1), sr=sr, rootKey=k, keyRange=[lo, hi], tuneCents=0, loop=None, start2=0,
                        name=str(k), gainDb=0.0, id=f'{k}.wav'))
     return src, zs
 
@@ -338,6 +341,7 @@ def main():
     ap.add_argument('--minloop', type=float, default=0.25, help='min loop length (s) for found loops')
     ap.add_argument('--xfade', type=float, default=0.08, help='loop crossfade (s) for found loops')
     ap.add_argument('--floor', type=float, default=-60, help='oneshot tail cut, dB re peak')
+    ap.add_argument('--exact', action='store_true', help='with --kind auto: no trim, no cut, loops as authored')
     ap.add_argument('--licence', default='')
     ap.add_argument('--formats', default='opus48,mp3_48,aac48,vorbisq0,adpcm,flac')
     ap.add_argument('--out', default='packed')
@@ -368,9 +372,10 @@ def main():
         loop = None
         if z['loop'] is not None:
             loop = [int(round(v * rate / z['sr'])) for v in z['loop']]
-        x, i0 = trim_start(x)
+        x, i0 = (x, 0) if a.exact else trim_start(x)
         if loop:
             loop = [loop[0] - i0, loop[1] - i0]
+        s2 = int(round(z.get('start2', 0) * rate / z['sr'])) - i0
         f0 = midi_hz(z['keyRanges'][0]['rootKey'])
         maxn = int(a.maxlen * rate)
         info = ''
@@ -383,7 +388,7 @@ def main():
                 # frames to the position whose preceding 16 frames best match those before loop start
                 s0, e0 = loop
                 best = min(range(-2, 3), key=lambda d: float(np.sum((x[e0 + d - 16:e0 + d] - x[s0 - 16:s0]) ** 2))
-                           if e0 + d <= len(x) else 1e9) if s0 >= 16 else 0  # (a loop from the very start: kept as is)
+                           if e0 + d <= len(x) else 1e9) if s0 >= 16 and not a.exact else 0  # (a loop from the very start: kept as is)
                 loop = [s0, e0 + best]
                 x = x[:loop[1]]
                 info = f'authored loop ({(loop[1] - loop[0]) / rate:.2f}s, end nudged {best:+d})'
@@ -410,6 +415,9 @@ def main():
             x = crossfade_loop(x, s, e, xf, equal_power=sc < 0.9)[:e]
             loop = [s, e]
             info = f'tail loop corr={sc:.3f}'
+        elif a.exact:  # plays once, whole
+            loop = None
+            info = f'whole {len(x) / rate:.2f}s'
         else:  # oneshot
             pk = np.max(np.abs(x)) + 1e-12
             env = rms_env(x, int(0.005 * rate))
@@ -430,6 +438,8 @@ def main():
         entry = dict(id=sid, name=z['name'], start=pos, length=len(x),
                      loopStart=pos + loop[0] if loop else None, loopEnd=pos + loop[1] if loop else None,
                      zones=z['keyRanges'], gainDb=round(z['gainDb'] - 20 * math.log10(gain), 2))
+        if 0 < s2 < len(x):
+            entry['start2'] = pos + s2
         table.append(entry)
         report.append(f"  {z['name']:>22s} root {z['keyRanges'][0]['rootKey']:3d}  {len(x) / rate:5.2f}s  {info}")
         stream += body

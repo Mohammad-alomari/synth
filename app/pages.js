@@ -417,12 +417,15 @@ const K = {
 };
 const pcmAms = i => KORG_PCM.AMS.map((a, k) => [a, KORG_PCM.AMS_NAME[k]]).slice(0, i === 1 ? 27 : 23);
 // a RAM multisample (0x1000 | n) of the current program: its name when it is one of the owner's samples (userdata.js)
-const ramName = id => { const v = (patch.ramMap || {})[id & 0xfff]; return typeof v === 'string' && USER_SET && USER_SET.ms[v] ? USER_SET.ms[v].name : 'RAM sample ' + (id & 0xfff); };
+// or a multisample of the file's sample set (samples/flash/)
+const ramName = id => { const v = (patch.ramMap || {})[id & 0xfff], e = typeof v === 'string' ? pcmMap.ms[v] : null;
+  return e && e.fl ? e.f : typeof v === 'string' && USER_SET && USER_SET.ms[v] ? USER_SET.ms[v].name : 'RAM sample ' + (id & 0xfff); };
 const MS_OPTS = (...cur) => { const o = PCM_MS_NAMES.map((n, i) => [i, String(i).padStart(3, '0') + ' ' + n]); for (const id of cur) if (id >= 0x1000 && !o.some(x => x[0] === id)) o.unshift([id, 'RAM ' + pad3(id & 0xfff) + ' ' + ramName(id)]); return o; };
 // what plays multisample id of the current program (a RAM multisample through the program's ramMap)
 const msPlays = id => standinName(id < 0x1000 ? id : ((patch.ramMap || {})[id & 0xfff] ?? 0));
 const standinName = id => { const e = pcmMap.ms[id]; if (!e) return 'placeholder';
   if (e.u) return 'your sample “' + e.f + '”';
+  if (e.fl) return '“' + e.f + '” of the ' + e.fl + ' sample set';
   if (e.f) return e.s ? 'Korg recording ' + e.f.split('/').pop() + ' (similar)' : 'Korg’s own multisample'; if (e.syn) return 'built-in ' + e.syn + ' wave'; if (/^kit/.test(e.p)) return 'General MIDI ' + e.p.replace('kit_', '') + ' drum set, key ' + e.k; return 'General MIDI ' + (parseInt(e.p.slice(2), 10) + 1) + (e.r ? ' (shifted ' + e.r + ' st)' : ''); };
 function pcmPageProgram() {
   const secs = [

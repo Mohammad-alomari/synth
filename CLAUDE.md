@@ -10,6 +10,8 @@ A browser model of the Korg Trinity V3 (with the DSP-MOSS-TRI board). One self-c
   - PCM ("ACCESS") programs (Banks A-D): Single/Double mode, own filters/EGs/LFOs/effects.
     Korg's sample ROM is NOT available -> stand-in recordings (General MIDI, MIT licence) or built-in waves.
     In a local build with samples/korg/ (from Korg libraries you own), ~140 multisamples play Korg recordings (build_korg.py).
+    In a local build with samples/flash/ (build_flash.py), a Trinity PCG named after one of its sample sets plays that set's
+    multisamples as its RAM/Flash samples (TFD-1S.PCG -> set TFD-1S).
   - Drum kits / Drum-mode programs: REMOVED on purpose (owner's decision). Drum programs are left out of the
     lists; combination timbres that use one are silent ("drum program, not supported"). PCG kit sections are skipped.
   - Combinations (8 timbres, zones, mix, insert chains, master effects).
@@ -77,6 +79,14 @@ tools/samples/ build_packs.py (+pack.py, extract_sf.py, sf2parse.py...) rebuilds
                via ConvertWithMoss (KMP -> SF2) in the Docker image tools/samples/korg/Dockerfile; packs keep the source
                rate (48 kHz) and Korg's loops (pack.py --kind auto). Usage in the script's docstring. With --all --prefix u_
                --out samples/user it builds the owner's own sample disks (samples/user/, NOT committed; level trim -6 dB).
+               korg_ksf.py reads KSC / KMP / KSF directly, Korg's 8-bit compressed samples included (ConvertWithMoss cannot):
+               one signed byte per sample, step = sign(b) * (2^(|b|/16) - 1) * 128, y[n] = c1 y[n-1] + c2 y[n-2] + step, c1/c2
+               fixed per compression ID 0-5 (measured on KORG Collection TRINITY; IDs 3-5 less exact; research/trinity/REPORT.md).
+               A KMP zone's level byte is not used, its tune is cents; a sample loops over end - loop frames.
+               build_flash.py --set "NAME=<folder with the set's KSC>" builds samples/flash/ (NOT committed, not in the public
+               build): one lossless pack (FLAC, nothing trimmed: pack.py --exact) per multisample, f_<set>_<kmp file>, and in
+               packs.json "sets": NAME -> its multisamples in KSC order. A pack entry may have a 7th value, the sample's 2nd
+               start (Start Offset begins there: zone.s2), and "heal": 0 (no loop-seam healing).
 docs/research/ format notes: 01 PCM program 433, 02 combination 388, 03 drum kit 1426, 04 global,
                05 PCG file format, 06 effects, 07 multisample names 0-414, 08/09 factory program/combi names.
 test/          Node + Playwright tests (see section 6). demos/: two MP3 demos.
@@ -147,10 +157,15 @@ there and here, rendered audio compared; black box). test/pcmlaws.js holds the n
   EG shapes (PcmEG): a rise is a straight line; a fall is an exponential that arrives at its time; an amp EG falling to 0
     passes -20 dB at 0.55 x its time and is silent at 1.65 x. A fall of time 0 takes 16 ms.
   Levels: Amp Level v/127 and amp EG levels v/99, both linear; amp velocity (1 - Int/99 x (1 - velocity/127))^3; an EG
-    level's velocity sensitivity is added to it (level + sens x velocity/127). One voice at full settings = -14.2 dBFS
-    (PCM.GAIN 0.61 x the output trim 3.3). Timbre level -> (level/127)^2.
+    level's velocity sensitivity is added to it (level + sens x velocity/127). Timbre level -> (level/127)^2.
+  Amp key tracking (PCM.atrack): by the sounding pitch, as amplitude: below the low key the gain is 1 - low ramp/100 x
+    semitones/24 (a positive low ramp is softer, a negative one louder), above the high key 1 + high ramp/100 x
+    semitones/24; at most double; the low key is tested first. Velocity x key tracking cannot exceed 1 (the amp's
+    ceiling: a louder key gains nothing at full velocity, at any Amp Level).
+  One voice of a full-scale sample at full settings = -14.2 dBFS (PCM.GAIN 0.29 x the output trim 3.3).
 Still estimates: filter input gain = value/99; LFO: 0.03 * 1000^(v/99) Hz; portamento and LFO delay/fade times (MD.tsec,
-shared with MOSS); multisample level (squared); EG time key/velocity sensitivities; high-pass, band-pass and band-reject use
+shared with MOSS); multisample level (squared); EG time key/velocity sensitivities; where amp aftertouch and A.M. stand
+against the amp's ceiling; high-pass, band-pass and band-reject use
 the low-pass's numbers; the MOSS and effect constants (not compared with anything yet). Not modelled: Korg holds a note-off about 18 ms before the
 release starts, and moves its envelopes in 16 ms steps.
 Whole combination -3 dB. Voice caps in combis: PCM 32/(active timbres), MOSS 6.
@@ -211,12 +226,17 @@ tasks, queued tasks wait 0.1 ms at p99. Compatibility mode (ScriptProcessor, 102
 Open / ideas (not built):
 1. Combination: per-timbre (program) scale not modelled.
 2. Bank S (Solo-TRI board) not modelled; timbres pointing to S are silent.
-3. RAM/Flash samples (0x1000|n) play the fallback (PCM_FALLBACK) - the audio only lived in the user's synth.
+3. RAM/Flash samples (0x1000|n) play the fallback (PCM_FALLBACK) - the audio only lived in the user's synth - unless
+   this copy has the file's sample set: PCM_FLASH (pcmmap.js; build.py fills it from samples/flash/packs.json) lists the
+   sets, a Trinity file named after a set plays it (core.js flashSet / flashRam -> korgDecodePcm(rec, scale, ramOf):
+   ramMap[n] = 'f:<set>:<n>', a key of pcmMap). The TR-Rack file's 40 RAM/Flash numbers are that rack's extra ROM
+   multisamples (375 + n, hypothesis): no samples for them yet.
 4. Timbre ifx rule inferred; calibration constants not listed as measured in section 4 are estimates.
 Decisions by the owner (do NOT propose these again):
 - Never limit combinations to one MOSS program (the real Trinity's limit is deliberately not copied).
 - Never pick a sound by the program's name (the old PCM_RAMGUESS / user_starters EXTRA lists are gone): a program plays
-  the multisample its file names, or the fallback. test/decodefix.js checks it.
+  the multisample its file names, or the fallback. test/decodefix.js checks it. (A sample set is paired with a file by
+  the file's name, never by a program's.)
 - Drum kits are removed and stay removed (no drum-sample list / kit fixes).
 - No "export edits back to PCG" for now.
 Synth memory (app/core.js memoryFor): an IMPORTED file uses its own PCM banks / Bank M first; what it lacks
@@ -246,7 +266,8 @@ Tests: sh test/run_all.sh (~2 min, most of it the browser test; exit 0 = pass; F
   Checks: fxunit, fuzz, fxfix (effects), voicefix (notes), combifix (timbre delay, MIDI filters), progs (MOSS programs, every 8th),
   latency (note-on to first sample: <= 1 ms for every program with a fast amp attack, effects off; Reed/Brass/Bowed 10 ms;
   PCM programs with their amp attack time at 0, as their envelopes rise in a straight line; damaged records skipped),
-  pcmlaws (the measured PCM laws: by value, and heard through the engine on a built-in sine), combis (every 16th,
+  pcmlaws (the measured PCM laws: by value, and heard through the engine on a built-in sine), flashfix (sample sets of
+  Trinity files: RAM/Flash pairing, 2nd start, lossless packs; made-up data), combis (every 16th,
   needs ffmpeg), browser_test.py (Playwright; starts its own server; sound in both audio modes, MIDI latency through
   onMidi with a probe worklet on the output (main thread < 2 ms, sound within the next blocks), all pages, fx edit,
   phone width, recording, keyboard settings, play mode, search, MIDI buttons, IndexedDB storage, synth memory,

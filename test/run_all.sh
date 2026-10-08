@@ -19,6 +19,7 @@ run node test/fxfix.js
 run node test/voicefix.js
 run node test/combifix.js
 run node test/decodefix.js
+run node test/flashfix.js
 run node test/progs.js
 run node test/latency.js
 run node test/pcmlaws.js

@@ -146,7 +146,7 @@ function pcmPatch(idx) {
   const b = pcmBanks[Math.floor(idx / 128)], i = idx % 128;
   if (!b || b.drum[i]) return null; // Drum-mode programs (drum kits) are not supported
   const rs = pcmRs(b), rec = b.bytes.subarray(i * rs, (i + 1) * rs), e = bankEdits[editKeyP(b, i)];
-  const P = e ? loadAny(e) : b.set.fmt === 'triton' ? korgDecodeTritonPcm(rec, b.set.glb, n => tritonRam(b.set, n)) : korgDecodePcm(rec, b.set.scale);
+  const P = e ? loadAny(e) : b.set.fmt === 'triton' ? korgDecodeTritonPcm(rec, b.set.glb, n => tritonRam(b.set, n)) : korgDecodePcm(rec, b.set.scale, n => flashRam(b.set, n));
   P.korgInfo = P.korgInfo || { notes: [] };
   P.korgInfo.source = b.set.name + ', Bank ' + b.letter + ' ' + String(i).padStart(3, '0') + (e ? ' (edited and saved in place)' : '');
   return P;
@@ -250,6 +250,18 @@ function combiPatch(idx) {
   C.korgInfo.source = b.set.name + ', Combination ' + b.letter + pad3(i);
   return C;
 }
+// ---------------- sample sets of Trinity PCG files (samples/flash/, a local build only) ----------------
+// A Trinity PCG holds no audio: its RAM/Flash multisample n is the n-th multisample of the sample set that was loaded
+// with it (the order of the set's KSC file). Where this copy has such a set (PCM_FLASH, tools/samples/build_flash.py),
+// a Trinity file named after it plays it (TFD-1S.PCG -> set TFD-1S); any other file's RAM/Flash samples play the fallback.
+const FLASH = typeof PCM_FLASH !== 'undefined' && PCM_FLASH ? PCM_FLASH : null;
+const flashKey = (s, n) => 'f:' + s + ':' + n; // the sample map's key of multisample n of set s
+function flashSet(set) {
+  if (!FLASH || !set || set.fmt === 'triton') return null;
+  const nm = String(set.name).replace(/\.pcg$/i, '').trim().toUpperCase();
+  return Object.keys(FLASH).find(k => k.toUpperCase() === nm) || null;
+}
+function flashRam(set, n) { const s = flashSet(set); return s && FLASH[s][n] && FLASH[s][n].p ? flashKey(s, n) : undefined; }
 // ---------------- starter programs from the owner's own samples (userdata.js, private build only) ----------------
 // Programs of a Triton sample disk (tools/user_starters.js) after the MOSS starters: RAM multisample n plays the disk's
 // pack (samples/user/, key u_<file>, see pcmMap), or the fallback (PCM_FALLBACK) where that pack is not here.
@@ -350,6 +362,7 @@ async function importPcgInner(file) {
       if (bs.length) { got.push(bs.length * 128 - drums + ' PCM programs (banks ' + bs.map(b => b.letter).join('') + ')' + (drums ? ', ' + drums + ' drum programs left out' : '')); if (!first && fp >= 0) first = ['pc', fp]; }
       if (set.combis.length) { got.push(set.combis.length * 128 + ' combinations'); if (!first) first = ['cb', (combiBanks.length - set.combis.length) * 128]; }
       if (set.fmt === 'triton') triton = ' The Triton’s own multisamples are not mapped yet: they play the fallback (' + korgFallbackName() + ')' + (r.combis ? '; its combinations are not read yet' : '') + '.';
+      else if (flashSet(set)) triton = ' Its RAM/Flash samples play the ' + flashSet(set) + ' sample set of this copy.';
     }
   }
   if (!got.length) { status(name + ': nothing this synth can play' + (r.bankS ? ' (it has a Bank S for the SOLO-TRI board, not supported yet)' : '') + '.'); toast('Nothing imported from ' + name); return; }
@@ -410,34 +423,42 @@ registerProcessor('moss', MossProc);`;
 // packs that replace the stand-ins of the multisamples they cover; pcmMap is the map in use.
 // The owner's own samples (samples/user/, USER_SET) are the RAM multisamples of the starters from userdata.js; until their
 // packs are here, each plays the fallback (PCM_FALLBACK): never a sound picked by its name.
-let packsReq = null, engineUp = false, korgPacks = 0, userPacks = 0; const packState = {};
-function baseMap() { const ms = Object.assign({}, PCM_STANDIN.ms); if (USER_SET) for (const k in USER_SET.ms) ms[k] = PCM_STANDIN.ms[PCM_FALLBACK]; return { ms }; }
+// A sample set of a Trinity file (samples/flash/, FLASH): multisample n of set s is under flashKey(s, n).
+let packsReq = null, engineUp = false, korgPacks = 0, userPacks = 0, flashPacks = 0; const packState = {};
+function baseMap() {
+  const ms = Object.assign({}, PCM_STANDIN.ms); if (USER_SET) for (const k in USER_SET.ms) ms[k] = PCM_STANDIN.ms[PCM_FALLBACK];
+  if (FLASH) for (const s in FLASH) FLASH[s].forEach((e, n) => { if (e.p) ms[flashKey(s, n)] = PCM_STANDIN.ms[PCM_FALLBACK]; });
+  return { ms };
+}
 let pcmMap = baseMap();
 function packIndex() {
   if (!packsReq) {
     const gm = fetch('samples/packs.json').then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .catch(e => { status('The stand-in samples could not be loaded (' + (e && e.message || e) + '). PCM programs play a soft placeholder tone.'); return { packs: {} }; });
     const opt = (on, url) => on ? fetch(url).then(r => r.ok ? r.json() : { packs: {} }).catch(() => ({ packs: {} })) : { packs: {} };
-    packsReq = Promise.all([gm, opt(PCM_KORG_BUILT, 'samples/korg/packs.json'), opt(PCM_USER_BUILT && USER_SET, 'samples/user/packs.json')]).then(([a, b, c]) => {
+    packsReq = Promise.all([gm, opt(PCM_KORG_BUILT, 'samples/korg/packs.json'), opt(PCM_USER_BUILT && USER_SET, 'samples/user/packs.json'), opt(FLASH, 'samples/flash/packs.json')]).then(([a, b, c, d]) => {
       const ms = baseMap().ms;
       for (const n in PCM_KORG.ms) { const e = PCM_KORG.ms[n]; if (b.packs[e.p]) { ms[n] = e; korgPacks++; } }
       if (USER_SET) for (const k in USER_SET.ms) {
         if (c.packs[k]) { ms[k] = { p: k, u: 1, f: USER_SET.ms[k].name, g: -6 }; userPacks++; } // -6 dB: these recordings are hotter than Korg's (median level of the starters ~ -18 dB, as the MOSS programs)
         else ms[k] = ms[PCM_FALLBACK]; // not built here: whatever the fallback multisample plays (Korg's own recording, when this copy has it)
       }
-      if (korgPacks || userPacks) { pcmMap = { ms }; if (engineUp) { send({ t: 'pcmMap', map: pcmMap }); pcmPrepare(patch); } }
-      return { packs: Object.assign({}, a.packs, b.packs, c.packs) };
+      // a set's multisample (fl: the set it belongs to), at Korg's own level
+      if (FLASH) for (const s in FLASH) FLASH[s].forEach((e, n) => { if (e.p && d.packs[e.p]) { ms[flashKey(s, n)] = { p: e.p, fl: s, f: e.name, g: FLASH_G }; flashPacks++; } });
+      if (korgPacks || userPacks || flashPacks) { pcmMap = { ms }; if (engineUp) { send({ t: 'pcmMap', map: pcmMap }); pcmPrepare(patch); } }
+      return { packs: Object.assign({}, a.packs, b.packs, c.packs, d.packs) };
     });
   }
   return packsReq;
 }
-function pcmZones(meta, x) { // align on the sync click, heal each loop seam, list the zones
+const FLASH_G = 0; // dB: the level of a sample set's packs against PCM.GAIN (set on the plugin: research/trinity/REPORT.md)
+function pcmZones(meta, x) { // align on the sync click, heal each loop seam (not in a lossless pack: heal 0), list the zones
   let k = 0, m = 0; for (let i = 0; i < Math.min(x.length, meta.sync + meta.search); i++) { const a = Math.abs(x[i]); if (a > m) { m = a; k = i; } }
   const off = k - meta.sync, zones = [];
-  for (const [st, len, ls, le, gdb, zs] of meta.s) {
+  for (const [st, len, ls, le, gdb, zs, s2] of meta.s) { // s2: Korg's 2nd start (where an oscillator with Start Offset begins), when the pack has it
     const s0 = st + off, a = ls >= 0 ? ls + off : -1, e = le >= 0 ? le + off : -1;
-    if (a > 0 && e > a) { const n = Math.min(meta.heal || 64, a, e - a); for (let i = 0; i < n; i++) { const t = (i + 0.5) / n; x[e - n + i] = x[e - n + i] * (1 - t) + x[a - n + i] * t; } }
-    for (const [lo, hi, root, tune] of zs) zones.push({ lo, hi, root: root - tune / 100, rate: meta.rate, data: x, ls: a, le: e, end: s0 + len, start: s0, gain: Math.pow(10, gdb / 20) });
+    if (a > 0 && e > a) { const n = Math.min(meta.heal ?? 64, a, e - a); for (let i = 0; i < n; i++) { const t = (i + 0.5) / n; x[e - n + i] = x[e - n + i] * (1 - t) + x[a - n + i] * t; } }
+    for (const [lo, hi, root, tune] of zs) zones.push({ lo, hi, root: root - tune / 100, rate: meta.rate, data: x, ls: a, le: e, end: s0 + len, start: s0, s2: s2 > 0 ? s2 + off : -1, gain: Math.pow(10, gdb / 20) });
   }
   return zones;
 }

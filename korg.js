@@ -532,7 +532,7 @@ function korgDecodeFxBlocks(r, insOffs, mOff, notes) {
 // the multisample that plays for a sound the file names but this synth does not have (pcmmap.js PCM_FALLBACK)
 function korgFallback() { return typeof PCM_FALLBACK !== 'undefined' ? PCM_FALLBACK : 0; }
 function korgFallbackName() { const n = korgFallback(); return typeof PCM_MS_NAMES !== 'undefined' && PCM_MS_NAMES[n] ? PCM_MS_NAMES[n] : 'multisample ' + n; }
-function korgDecodePcm(r, userScale) {
+function korgDecodePcm(r, userScale, ramOf) {
   const notes = [], u = k => r[k], s = k => korgS8(r[k]), P = KORG_PCM;
   const lim = (v, a, b2, what) => { if (v < a || v > b2) { notes.push(what + ' had an out-of-range value (' + v + ')'); return v < a ? a : b2; } return v; };
   const ams = k => { const v = r[k]; if (v >= P.AMS.length) { notes.push('A modulation source had an invalid value (' + v + ') and was switched off'); return 'off'; } return P.AMS[v]; };
@@ -583,13 +583,14 @@ function korgDecodePcm(r, userScale) {
   };
   X.o.push(osc(31), osc(168));
   X.voice.bendUp = X.o[0].pitch.jsUp; X.voice.bendDown = X.o[0].pitch.jsDown;
-  // RAM/Flash samples (loaded into the Trinity from disk) are not in the file: they play the fallback (PCM_FALLBACK)
+  // RAM/Flash samples (loaded into the Trinity from disk) are not in the file. Multisample n plays what ramOf(n) names
+  // (the n-th multisample of the file's own sample set, where this copy has it: samples/flash/), else the fallback
   const ram = [];
   for (const O of X.o) for (const k of ['msLo', 'msHi']) if (O[k] >= 0x1000 && mode !== 'drum') ram.push(O[k] & 0xfff);
   if (ram.length) {
-    const fb = korgFallback(), ns = [...new Set(ram)];
-    X.ramMap = {}; ns.forEach(n => { X.ramMap[n] = fb; });
-    notes.push('Plays RAM/Flash sample' + (ns.length > 1 ? 's ' : ' ') + ns.join(', ') + ', loaded into the Trinity and not stored in the file; the fallback plays instead (' + korgFallbackName() + ')');
+    const fb = korgFallback(), ns = [...new Set(ram)], miss = [];
+    X.ramMap = {}; ns.forEach(n => { const k = ramOf ? ramOf(n) : undefined; if (k === undefined) { X.ramMap[n] = fb; miss.push(n); } else X.ramMap[n] = k; });
+    if (miss.length) notes.push('Plays RAM/Flash sample' + (miss.length > 1 ? 's ' : ' ') + miss.join(', ') + ', loaded into the Trinity and not stored in the file; the fallback plays instead (' + korgFallbackName() + ')');
   }
   X.fx = korgDecodeFxBlocks(r, [305, 327, 349, 371], 393, notes);
   // no insert effects: the oscillator blocks' sends feed the master effects
